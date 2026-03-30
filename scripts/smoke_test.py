@@ -1,4 +1,4 @@
-"""Smoke test: play 5 turns of Zork with the minimal turn graph."""
+"""Smoke test: play 5 turns of Zork with the full turn graph."""
 import logging
 import sys
 from zorkburr.app import build_turn_app
@@ -29,8 +29,9 @@ def main():
 
         app = build_turn_app(
             config=config, jericho=jericho, client=client,
-            episode_id="smoke-test", tracker="local",
+            episode_id="smoke-test", tracker="local", persist=True,
         )
+        print("NOTE: Burr state persisted to data/burr_state.db")
 
         turns_completed = 0
         while turns_completed < MAX_TURNS:

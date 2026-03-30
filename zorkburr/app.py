@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from burr.core import ApplicationBuilder, State, action, default, expr, when
+from burr.core.persistence import SQLitePersister
 
 from zorkburr.actions.agent import generate_action
 from zorkburr.actions.context import assemble_context
@@ -31,6 +32,7 @@ def build_turn_app(
     client: instructor.Instructor,
     episode_id: str | None = None,
     tracker: str | None = "local",
+    persist: bool = False,
 ):
     """Build the turn graph with full post-execution pipeline.
 
@@ -113,5 +115,13 @@ def build_turn_app(
 
     if tracker:
         builder = builder.with_tracker(tracker)
+
+    if persist:
+        persister = SQLitePersister.from_values(
+            db_path="data/burr_state.db",
+            table_name="zorkburr_state",
+        )
+        persister.initialize()
+        builder = builder.with_state_persister(persister)
 
     return builder.build()

@@ -6,7 +6,8 @@ from zorkburr.state import S
 @action(
     reads=[S.GAME_RESPONSE, S.LOCATION_NAME, S.LOCATION_ID, S.INVENTORY, S.SCORE,
            S.ACTION_HISTORY, S.EXITS, S.DISCOVERED_OBJECTIVES, S.KNOWLEDGE_BASE,
-           S.MEMORIES_BY_LOCATION, S.MAP_DATA, S.IN_COMBAT, S.TURN_COUNT],
+           S.MEMORIES_BY_LOCATION, S.MAP_DATA, S.IN_COMBAT, S.TURN_COUNT,
+           S.TURNS_SINCE_PROGRESS],
     writes=[S.FORMATTED_CONTEXT],
 )
 def assemble_context(state: State) -> tuple[dict, State]:
@@ -56,6 +57,20 @@ def assemble_context(state: State) -> tuple[dict, State]:
     knowledge = state[S.KNOWLEDGE_BASE]
     if knowledge:
         sections.append(f"**Strategic Knowledge:**\n{knowledge[:2000]}")
+
+    turns_stuck = state[S.TURNS_SINCE_PROGRESS]
+    if turns_stuck >= 20:
+        remaining = 40 - turns_stuck  # max_turns_stuck default
+        if remaining <= 5:
+            sections.append(
+                f"**CRITICAL: Episode ends in {remaining} turns if no progress! "
+                f"Try something completely different.**"
+            )
+        elif remaining <= 10:
+            sections.append(
+                f"**WARNING: {remaining} turns until episode ends. "
+                f"Change strategy — explore new areas or try new items.**"
+            )
 
     formatted = "\n\n".join(sections)
     return {"context_length": len(formatted)}, state.update(**{S.FORMATTED_CONTEXT: formatted})
