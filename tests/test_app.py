@@ -2,22 +2,42 @@
 from unittest.mock import MagicMock
 from zorkburr.app import build_turn_app
 from zorkburr.config import GameConfig
-from zorkburr.llm.models import AgentResponse, CriticResponse
+from zorkburr.llm.models import (
+    AgentResponse,
+    CriticResponse,
+    ExtractorResponse,
+    MemorySynthesisResponse,
+    ObjectiveCompletionResponse,
+)
 from zorkburr.state import S
+
+
+def _mock_llm_side_effect(**kwargs):
+    """Return appropriate mock response based on the requested response_model."""
+    model = kwargs.get("response_model")
+    if model == AgentResponse:
+        return AgentResponse(thinking="test", action="look", new_objective="")
+    elif model == CriticResponse:
+        return CriticResponse(score=0.8, justification="ok", confidence=0.9)
+    elif model == ExtractorResponse:
+        return ExtractorResponse(exits=["north"], in_combat=False, is_room_description=False)
+    elif model == MemorySynthesisResponse:
+        return MemorySynthesisResponse(should_remember=False, reasoning="skip")
+    elif model == ObjectiveCompletionResponse:
+        return ObjectiveCompletionResponse(completed_objectives=[])
+    return MagicMock()
+
+
+def _make_mock_client():
+    mock_client = MagicMock()
+    mock_client.create.side_effect = _mock_llm_side_effect
+    return mock_client
 
 
 def test_minimal_turn_graph(jericho):
     """Run 3 turns with a mock LLM agent and critic."""
     config = GameConfig(openrouter_api_key="test-key")
-    mock_client = MagicMock()
-    mock_client.create.side_effect = [
-        AgentResponse(thinking="explore", action="look", new_objective=""),
-        CriticResponse(score=0.7, justification="good exploration", confidence=0.8),
-        AgentResponse(thinking="check mailbox", action="open mailbox", new_objective=""),
-        CriticResponse(score=0.7, justification="good interaction", confidence=0.8),
-        AgentResponse(thinking="look again", action="read leaflet", new_objective=""),
-        CriticResponse(score=0.7, justification="good reading", confidence=0.8),
-    ]
+    mock_client = _make_mock_client()
 
     app = build_turn_app(
         config=config,
@@ -27,9 +47,9 @@ def test_minimal_turn_graph(jericho):
         tracker=None,  # No tracking for tests
     )
 
-    # Step through 3 complete turns (each turn = 4 actions: context, agent, critic, execute)
+    # Step through 3 complete turns
     turns_completed = 0
-    for i in range(30):  # Safety limit
+    for i in range(60):  # Safety limit (more steps due to larger pipeline)
         action_obj, result, state = app.step()
         if action_obj.name == "execute_action":
             turns_completed += 1
@@ -44,13 +64,31 @@ def test_minimal_turn_graph(jericho):
 def test_turn_graph_with_critic(jericho):
     """Critic rejects first action, agent retries, second accepted."""
     config = GameConfig(openrouter_api_key="test-key")
+
+    call_count = [0]
+
+    def side_effect_with_rejection(**kwargs):
+        model = kwargs.get("response_model")
+        if model == AgentResponse:
+            call_count[0] += 1
+            if call_count[0] == 1:
+                return AgentResponse(thinking="try jump", action="jump", new_objective="")
+            return AgentResponse(thinking="try mailbox", action="open mailbox", new_objective="")
+        elif model == CriticResponse:
+            if call_count[0] == 1:
+                return CriticResponse(score=-0.5, justification="jumping is pointless", confidence=0.9)
+            return CriticResponse(score=0.7, justification="good interaction", confidence=0.8)
+        elif model == ExtractorResponse:
+            return ExtractorResponse(exits=["north"], in_combat=False, is_room_description=False)
+        elif model == MemorySynthesisResponse:
+            return MemorySynthesisResponse(should_remember=False, reasoning="skip")
+        elif model == ObjectiveCompletionResponse:
+            return ObjectiveCompletionResponse(completed_objectives=[])
+        return MagicMock()
+
     mock_client = MagicMock()
-    mock_client.create.side_effect = [
-        AgentResponse(thinking="try jump", action="jump", new_objective=""),
-        CriticResponse(score=-0.5, justification="jumping is pointless", confidence=0.9),
-        AgentResponse(thinking="try mailbox", action="open mailbox", new_objective=""),
-        CriticResponse(score=0.7, justification="good interaction", confidence=0.8),
-    ]
+    mock_client.create.side_effect = side_effect_with_rejection
+
     app = build_turn_app(
         config=config,
         jericho=jericho,
@@ -60,7 +98,7 @@ def test_turn_graph_with_critic(jericho):
     )
 
     # Step until execute_action fires
-    for _ in range(20):
+    for _ in range(30):
         action_obj, result, state = app.step()
         if action_obj.name == "execute_action":
             break

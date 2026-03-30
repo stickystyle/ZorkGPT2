@@ -8,6 +8,10 @@ from zorkburr.actions.context import assemble_context
 from zorkburr.actions.critic import evaluate_action
 from zorkburr.actions.execute import execute_action
 from zorkburr.actions.extract import extract_info
+from zorkburr.actions.knowledge import update_knowledge
+from zorkburr.actions.memory import record_memory
+from zorkburr.actions.objectives import check_objective_completion, update_objectives
+from zorkburr.actions.results import record_results
 from zorkburr.config import GameConfig
 from zorkburr.game.jericho_interface import JerichoInterface
 from zorkburr.state import S, create_initial_state
@@ -28,9 +32,10 @@ def build_turn_app(
     episode_id: str | None = None,
     tracker: str | None = "local",
 ):
-    """Build the turn graph: context -> agent -> critic -> execute -> loop.
+    """Build the turn graph with full post-execution pipeline.
 
-    Critic evaluates proposed actions and can reject them back to agent.
+    Flow: context -> agent -> critic -> execute -> extract -> results ->
+          memory -> completion check -> [periodic updates] -> loop/halt
     """
     initial_state = create_initial_state(episode_id=episode_id)
 
@@ -52,9 +57,15 @@ def build_turn_app(
     bound_critic = evaluate_action.bind(llm=client, jericho=jericho, config=config)
     bound_execute = execute_action.bind(jericho=jericho)
     bound_extract = extract_info.bind(client=client, jericho=jericho, config=config)
+    bound_memory = record_memory.bind(client=client, config=config)
+    bound_completion = check_objective_completion.bind(client=client, config=config)
+    bound_objectives = update_objectives.bind(client=client, config=config)
+    bound_knowledge = update_knowledge.bind(client=client, config=config)
 
     threshold = config.critic_rejection_threshold
     max_rejections = config.max_rejections_per_turn
+    obj_interval = config.objective_update_interval
+    kb_interval = config.knowledge_update_interval
 
     builder = (
         ApplicationBuilder()
@@ -64,9 +75,15 @@ def build_turn_app(
             evaluate_action=bound_critic,
             execute_action=bound_execute,
             extract_info=bound_extract,
+            record_results=record_results,
+            record_memory=bound_memory,
+            check_objective_completion=bound_completion,
+            update_objectives=bound_objectives,
+            update_knowledge=bound_knowledge,
             turn_complete=turn_complete,
         )
         .with_transitions(
+            # Core loop
             ("assemble_context", "generate_action"),
             ("generate_action", "evaluate_action"),
             # Accepted: score >= threshold
@@ -75,11 +92,20 @@ def build_turn_app(
             ("evaluate_action", "execute_action", expr(f"rejection_count >= {max_rejections}")),
             # Rejected — retry
             ("evaluate_action", "generate_action", default),
-            # execute → extract (always)
+            # Post-execution pipeline
             ("execute_action", "extract_info"),
-            # extract → halt or loop
-            ("extract_info", "turn_complete", when(**{S.GAME_OVER: True})),
-            ("extract_info", "assemble_context", default),
+            ("extract_info", "record_results"),
+            ("record_results", "record_memory"),
+            ("record_memory", "check_objective_completion"),
+            # Periodic updates (conditional)
+            ("check_objective_completion", "update_objectives",
+             expr(f"turn_count > 0 and turn_count % {obj_interval} == 0 and game_over == False")),
+            ("check_objective_completion", "turn_complete", when(**{S.GAME_OVER: True})),
+            ("check_objective_completion", "assemble_context", default),
+            ("update_objectives", "update_knowledge",
+             expr(f"turn_count % {kb_interval} == 0")),
+            ("update_objectives", "assemble_context", default),
+            ("update_knowledge", "assemble_context", default),
         )
         .with_entrypoint("assemble_context")
         .with_state(initial_state)
