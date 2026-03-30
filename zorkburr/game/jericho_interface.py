@@ -54,11 +54,16 @@ class JerichoInterface:
         player = self.env.get_player_object()
         if not player or not player.child:
             return []
+        world_objects = self.env.get_world_objects()
+        obj_by_num = {o.num: o for o in world_objects}
         items = []
-        obj = player.child
-        while obj:
-            items.append(obj.name)
-            obj = obj.sibling
+        child_id = player.child
+        while child_id:
+            child_obj = obj_by_num.get(child_id)
+            if not child_obj:
+                break
+            items.append(child_obj.name)
+            child_id = child_obj.sibling
         return items
 
     def get_visible_objects(self) -> list[dict]:
