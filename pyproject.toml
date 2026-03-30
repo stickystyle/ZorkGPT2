@@ -1,0 +1,58 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["zorkburr*"]
+
+[project]
+name = "zorkburr"
+version = "0.1.0"
+description = "Zork I AI player built on Apache Burr"
+requires-python = ">=3.11"
+dependencies = [
+    "burr[start]>=0.39.0",
+    "jericho>=3.3.0",
+    "instructor>=1.7.0",
+    "openai>=1.79.0",
+    "pydantic>=2.11.0",
+    "pydantic-settings>=2.11.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=4.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.zorkburr]
+max_turns_per_episode = 1000
+turn_delay_seconds = 0.0
+agent_model = "anthropic/claude-sonnet-4-20250514"
+critic_model = "anthropic/claude-sonnet-4-20250514"
+extractor_model = "anthropic/claude-haiku-4-5-20251001"
+analysis_model = "anthropic/claude-sonnet-4-20250514"
+memory_model = "anthropic/claude-haiku-4-5-20251001"
+default_temperature = 1.0
+default_max_tokens = 4096
+enable_critic = true
+critic_rejection_threshold = 0.3
+max_rejections_per_turn = 3
+objective_update_interval = 10
+knowledge_update_interval = 50
+max_turns_stuck = 40
+stuck_check_interval = 10
+game_file = "roms/zork1.z5"
+memory_file = "data/memories.md"
+knowledge_file = "data/knowledge.md"
+map_file = "data/map.json"
+
+[tool.zorkburr.retry]
+max_retries = 3
+initial_delay = 1.0
+max_delay = 30.0
