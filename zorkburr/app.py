@@ -7,6 +7,7 @@ from zorkburr.actions.agent import generate_action
 from zorkburr.actions.context import assemble_context
 from zorkburr.actions.critic import evaluate_action
 from zorkburr.actions.execute import execute_action
+from zorkburr.actions.extract import extract_info
 from zorkburr.config import GameConfig
 from zorkburr.game.jericho_interface import JerichoInterface
 from zorkburr.state import S, create_initial_state
@@ -50,6 +51,7 @@ def build_turn_app(
     bound_agent = generate_action.bind(client=client, config=config)
     bound_critic = evaluate_action.bind(llm=client, jericho=jericho, config=config)
     bound_execute = execute_action.bind(jericho=jericho)
+    bound_extract = extract_info.bind(client=client, jericho=jericho, config=config)
 
     threshold = config.critic_rejection_threshold
     max_rejections = config.max_rejections_per_turn
@@ -61,6 +63,7 @@ def build_turn_app(
             generate_action=bound_agent,
             evaluate_action=bound_critic,
             execute_action=bound_execute,
+            extract_info=bound_extract,
             turn_complete=turn_complete,
         )
         .with_transitions(
@@ -72,9 +75,11 @@ def build_turn_app(
             ("evaluate_action", "execute_action", expr(f"rejection_count >= {max_rejections}")),
             # Rejected — retry
             ("evaluate_action", "generate_action", default),
-            # After execution
-            ("execute_action", "turn_complete", when(**{S.GAME_OVER: True})),
-            ("execute_action", "assemble_context", default),
+            # execute → extract (always)
+            ("execute_action", "extract_info"),
+            # extract → halt or loop
+            ("extract_info", "turn_complete", when(**{S.GAME_OVER: True})),
+            ("extract_info", "assemble_context", default),
         )
         .with_entrypoint("assemble_context")
         .with_state(initial_state)
