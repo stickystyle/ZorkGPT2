@@ -20,6 +20,13 @@ def thinking_kwargs(config: GameConfig, use_thinking: bool) -> dict:
     return {}
 
 
+def nothink_prefix(config: GameConfig, use_thinking: bool) -> str:
+    """Prepend /nothink to system prompts for local Qwen3 when thinking is disabled."""
+    if config.use_local_models and not use_thinking:
+        return "/nothink\n\n"
+    return ""
+
+
 def effective_model(config: GameConfig, role_model: str) -> str:
     """Return local_model when using local inference, otherwise the role-specific model."""
     return config.local_model if config.use_local_models else role_model
@@ -28,10 +35,10 @@ def effective_model(config: GameConfig, role_model: str) -> str:
 def create_llm_client(config: GameConfig) -> instructor.Instructor:
     if config.use_local_models:
         return instructor.from_openai(
-            OpenAI(base_url=config.local_base_url, api_key="local")
+            OpenAI(base_url=config.local_base_url, api_key="local"),
+            mode=instructor.Mode.JSON,
         )
-    return instructor.from_provider(
-        f"openrouter/{config.agent_model}",
-        base_url=config.openrouter_base_url,
-        api_key=config.openrouter_api_key,
+    return instructor.from_openai(
+        OpenAI(base_url=config.openrouter_base_url, api_key=config.openrouter_api_key),
+        mode=instructor.Mode.JSON,
     )

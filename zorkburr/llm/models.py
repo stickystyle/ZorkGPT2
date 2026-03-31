@@ -1,13 +1,18 @@
 """Pydantic response models for LLM structured output via Instructor."""
 
 from __future__ import annotations
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class AgentResponse(BaseModel):
     thinking: str = Field(description="Brief reasoning about what to do next")
     action: str = Field(description="The game command to execute")
     new_objective: str = Field(default="", description="Optional new objective")
+
+    @field_validator("new_objective", mode="before")
+    @classmethod
+    def coerce_none(cls, v: object) -> str:
+        return v if v is not None else ""
 
 class CriticResponse(BaseModel):
     score: float = Field(ge=-1.0, le=1.0, description="Action quality score")

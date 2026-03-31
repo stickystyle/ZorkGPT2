@@ -6,6 +6,7 @@ from zorkburr.actions import action
 from burr.core import State
 from zorkburr.config import GameConfig
 from zorkburr.game.jericho_interface import JerichoInterface
+from zorkburr.llm.client import effective_model, nothink_prefix, thinking_kwargs
 from zorkburr.llm.models import ExtractorResponse
 from zorkburr.llm.prompts import load_prompt
 from zorkburr.state import S
@@ -40,15 +41,16 @@ def extract_info(state: State, client: instructor.Instructor, jericho: JerichoIn
             f"Game Text:\n```\n{game_text}\n```"
         )
         response: ExtractorResponse = client.create(
-            model=config.extractor_model,
+            model=effective_model(config, config.extractor_model),
             response_model=ExtractorResponse,
             messages=[
-                {"role": "system", "content": system},
+                {"role": "system", "content": nothink_prefix(config, False) + system},
                 {"role": "user", "content": user_msg},
             ],
             temperature=0.0,
-            max_tokens=1024,
+            max_tokens=128,
             max_retries=2,
+            **thinking_kwargs(config, False),
         )
         exits = response.exits
         in_combat = response.in_combat

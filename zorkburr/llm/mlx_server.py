@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import logging
 import subprocess
+import sys
 import time
 import urllib.request
 from urllib.parse import urlparse
@@ -11,7 +12,7 @@ from zorkburr.config import GameConfig
 
 logger = logging.getLogger(__name__)
 
-_STARTUP_TIMEOUT = 120  # seconds
+_STARTUP_TIMEOUT = 300  # seconds
 _POLL_INTERVAL = 2  # seconds
 
 
@@ -23,10 +24,19 @@ class MlxServer:
         self._process: subprocess.Popen | None = None
 
     def __enter__(self) -> "MlxServer":
+        url = self._config.local_base_url.rstrip("/") + "/models"
+        try:
+            urllib.request.urlopen(url, timeout=2)
+            logger.info("mlx_lm.server already running — skipping subprocess start")
+            self._process = None
+            return self
+        except Exception:
+            pass
+
         port = urlparse(self._config.local_base_url).port or 8080
         logger.info(f"Starting mlx_lm.server: model={self._config.local_model} port={port}")
         self._process = subprocess.Popen(
-            ["mlx_lm.server", "--model", self._config.local_model, "--port", str(port)],
+            [sys.executable, "-m", "mlx_lm.server", "--model", self._config.local_model, "--port", str(port)],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
@@ -49,7 +59,7 @@ class MlxServer:
         url = self._config.local_base_url.rstrip("/") + "/models"
         deadline = time.monotonic() + _STARTUP_TIMEOUT
         while time.monotonic() < deadline:
-            if self._process.poll() is not None:
+            if self._process is not None and self._process.poll() is not None:
                 raise RuntimeError(
                     f"mlx_lm.server exited unexpectedly (returncode={self._process.returncode})"
                 )

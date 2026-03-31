@@ -12,12 +12,16 @@ description = "Zork I AI player built on Apache Burr"
 requires-python = ">=3.11"
 dependencies = [
     "burr[start]>=0.39.0",
+    "starlette>=0.37.0,<1.0.0",
+    "fastapi>=0.112.0,<0.116.0",
     "jericho>=3.3.0",
     "instructor>=1.7.0",
     "openai>=1.79.0",
     "pydantic>=2.11.0",
     "pydantic-settings>=2.11.0",
     "python-dotenv>=1.0.0",
+    "mlx-lm>=0.31.1",
+    "huggingface-hub[cli]>=1.8.0",
 ]
 
 [project.optional-dependencies]
@@ -34,16 +38,16 @@ pythonpath = ["."]
 [tool.zorkburr]
 max_turns_per_episode = 1000
 turn_delay_seconds = 0.0
-use_local_models = false
-local_model = "mlx-community/Qwen3-14B-MLX-8bit"
-local_base_url = "http://localhost:8080/v1"
-agent_model = "anthropic/claude-sonnet-4.6"
-critic_model = "anthropic/claude-sonnet-4.6"
-extractor_model = "anthropic/claude-haiku-4.5"
-analysis_model = "anthropic/claude-sonnet-4.6"
-memory_model = "anthropic/claude-haiku-4.5"
+use_local_models = true
+local_model = "mlx-community/Qwen3-14B-8bit"
+local_base_url = "http://localhost:8887/v1"
+agent_model = "qwen/qwen3-14b"
+critic_model = "qwen/qwen3-14b"
+extractor_model = "meta-llama/llama-3.1-8b-instruct"
+analysis_model = "qwen/qwen3-14b"
+memory_model = "qwen/qwen3-14b"
 default_temperature = 1.0
-default_max_tokens = 4096
+default_max_tokens = 2048
 enable_critic = true
 critic_rejection_threshold = 0.3
 max_rejections_per_turn = 3
@@ -52,7 +56,7 @@ knowledge_update_interval = 50
 max_turns_stuck = 40
 stuck_check_interval = 10
 game_file = "roms/zork1.z5"
-memory_file = "data/memories.md"
+memory_file = "data/memories.json"
 knowledge_file = "data/knowledge.md"
 map_file = "data/map.json"
 

@@ -8,6 +8,7 @@ from burr.core import State
 from zorkburr.actions import action
 from zorkburr.config import GameConfig
 from zorkburr.game.jericho_interface import JerichoInterface
+from zorkburr.llm.client import effective_model, nothink_prefix, thinking_kwargs
 from zorkburr.llm.models import CriticResponse
 from zorkburr.llm.prompts import load_prompt
 from zorkburr.state import S
@@ -137,16 +138,18 @@ def evaluate_action(
     user_content = "\n".join(context_parts)
 
     messages = [
-        {"role": "system", "content": system_prompt},
+        {"role": "system", "content": nothink_prefix(config, False) + system_prompt},
         {"role": "user", "content": user_content},
     ]
 
     try:
         response: CriticResponse = llm.create(
-            model=config.critic_model,
+            model=effective_model(config, config.critic_model),
             response_model=CriticResponse,
             messages=messages,
             max_retries=2,
+            max_tokens=256,
+            **thinking_kwargs(config, False),
         )
         score = response.score
         justification = response.justification
