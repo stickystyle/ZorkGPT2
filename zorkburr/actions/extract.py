@@ -1,4 +1,4 @@
-"""Hybrid information extraction: Jericho for objects, LLM for exits/combat."""
+"""Hybrid information extraction: Jericho for objects/exits, LLM for combat detection."""
 from __future__ import annotations
 import logging
 import instructor
@@ -25,11 +25,15 @@ def _get_extractor_prompt() -> str:
     writes=[S.EXITS, S.IN_COMBAT, S.IS_ROOM_DESCRIPTION, S.VISIBLE_OBJECTS],
 )
 def extract_info(state: State, client: instructor.Instructor, jericho: JerichoInterface, config: GameConfig) -> tuple[dict, State]:
-    """Extract structured game state using hybrid approach."""
+    """Extract structured game state using hybrid approach.
+
+    Exits come from the Z-machine (ground truth via state save/restore testing).
+    Combat and room-description flags come from the LLM extractor.
+    """
     game_text = state[S.GAME_RESPONSE]
     visible_objects = jericho.get_visible_objects()
+    exits = jericho.get_valid_exits()
 
-    exits = []
     in_combat = state[S.IN_COMBAT]
     is_room_description = False
 
@@ -52,7 +56,6 @@ def extract_info(state: State, client: instructor.Instructor, jericho: JerichoIn
             max_retries=2,
             **thinking_kwargs(config, False),
         )
-        exits = response.exits
         in_combat = response.in_combat
         is_room_description = response.is_room_description
     except Exception as e:

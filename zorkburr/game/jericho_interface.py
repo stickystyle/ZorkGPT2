@@ -84,6 +84,39 @@ class JerichoInterface:
                     child_id = child_obj.sibling
         return result
 
+    def get_valid_exits(self) -> list[str]:
+        """Get valid movement directions by testing each against the Z-machine.
+
+        Saves state, tries every direction word from the dictionary, checks if
+        the player location changed, then restores original state. Returns a
+        sorted list of directions that actually move the player.
+        """
+        assert self.env is not None, "Call start() first"
+        try:
+            state = self.env.get_state()
+            current_loc = self.env.get_player_location()
+
+            vocab = self.env.get_dictionary()
+            directions = [w.word for w in vocab if w.is_dir]
+
+            working_exits = []
+            for direction in directions:
+                try:
+                    self.env.set_state(state)
+                    self.env.step(direction)
+                    new_loc = self.env.get_player_location()
+                    if new_loc and new_loc.num != current_loc.num:
+                        working_exits.append(direction)
+                except Exception as dir_error:
+                    logger.debug(f"Failed to test direction '{direction}': {dir_error}")
+                    continue
+
+            self.env.set_state(state)
+            return sorted(working_exits)
+        except Exception as e:
+            logger.warning(f"Failed to get valid exits from Jericho: {e}")
+            return []
+
     def save_state(self) -> tuple:
         assert self.env is not None
         return self.env.get_state()
