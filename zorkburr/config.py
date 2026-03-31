@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import os
 import tomllib
 from pathlib import Path
+from typing import Any
 
 from pydantic import Field
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 def _load_tool_config() -> dict:
@@ -22,11 +24,22 @@ def _load_tool_config() -> dict:
 class GameConfig(BaseSettings):
     """All game configuration. Loaded from pyproject.toml + env vars."""
 
-    model_config = {"env_prefix": "", "extra": "ignore", "populate_by_name": True}
+    model_config = {
+        "env_prefix": "",
+        "env_file": ".env",
+        "extra": "ignore",
+        "populate_by_name": True,
+        "case_sensitive": False,
+    }
 
     # API
     openrouter_api_key: str = Field(default="", alias="OPENROUTER_API_KEY")
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
+
+    # Local models
+    use_local_models: bool = Field(default=False, alias="USE_LOCAL_MODELS")
+    local_model: str = "mlx-community/Qwen3-14B-MLX-8bit"
+    local_base_url: str = "http://localhost:8080/v1"
 
     # Game
     max_turns_per_episode: int = 1000
@@ -34,11 +47,11 @@ class GameConfig(BaseSettings):
     game_file: str = "roms/zork1.z5"
 
     # LLM models
-    agent_model: str = "anthropic/claude-sonnet-4-20250514"
-    critic_model: str = "anthropic/claude-sonnet-4-20250514"
-    extractor_model: str = "anthropic/claude-haiku-4-5-20251001"
-    analysis_model: str = "anthropic/claude-sonnet-4-20250514"
-    memory_model: str = "anthropic/claude-haiku-4-5-20251001"
+    agent_model: str = "anthropic/claude-sonnet-4.6"
+    critic_model: str = "anthropic/claude-sonnet-4.6"
+    extractor_model: str = "anthropic/claude-haiku-4.5"
+    analysis_model: str = "anthropic/claude-sonnet-4.6"
+    memory_model: str = "anthropic/claude-haiku-4.5"
 
     # LLM sampling
     default_temperature: float = 1.0
@@ -62,15 +75,28 @@ class GameConfig(BaseSettings):
     knowledge_file: str = "data/knowledge.md"
     map_file: str = "data/map.json"
 
+    # Viewer / S3
+    s3_bucket: str = ""
+    s3_key_prefix: str = ""
+
     # Retry (flattened from [tool.zorkburr.retry])
     retry_max_retries: int = 3
     retry_initial_delay: float = 1.0
     retry_max_delay: float = 30.0
 
     def __init__(self, **kwargs):
+        # Load toml data first, but let env vars override (they're handled by pydantic-settings)
         toml_data = _load_tool_config()
         retry = toml_data.pop("retry", {})
         for k, v in retry.items():
             toml_data[f"retry_{k}"] = v
-        merged = {**toml_data, **kwargs}
+
+        # Check env vars and override toml data if present
+        # This mirrors pydantic-settings behavior with aliases
+        env_overrides = {}
+        if os.getenv("USE_LOCAL_MODELS"):
+            env_overrides["use_local_models"] = os.getenv("USE_LOCAL_MODELS").lower() == "true"
+
+        # Merge: kwargs take precedence over env, which takes precedence over toml
+        merged = {**toml_data, **env_overrides, **kwargs}
         super().__init__(**merged)

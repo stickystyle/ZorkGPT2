@@ -20,3 +20,16 @@ def test_config_api_key_from_env(monkeypatch):
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key-123")
     config = GameConfig()
     assert config.openrouter_api_key == "test-key-123"
+
+
+def test_local_model_defaults():
+    config = GameConfig()
+    assert config.use_local_models is False
+    assert config.local_model == "mlx-community/Qwen3-14B-MLX-8bit"
+    assert config.local_base_url == "http://localhost:8080/v1"
+
+
+def test_use_local_models_from_env(monkeypatch):
+    monkeypatch.setenv("USE_LOCAL_MODELS", "true")
+    config = GameConfig()
+    assert config.use_local_models is True

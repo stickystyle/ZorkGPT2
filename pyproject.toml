@@ -25,6 +25,7 @@ dev = [
     "pytest>=8.0",
     "pytest-cov>=4.0",
 ]
+s3 = ["boto3>=1.34.0"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -33,11 +34,14 @@ pythonpath = ["."]
 [tool.zorkburr]
 max_turns_per_episode = 1000
 turn_delay_seconds = 0.0
-agent_model = "anthropic/claude-sonnet-4-20250514"
-critic_model = "anthropic/claude-sonnet-4-20250514"
-extractor_model = "anthropic/claude-haiku-4-5-20251001"
-analysis_model = "anthropic/claude-sonnet-4-20250514"
-memory_model = "anthropic/claude-haiku-4-5-20251001"
+use_local_models = false
+local_model = "mlx-community/Qwen3-14B-MLX-8bit"
+local_base_url = "http://localhost:8080/v1"
+agent_model = "anthropic/claude-sonnet-4.6"
+critic_model = "anthropic/claude-sonnet-4.6"
+extractor_model = "anthropic/claude-haiku-4.5"
+analysis_model = "anthropic/claude-sonnet-4.6"
+memory_model = "anthropic/claude-haiku-4.5"
 default_temperature = 1.0
 default_max_tokens = 4096
 enable_critic = true
