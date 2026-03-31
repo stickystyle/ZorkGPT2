@@ -55,19 +55,24 @@ def build_turn_app(
     })
 
     # Bind dependencies to actions
-    bound_agent = generate_action.bind(client=client, config=config)
+    bound_agent = generate_action.bind(client=client, config=config, use_thinking=True)
     bound_critic = evaluate_action.bind(llm=client, jericho=jericho, config=config)
     bound_execute = execute_action.bind(jericho=jericho)
     bound_extract = extract_info.bind(client=client, jericho=jericho, config=config)
     bound_memory = record_memory.bind(client=client, config=config)
     bound_completion = check_objective_completion.bind(client=client, config=config)
-    bound_objectives = update_objectives.bind(client=client, config=config)
-    bound_knowledge = update_knowledge.bind(client=client, config=config)
+    bound_objectives = update_objectives.bind(client=client, config=config, use_thinking=True)
+    bound_knowledge = update_knowledge.bind(client=client, config=config, use_thinking=True)
 
     threshold = config.critic_rejection_threshold
     max_rejections = config.max_rejections_per_turn
     obj_interval = config.objective_update_interval
     kb_interval = config.knowledge_update_interval
+
+    hooks = []
+    if config.s3_bucket:
+        from zorkburr.viewer.s3_hook import S3ViewerHook
+        hooks.append(S3ViewerHook(bucket=config.s3_bucket, prefix=config.s3_key_prefix))
 
     builder = (
         ApplicationBuilder()
@@ -112,6 +117,9 @@ def build_turn_app(
         .with_entrypoint("assemble_context")
         .with_state(initial_state)
     )
+
+    if hooks:
+        builder = builder.with_hooks(*hooks)
 
     if tracker:
         builder = builder.with_tracker(tracker)
