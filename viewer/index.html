@@ -154,51 +154,87 @@ body {
 }
 .turn-entry {
   margin-bottom: 1.25rem;
-  border-left: 2px solid var(--border);
-  padding-left: 0.75rem;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 1rem;
 }
 .turn-entry .turn-header {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 0.3rem;
-  font-size: 0.75rem;
-  color: var(--text-dim);
-}
-.turn-entry .action-line {
   color: var(--blue);
   font-weight: bold;
-  margin-bottom: 0.2rem;
+  margin-bottom: 0.5rem;
+  font-size: 1rem;
 }
-.turn-entry .response-line {
-  color: var(--green);
-  white-space: pre-wrap;
-  margin-bottom: 0.3rem;
-}
-.turn-entry .reasoning {
+.turn-entry .log-thinking {
   color: var(--yellow);
+  font-style: italic;
+  margin: 0.4rem 0;
+  padding: 0.4rem 0.75rem;
+  background: rgba(255, 213, 79, 0.1);
+  border-left: 3px solid var(--yellow);
+  border-radius: 4px;
   font-size: 0.8rem;
-  opacity: 0.85;
+  line-height: 1.4;
   cursor: pointer;
   overflow: hidden;
 }
-.turn-entry .reasoning.collapsed {
+.turn-entry .log-thinking.collapsed {
   max-height: 1.6em;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.critic-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  padding: 0.15rem 0.5rem;
-  border-radius: 3px;
-  font-size: 0.75rem;
-  font-family: var(--font-mono);
+.turn-entry .log-proposed-action {
+  color: #87ceeb;
+  margin: 0.4rem 0;
+  padding: 0.35rem 0.75rem;
+  background: rgba(135, 206, 235, 0.1);
+  border-left: 3px solid #87ceeb;
+  border-radius: 4px;
 }
-.critic-badge.good { background: rgba(0,255,65,0.15); color: var(--green); }
-.critic-badge.ok { background: rgba(255,213,79,0.15); color: var(--yellow); }
-.critic-badge.bad { background: rgba(239,83,80,0.15); color: var(--red); }
+.turn-entry .log-critic {
+  color: var(--orange);
+  margin: 0.4rem 0;
+  padding: 0.35rem 0.75rem;
+  background: rgba(255, 152, 0, 0.1);
+  border-left: 3px solid var(--orange);
+  border-radius: 4px;
+  font-size: 0.8rem;
+}
+.turn-entry .log-action-taken {
+  color: #98fb98;
+  font-weight: bold;
+  margin: 0.4rem 0;
+  padding: 0.35rem 0.75rem;
+  background: rgba(152, 251, 152, 0.1);
+  border-left: 3px solid #98fb98;
+  border-radius: 4px;
+}
+.turn-entry .log-response {
+  color: var(--green);
+  line-height: 1.4;
+  margin: 0.4rem 0;
+  padding: 0.5rem 0.75rem;
+  background: rgba(144, 238, 144, 0.05);
+  border-radius: 4px;
+  white-space: pre-wrap;
+}
+.new-messages-indicator {
+  display: none;
+  position: sticky;
+  bottom: 0.5rem;
+  text-align: center;
+  z-index: 10;
+}
+.new-messages-indicator button {
+  background: var(--blue);
+  color: #000;
+  border: none;
+  padding: 0.4rem 1rem;
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: bold;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+.new-messages-indicator button:hover { opacity: 0.9; }
 
 /* === Turn Slider (historical mode) === */
 .turn-slider-container {
@@ -239,8 +275,67 @@ body {
   margin-bottom: 1rem;
   min-height: 200px;
   overflow: auto;
+  cursor: pointer;
+  position: relative;
+}
+.map-container:hover::after {
+  content: 'Click to expand';
+  position: absolute;
+  top: 0.4rem;
+  right: 0.4rem;
+  background: rgba(0,0,0,0.7);
+  color: var(--text-dim);
+  font-size: 0.7rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 3px;
+  pointer-events: none;
 }
 .map-container svg { max-width: 100%; height: auto; }
+
+/* === Map Overlay === */
+.map-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0,0,0,0.85);
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+.map-overlay.visible { display: flex; }
+.map-overlay-inner {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.5rem;
+  width: 90vw;
+  height: 85vh;
+  overflow: auto;
+  position: relative;
+}
+.map-overlay-inner svg { max-width: 100%; height: auto; }
+.map-overlay-close {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  background: var(--bg-card);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 0.3rem 0.75rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  z-index: 1;
+}
+.map-overlay-close:hover { border-color: var(--blue); }
+.map-overlay-stats {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.9rem;
+  color: var(--text-dim);
+}
 .score-chart {
   padding: 0.5rem;
   background: var(--bg-card);
@@ -333,6 +428,9 @@ body {
     <div class="game-log" id="game-log">
       <div class="empty-state loading">Waiting for game data...</div>
     </div>
+    <div class="new-messages-indicator" id="new-messages-indicator">
+      <button onclick="scrollToBottom()">New turns below</button>
+    </div>
   </div>
 
   <!-- Right Panel -->
@@ -342,7 +440,7 @@ body {
       <span>Rooms: <strong id="room-count">0</strong></span>
       <span>Visited: <strong id="visited-count">0</strong></span>
     </div>
-    <div class="map-container" id="map-container">
+    <div class="map-container" id="map-container" onclick="openMapOverlay()">
       <div class="empty-state">No map data yet</div>
     </div>
 
@@ -350,6 +448,15 @@ body {
     <div class="score-chart">
       <canvas id="score-canvas" height="80"></canvas>
     </div>
+  </div>
+</div>
+
+<!-- Map Overlay -->
+<div class="map-overlay" id="map-overlay" onclick="if(event.target===this)closeMapOverlay()">
+  <div class="map-overlay-inner">
+    <button class="map-overlay-close" onclick="closeMapOverlay()">Close</button>
+    <div class="map-overlay-stats" id="map-overlay-stats"></div>
+    <div id="map-overlay-content"></div>
   </div>
 </div>
 
@@ -366,7 +473,11 @@ let maxTurn = 0;
 let lastTimestamp = null;
 let turnCache = {};
 let scoreHistory = [];
-let logEntries = [];
+
+// === Accumulated log state ===
+let accumulatedTurns = [];  // Array of {turn, action, response, reasoning, critic_score, critic_justification, was_overridden, rejection_count}
+let lastSeenTurn = 0;
+let userScrolledUp = false;
 
 // === DOM References ===
 const episodeSelect = document.getElementById('episode-select');
@@ -387,6 +498,25 @@ const turnSlider = document.getElementById('turn-slider');
 const turnSliderLabel = document.getElementById('turn-slider-label');
 const prevTurnBtn = document.getElementById('prev-turn-btn');
 const nextTurnBtn = document.getElementById('next-turn-btn');
+const newMessagesIndicator = document.getElementById('new-messages-indicator');
+
+// === Scroll detection ===
+const centerPanel = document.getElementById('center-panel');
+centerPanel.addEventListener('scroll', () => {
+  const isAtBottom = centerPanel.scrollHeight - centerPanel.clientHeight <= centerPanel.scrollTop + 20;
+  if (!isAtBottom) {
+    userScrolledUp = true;
+  } else {
+    userScrolledUp = false;
+    newMessagesIndicator.style.display = 'none';
+  }
+});
+
+function scrollToBottom() {
+  centerPanel.scrollTo({ top: centerPanel.scrollHeight, behavior: 'smooth' });
+  userScrolledUp = false;
+  newMessagesIndicator.style.display = 'none';
+}
 
 // === Mermaid Init ===
 mermaid.initialize({
@@ -488,9 +618,10 @@ function renderState(data) {
   renderMemories(strategic.memories_at_location);
 
   // Game log
-  if (isLive && recent_history && recent_history.length > 0) {
-    renderLiveLog(recent_history, turn_data, metadata.turn);
-  } else if (!isLive) {
+  if (isLive) {
+    accumulateLiveTurns(recent_history, turn_data, metadata.turn);
+    renderAccumulatedLog();
+  } else {
     renderSingleTurn(turn_data, metadata.turn);
   }
 
@@ -537,21 +668,82 @@ function renderMemories(memories) {
   `).join('');
 }
 
-function renderLiveLog(history, currentTurn, turnNum) {
+function accumulateLiveTurns(history, currentTurnData, turnNum) {
+  // On first load or episode switch, seed from recent_history
+  if (accumulatedTurns.length === 0 && history && history.length > 0) {
+    for (const entry of history) {
+      // Don't add if it matches the current turn (we'll add that with full detail)
+      if (entry.turn !== turnNum) {
+        accumulatedTurns.push({
+          turn: entry.turn,
+          action: entry.action,
+          response: entry.response,
+          reasoning: entry.reasoning || null,
+          critic_score: entry.critic_score !== undefined ? entry.critic_score : null,
+          critic_justification: entry.critic_justification || null,
+          was_overridden: entry.was_overridden || false,
+          rejection_count: entry.rejection_count || 0,
+          minimal: !entry.reasoning,
+        });
+      }
+    }
+    // Sort by turn number
+    accumulatedTurns.sort((a, b) => a.turn - b.turn);
+    lastSeenTurn = accumulatedTurns.length > 0 ? accumulatedTurns[accumulatedTurns.length - 1].turn : 0;
+  }
+
+  // Add or update the current turn with full detail
+  if (currentTurnData && currentTurnData.action && turnNum > 0) {
+    const existing = accumulatedTurns.find(t => t.turn === turnNum);
+    if (existing) {
+      // Update with full detail
+      existing.action = currentTurnData.action;
+      existing.response = currentTurnData.game_response || existing.response;
+      existing.reasoning = currentTurnData.agent_reasoning;
+      existing.critic_score = currentTurnData.critic_score;
+      existing.critic_justification = currentTurnData.critic_justification;
+      existing.was_overridden = currentTurnData.was_overridden;
+      existing.rejection_count = currentTurnData.rejection_count;
+      existing.minimal = false;
+    } else if (turnNum > lastSeenTurn) {
+      accumulatedTurns.push({
+        turn: turnNum,
+        action: currentTurnData.action,
+        response: currentTurnData.game_response,
+        reasoning: currentTurnData.agent_reasoning,
+        critic_score: currentTurnData.critic_score,
+        critic_justification: currentTurnData.critic_justification,
+        was_overridden: currentTurnData.was_overridden,
+        rejection_count: currentTurnData.rejection_count,
+        minimal: false,
+      });
+      lastSeenTurn = turnNum;
+    }
+  }
+}
+
+function renderAccumulatedLog() {
+  if (accumulatedTurns.length === 0) {
+    gameLog.innerHTML = '<div class="empty-state">No game data yet</div>';
+    return;
+  }
+
+  const hadNewTurns = gameLog.children.length < accumulatedTurns.length;
+
   let html = '';
-
-  // Render recent history entries
-  for (const entry of history) {
-    html += buildTurnEntry(entry.turn, entry.action, entry.response, null, null);
+  for (const entry of accumulatedTurns) {
+    html += buildTurnEntryFromAccumulated(entry);
   }
+  gameLog.innerHTML = html;
 
-  // Render current turn with full detail
-  if (currentTurn && currentTurn.action) {
-    html += buildTurnEntryFull(turnNum, currentTurn);
+  // Auto-scroll or show indicator
+  if (hadNewTurns) {
+    if (!userScrolledUp) {
+      setTimeout(() => scrollToBottom(), 50);
+    } else {
+      newMessagesIndicator.style.display = 'block';
+    }
   }
-
-  gameLog.innerHTML = html || '<div class="empty-state">No game data yet</div>';
-  gameLog.scrollTop = gameLog.scrollHeight;
 }
 
 function renderSingleTurn(turnData, turnNum) {
@@ -559,42 +751,68 @@ function renderSingleTurn(turnData, turnNum) {
     gameLog.innerHTML = '<div class="empty-state">No data for this turn</div>';
     return;
   }
-  gameLog.innerHTML = buildTurnEntryFull(turnNum, turnData);
+  gameLog.innerHTML = buildTurnEntryFromAccumulated({
+    turn: turnNum,
+    action: turnData.action,
+    response: turnData.game_response,
+    reasoning: turnData.agent_reasoning,
+    critic_score: turnData.critic_score,
+    critic_justification: turnData.critic_justification,
+    was_overridden: turnData.was_overridden,
+    rejection_count: turnData.rejection_count,
+    minimal: false,
+  });
 }
 
-function buildTurnEntry(turn, action, response) {
-  return `
-    <div class="turn-entry">
-      <div class="turn-header">Turn ${turn}</div>
-      <div class="action-line">> ${escapeHtml(action || '')}</div>
-      <div class="response-line">${escapeHtml(response || '')}</div>
-    </div>
-  `;
-}
+function buildTurnEntryFromAccumulated(entry) {
+  let html = `<div class="turn-entry">`;
+  html += `<div class="turn-header">Turn ${entry.turn}</div>`;
 
-function buildTurnEntryFull(turn, td) {
-  const criticClass = td.critic_score >= 0.6 ? 'good' : td.critic_score >= 0.3 ? 'ok' : 'bad';
-  const criticText = td.critic_score !== undefined ? td.critic_score.toFixed(2) : '?';
-  const overrideTag = td.was_overridden ? ' (overridden)' : '';
+  // Thinking/reasoning
+  if (entry.reasoning) {
+    html += `<div class="log-thinking collapsed" onclick="this.classList.toggle('collapsed')" title="Click to expand">Thinking: ${escapeHtml(entry.reasoning)}</div>`;
+  }
 
-  return `
-    <div class="turn-entry">
-      <div class="turn-header">
-        Turn ${turn}
-        <span class="critic-badge ${criticClass}">${criticText}${overrideTag}</span>
-      </div>
-      ${td.agent_reasoning ? `
-        <div class="reasoning collapsed" onclick="this.classList.toggle('collapsed')"
-             title="Click to expand reasoning">${escapeHtml(td.agent_reasoning)}</div>
-      ` : ''}
-      <div class="action-line">> ${escapeHtml(td.action || '')}</div>
-      <div class="response-line">${escapeHtml(td.game_response || '')}</div>
-    </div>
-  `;
+  // Proposed action
+  if (entry.action) {
+    html += `<div class="log-proposed-action">Proposed Action: ${escapeHtml(entry.action)}</div>`;
+  }
+
+  // Critic evaluation
+  if (entry.critic_score !== null && entry.critic_score !== undefined) {
+    const score = entry.critic_score.toFixed(2);
+    let status;
+    if (entry.was_overridden) {
+      status = `<span style="color: var(--orange);">Action approved (Score: ${score}, overridden after ${entry.rejection_count} rejections)</span>`;
+    } else if (entry.critic_score >= 0.6) {
+      status = `Action approved (Score: ${score})`;
+    } else {
+      status = `Action approved (Score: ${score})`;
+    }
+    let criticText = `Final Critic Evaluation: ${status}`;
+    if (entry.critic_justification) {
+      criticText += `<br>"${escapeHtml(entry.critic_justification)}"`;
+    }
+    html += `<div class="log-critic">${criticText}</div>`;
+  }
+
+  // Action taken
+  if (entry.action) {
+    html += `<div class="log-action-taken">Action Taken: ${escapeHtml(entry.action)}</div>`;
+  }
+
+  // Game response
+  if (entry.response) {
+    html += `<div class="log-response">Game Response:\n${escapeHtml(entry.response)}</div>`;
+  }
+
+  html += `</div>`;
+  return html;
 }
 
 // === Map Rendering ===
 async function renderMap(mapData) {
+  lastMapData = mapData;
   if (!mapData || !mapData.rooms || Object.keys(mapData.rooms).length === 0) {
     mapContainer.innerHTML = '<div class="empty-state">No map data yet</div>';
     roomCount.textContent = '0';
@@ -643,6 +861,43 @@ function buildMermaid(mapData) {
   return lines.join('\n');
 }
 
+// === Map Overlay ===
+let lastMapData = null;
+
+function openMapOverlay() {
+  if (!lastMapData || !lastMapData.rooms || Object.keys(lastMapData.rooms).length === 0) return;
+
+  const overlay = document.getElementById('map-overlay');
+  const content = document.getElementById('map-overlay-content');
+  const stats = document.getElementById('map-overlay-stats');
+
+  stats.innerHTML = `
+    <span>Rooms: <strong>${lastMapData.total_rooms || Object.keys(lastMapData.rooms).length}</strong></span>
+    <span>Visited: <strong>${lastMapData.visited_count || 0}</strong></span>
+  `;
+
+  // Use LR layout for wider overlay
+  const mermaidDef = buildMermaid(lastMapData).replace('graph TD', 'graph LR');
+  // Mermaid needs a unique id each render
+  const renderId = 'map-overlay-' + Date.now();
+  mermaid.render(renderId, mermaidDef).then(({ svg }) => {
+    content.innerHTML = svg;
+    overlay.classList.add('visible');
+  }).catch(() => {
+    content.innerHTML = '<div class="empty-state">Map render error</div>';
+    overlay.classList.add('visible');
+  });
+}
+
+function closeMapOverlay() {
+  document.getElementById('map-overlay').classList.remove('visible');
+}
+
+// Close overlay on Escape
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeMapOverlay();
+});
+
 // === Score Chart ===
 function renderScoreChart(scores) {
   const ctx = scoreCanvas.getContext('2d');
@@ -686,6 +941,7 @@ function renderScoreChart(scores) {
 // === Episode Selector ===
 async function loadEpisodeIndex() {
   const index = await fetchEpisodeIndex();
+  const previousSelection = currentEpisodeId;
   episodeSelect.innerHTML = '';
 
   if (!index.episodes || index.episodes.length === 0) {
@@ -694,14 +950,19 @@ async function loadEpisodeIndex() {
   }
 
   for (const ep of index.episodes) {
-    const status = ep.status === 'running' ? ' (live)' : ` (${ep.turn_count} turns, score ${ep.score})`;
+    const status = ep.status === 'running' ? ' (live)'
+      : ` (${ep.turn_count} turns, score ${ep.score}, ${ep.status})`;
     const opt = document.createElement('option');
     opt.value = ep.episode_id;
     opt.textContent = `${ep.episode_id}${status}`;
     episodeSelect.appendChild(opt);
   }
 
-  if (index.current_episode) {
+  // Preserve user's selection; only default to current_episode on first load
+  if (previousSelection && index.episodes.some(e => e.episode_id === previousSelection)) {
+    episodeSelect.value = previousSelection;
+    currentEpisodeId = previousSelection;
+  } else if (index.current_episode) {
     episodeSelect.value = index.current_episode;
     currentEpisodeId = index.current_episode;
   }
@@ -716,6 +977,10 @@ episodeSelect.addEventListener('change', async () => {
   liveBtn.classList.remove('active');
   turnSliderContainer.classList.add('visible');
   currentEpisodeId = episodeId;
+  accumulatedTurns = [];
+  lastSeenTurn = 0;
+  userScrolledUp = false;
+  newMessagesIndicator.style.display = 'none';
 
   const meta = await fetchEpisodeMeta(episodeId);
   if (meta) {
@@ -733,7 +998,10 @@ liveBtn.addEventListener('click', () => {
   isLive = true;
   liveBtn.classList.add('active');
   turnSliderContainer.classList.remove('visible');
-  logEntries = [];
+  accumulatedTurns = [];
+  lastSeenTurn = 0;
+  userScrolledUp = false;
+  newMessagesIndicator.style.display = 'none';
   gameLog.innerHTML = '<div class="empty-state loading">Reconnecting...</div>';
 });
 
