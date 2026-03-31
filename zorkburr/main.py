@@ -10,6 +10,7 @@ from zorkburr.app import build_turn_app
 from zorkburr.config import GameConfig
 from zorkburr.game.jericho_interface import JerichoInterface
 from zorkburr.llm.client import create_llm_client
+from zorkburr.llm.mlx_server import MlxServer
 from zorkburr.state import S
 
 logging.basicConfig(
@@ -29,7 +30,6 @@ def run_episode(
     jericho.start()
     logger.info(f"=== Episode {episode_number} starting ===")
 
-    # Load cross-episode data
     overrides = initialize_episode(jericho, config, episode_number)
 
     app = build_turn_app(
@@ -40,7 +40,6 @@ def run_episode(
         tracker="local",
     )
 
-    # Apply overrides from previous episodes
     if overrides:
         app._state = app.state.update(**overrides)
 
@@ -70,8 +69,16 @@ def run_episode(
     except KeyboardInterrupt:
         logger.info("Interrupted")
 
-    summary = finalize_episode(state, config)
-    return summary
+    return finalize_episode(state, config)
+
+
+def _run_episodes(config: GameConfig, args: argparse.Namespace) -> None:
+    client = create_llm_client(config)
+    for ep in range(1, args.episodes + 1):
+        with JerichoInterface(config.game_file) as jericho:
+            summary = run_episode(config, jericho, client, ep)
+            print(f"\nEpisode {ep}: {summary}")
+    print("\nBurr tracking: run 'burr' to view at http://localhost:7241")
 
 
 def main():
@@ -84,18 +91,17 @@ def main():
     if args.max_turns:
         config.max_turns_per_episode = args.max_turns
 
-    if not config.openrouter_api_key or config.openrouter_api_key == "your-key-here":
-        print("Set OPENROUTER_API_KEY in .env")
+    if not config.use_local_models and (
+        not config.openrouter_api_key or config.openrouter_api_key == "your-key-here"
+    ):
+        print("Set OPENROUTER_API_KEY in .env (or set use_local_models = true)")
         sys.exit(1)
 
-    client = create_llm_client(config)
-
-    for ep in range(1, args.episodes + 1):
-        with JerichoInterface(config.game_file) as jericho:
-            summary = run_episode(config, jericho, client, ep)
-            print(f"\nEpisode {ep}: {summary}")
-
-    print("\nBurr tracking: run 'burr' to view at http://localhost:7241")
+    if config.use_local_models:
+        with MlxServer(config):
+            _run_episodes(config, args)
+    else:
+        _run_episodes(config, args)
 
 
 if __name__ == "__main__":
