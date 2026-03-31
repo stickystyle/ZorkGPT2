@@ -87,7 +87,7 @@ class GameConfig(BaseSettings):
     stuck_check_interval: int = 10
 
     # File paths
-    memory_file: str = "data/memories.md"
+    memory_file: str = "data/memories.json"
     knowledge_file: str = "data/knowledge.md"
     map_file: str = "data/map.json"
 

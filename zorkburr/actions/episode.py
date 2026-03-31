@@ -43,6 +43,16 @@ def initialize_episode(
         except Exception as e:
             logger.warning(f"Failed to load knowledge base: {e}")
 
+    # Room memories are stored as JSON (dict keyed by location_id)
+    mem_path = Path(config.memory_file)
+    if mem_path.exists():
+        try:
+            overrides["memories_by_location"] = json.loads(mem_path.read_text())
+            total = sum(len(v) for v in overrides["memories_by_location"].values())
+            logger.info(f"Loaded {total} memories across {len(overrides['memories_by_location'])} locations")
+        except Exception as e:
+            logger.warning(f"Failed to load memories: {e}")
+
     return overrides
 
 
@@ -62,6 +72,13 @@ def finalize_episode(state: State, config: GameConfig) -> dict:
         kb_path.parent.mkdir(parents=True, exist_ok=True)
         kb_path.write_text(state[S.KNOWLEDGE_BASE])
         logger.info(f"Saved knowledge to {kb_path}")
+
+    if state[S.MEMORIES_BY_LOCATION]:
+        mem_path = Path(config.memory_file)
+        mem_path.parent.mkdir(parents=True, exist_ok=True)
+        mem_path.write_text(json.dumps(state[S.MEMORIES_BY_LOCATION], indent=2))
+        total = sum(len(v) for v in state[S.MEMORIES_BY_LOCATION].values())
+        logger.info(f"Saved {total} memories to {mem_path}")
 
     return {
         "episode_id": state[S.EPISODE_ID],

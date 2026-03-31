@@ -9,10 +9,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 
+from zorkburr.actions.episode import finalize_episode, initialize_episode
 from zorkburr.app import build_turn_app
 from zorkburr.config import GameConfig
 from zorkburr.game.jericho_interface import JerichoInterface
 from zorkburr.llm.client import create_llm_client
+from zorkburr.llm.mlx_server import MlxServer
 from zorkburr.state import S
 
 
@@ -56,8 +58,7 @@ def format_episode_end(
     )
 
 
-def run_episode(max_turns: int, episode_id: str) -> None:
-    config = GameConfig()
+def _run(config: GameConfig, max_turns: int, episode_id: str) -> None:
     jericho = JerichoInterface(config.game_file)
     jericho.start()
     client = create_llm_client(config)
@@ -67,9 +68,14 @@ def run_episode(max_turns: int, episode_id: str) -> None:
         jericho=jericho,
         client=client,
         episode_id=episode_id,
-        tracker=None,
+        tracker="local",
         persist=False,
     )
+
+    # Load cross-episode learning (knowledge base, map) from prior episodes
+    overrides = initialize_episode(jericho, config)
+    if overrides:
+        app._state = app.state.update(**overrides)
 
     locations_visited: set[str] = set()
     objectives_found = 0
@@ -78,7 +84,7 @@ def run_episode(max_turns: int, episode_id: str) -> None:
 
     try:
         for action_obj, result, state in app.iterate(
-            halt_after=["execute_action", "turn_complete"]
+            halt_after=["turn_complete"]
         ):
             if action_obj.name == "turn_complete":
                 end_reason = _resolve_end_reason(state[S.GAME_OVER_REASON])
@@ -114,6 +120,8 @@ def run_episode(max_turns: int, episode_id: str) -> None:
     finally:
         try:
             final_state = app.state
+            # Save cross-episode learning (knowledge base, map) for future episodes
+            finalize_episode(final_state, config)
             print(
                 format_episode_end(
                     turns=turn_num,
@@ -127,6 +135,15 @@ def run_episode(max_turns: int, episode_id: str) -> None:
             )
         finally:
             jericho.close()
+
+
+def run_episode(max_turns: int, episode_id: str) -> None:
+    config = GameConfig()
+    if config.use_local_models:
+        with MlxServer(config):
+            _run(config, max_turns, episode_id)
+    else:
+        _run(config, max_turns, episode_id)
 
 
 def _build_parser() -> argparse.ArgumentParser:
