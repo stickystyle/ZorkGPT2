@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import logging
 
+import httpx
 import instructor
 from openai import OpenAI
 
@@ -33,12 +34,13 @@ def effective_model(config: GameConfig, role_model: str) -> str:
 
 
 def create_llm_client(config: GameConfig) -> instructor.Instructor:
+    timeout = httpx.Timeout(180.0, connect=10.0)
     if config.use_local_models:
         return instructor.from_openai(
-            OpenAI(base_url=config.local_base_url, api_key="local"),
+            OpenAI(base_url=config.local_base_url, api_key="local", timeout=timeout),
             mode=instructor.Mode.JSON,
         )
     return instructor.from_openai(
-        OpenAI(base_url=config.openrouter_base_url, api_key=config.openrouter_api_key),
+        OpenAI(base_url=config.openrouter_base_url, api_key=config.openrouter_api_key, timeout=timeout),
         mode=instructor.Mode.JSON,
     )
