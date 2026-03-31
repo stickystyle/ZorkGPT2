@@ -6,6 +6,7 @@ from zorkburr.actions import action
 from burr.core import State
 from zorkburr.config import GameConfig
 from zorkburr.llm.models import ObjectiveDiscoveryResponse, ObjectiveCompletionResponse
+from zorkburr.llm.client import effective_model, thinking_kwargs
 from zorkburr.state import S
 
 logger = logging.getLogger(__name__)
@@ -24,7 +25,7 @@ Only mark objectives as completed if there is clear evidence in the game respons
            S.GAME_RESPONSE, S.SCORE, S.LOCATION_NAME, S.TURN_COUNT, S.KNOWLEDGE_BASE],
     writes=[S.DISCOVERED_OBJECTIVES, S.COMPLETED_OBJECTIVES],
 )
-def update_objectives(state: State, client: instructor.Instructor, config: GameConfig) -> tuple[dict, State]:
+def update_objectives(state: State, client: instructor.Instructor, config: GameConfig, use_thinking: bool = False) -> tuple[dict, State]:
     recent_actions = state[S.ACTION_HISTORY][-10:]
     action_summary = "\n".join(
         f"Turn {a['turn']}: {a['action']} -> {a.get('response', '')[:200]}" for a in recent_actions
@@ -36,9 +37,11 @@ def update_objectives(state: State, client: instructor.Instructor, config: GameC
     )
     try:
         response: ObjectiveDiscoveryResponse = client.create(
-            model=config.analysis_model, response_model=ObjectiveDiscoveryResponse,
+            model=effective_model(config, config.analysis_model),
+            response_model=ObjectiveDiscoveryResponse,
             messages=[{"role": "system", "content": _DISCOVERY_PROMPT}, {"role": "user", "content": user_msg}],
             temperature=0.7, max_tokens=2048, max_retries=2,
+            **thinking_kwargs(config, use_thinking),
         )
         new_objectives = response.objectives
         completed = set(response.completed)
