@@ -36,3 +36,55 @@ def test_create_llm_client():
     config = GameConfig(openrouter_api_key="test-key")
     client = create_llm_client(config)
     assert client is not None
+
+
+def test_thinking_kwargs_local_thinking_on():
+    from zorkburr.config import GameConfig
+    from zorkburr.llm.client import thinking_kwargs
+    config = GameConfig(use_local_models=True)
+    assert thinking_kwargs(config, True) == {"extra_body": {"thinking": True}}
+
+
+def test_thinking_kwargs_local_thinking_off():
+    from zorkburr.config import GameConfig
+    from zorkburr.llm.client import thinking_kwargs
+    config = GameConfig(use_local_models=True)
+    assert thinking_kwargs(config, False) == {"extra_body": {"thinking": False}}
+
+
+def test_thinking_kwargs_openrouter_returns_empty():
+    from zorkburr.config import GameConfig
+    from zorkburr.llm.client import thinking_kwargs
+    config = GameConfig(openrouter_api_key="test-key")
+    assert thinking_kwargs(config, True) == {}
+    assert thinking_kwargs(config, False) == {}
+
+
+def test_effective_model_local():
+    from zorkburr.config import GameConfig
+    from zorkburr.llm.client import effective_model
+    config = GameConfig(use_local_models=True)
+    assert effective_model(config, "anthropic/claude-sonnet-4.6") == config.local_model
+
+
+def test_effective_model_openrouter():
+    from zorkburr.config import GameConfig
+    from zorkburr.llm.client import effective_model
+    config = GameConfig(openrouter_api_key="test-key")
+    assert effective_model(config, "anthropic/claude-haiku-4.5") == "anthropic/claude-haiku-4.5"
+
+
+def test_create_llm_client_local():
+    from zorkburr.config import GameConfig
+    from zorkburr.llm.client import create_llm_client
+    config = GameConfig(use_local_models=True)
+    client = create_llm_client(config)
+    assert client is not None
+
+
+def test_create_llm_client_openrouter():
+    from zorkburr.config import GameConfig
+    from zorkburr.llm.client import create_llm_client
+    config = GameConfig(openrouter_api_key="test-key")
+    client = create_llm_client(config)
+    assert client is not None
