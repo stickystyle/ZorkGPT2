@@ -59,3 +59,21 @@ def test_format_episode_end_win():
     )
     assert "reason=game_over_win" in line
     assert "score=350/350" in line
+
+
+def test_argparse_defaults(monkeypatch):
+    import sys
+    monkeypatch.setattr(sys, "argv", ["run_episode.py"])
+    import argparse
+    # Import and call the parser directly without running main()
+    from run_episode import _build_parser
+    args = _build_parser().parse_args([])
+    assert args.max_turns == 100
+    assert args.episode_id is None
+
+
+def test_argparse_custom_values(monkeypatch):
+    from run_episode import _build_parser
+    args = _build_parser().parse_args(["--max-turns", "25", "--episode-id", "test01"])
+    assert args.max_turns == 25
+    assert args.episode_id == "test01"
