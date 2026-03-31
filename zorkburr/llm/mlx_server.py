@@ -36,7 +36,8 @@ class MlxServer:
         port = urlparse(self._config.local_base_url).port or 8080
         logger.info(f"Starting mlx_lm.server: model={self._config.local_model} port={port}")
         self._process = subprocess.Popen(
-            [sys.executable, "-m", "mlx_lm.server", "--model", self._config.local_model, "--port", str(port)],
+            [sys.executable, "-m", "mlx_lm.server", "--model", self._config.local_model, "--port", str(port),
+             "--prompt-cache-bytes", "4294967296"],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
