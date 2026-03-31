@@ -2,6 +2,15 @@ from burr.core import State
 from zorkburr.actions.execute import execute_action
 from zorkburr.state import S
 
+# Common critic/reasoning fields needed by execute_action
+_CRITIC_DEFAULTS = {
+    S.AGENT_REASONING: "",
+    S.CRITIC_SCORE: 0.8,
+    S.CRITIC_JUSTIFICATION: "",
+    S.WAS_OVERRIDDEN: False,
+    S.REJECTION_COUNT: 0,
+}
+
 
 def test_execute_look(jericho):
     state = State({
@@ -13,6 +22,7 @@ def test_execute_look(jericho):
         S.INVENTORY: [],
         S.ACTION_HISTORY: [],
         S.GAME_OVER: False,
+        **_CRITIC_DEFAULTS,
     })
     result, new_state = execute_action.run(state, jericho=jericho)
     assert "white house" in new_state[S.GAME_RESPONSE].lower()
@@ -31,6 +41,7 @@ def test_execute_captures_pre_state(jericho):
         S.INVENTORY: ["lamp"],
         S.ACTION_HISTORY: [],
         S.GAME_OVER: False,
+        **_CRITIC_DEFAULTS,
     })
     _, new_state = execute_action.run(state, jericho=jericho)
     assert new_state[S.PRE_LOCATION_ID] == 42
@@ -48,6 +59,7 @@ def test_execute_increments_turn(jericho):
         S.INVENTORY: [],
         S.ACTION_HISTORY: [],
         S.GAME_OVER: False,
+        **_CRITIC_DEFAULTS,
     })
     _, new_state = execute_action.run(state, jericho=jericho)
     assert new_state[S.TURN_COUNT] == 6

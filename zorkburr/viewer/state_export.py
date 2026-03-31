@@ -38,7 +38,7 @@ def export_turn_state(state: State) -> dict:
             str_confidence[str(k)] = v
 
     action_history = state[S.ACTION_HISTORY]
-    recent = action_history[-10:] if len(action_history) > 10 else list(action_history)
+    recent = action_history[-50:] if len(action_history) > 50 else list(action_history)
 
     return {
         "metadata": {

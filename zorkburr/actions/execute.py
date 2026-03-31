@@ -9,7 +9,8 @@ from zorkburr.state import S
 logger = logging.getLogger(__name__)
 
 @action(
-    reads=[S.ACTION_TO_TAKE, S.TURN_COUNT, S.SCORE, S.LOCATION_ID, S.LOCATION_NAME, S.INVENTORY, S.ACTION_HISTORY],
+    reads=[S.ACTION_TO_TAKE, S.TURN_COUNT, S.SCORE, S.LOCATION_ID, S.LOCATION_NAME, S.INVENTORY, S.ACTION_HISTORY,
+           S.AGENT_REASONING, S.CRITIC_SCORE, S.CRITIC_JUSTIFICATION, S.WAS_OVERRIDDEN, S.REJECTION_COUNT],
     writes=[S.GAME_RESPONSE, S.SCORE, S.MAX_SCORE, S.LOCATION_ID, S.LOCATION_NAME, S.INVENTORY,
             S.GAME_OVER, S.GAME_OVER_REASON, S.PRE_LOCATION_ID, S.PRE_LOCATION_NAME,
             S.PRE_SCORE, S.PRE_INVENTORY, S.ACTION_HISTORY, S.TURN_COUNT],
@@ -34,7 +35,7 @@ def execute_action(state: State, jericho: JerichoInterface) -> tuple[dict, State
     inventory = jericho.get_inventory()
     game_over, reason = jericho.is_game_over(response)
 
-    # Build action history entry
+    # Build action history entry (includes critic/reasoning for viewer)
     history_entry = {
         "turn": turn + 1,
         "action": command,
@@ -43,6 +44,11 @@ def execute_action(state: State, jericho: JerichoInterface) -> tuple[dict, State
         "location_name": pre_loc_name,
         "score_before": pre_score,
         "score_after": score,
+        "reasoning": (state[S.AGENT_REASONING] or "")[:300],
+        "critic_score": state[S.CRITIC_SCORE],
+        "critic_justification": (state[S.CRITIC_JUSTIFICATION] or "")[:200],
+        "was_overridden": state[S.WAS_OVERRIDDEN],
+        "rejection_count": state[S.REJECTION_COUNT],
     }
 
     result = {"response": response, "score_delta": score - pre_score}
