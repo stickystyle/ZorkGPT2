@@ -56,29 +56,45 @@ def initialize_episode(
     return overrides
 
 
+def persist_map(map_data: dict, config: GameConfig) -> None:
+    """Write map data to disk. Called after every map update."""
+    if not map_data:
+        return
+    path = Path(config.map_file)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(map_data, indent=2))
+    logger.debug(f"Persisted map to {path}")
+
+
+def persist_memories(memories: dict, config: GameConfig) -> None:
+    """Write memories to disk. Called after every new memory."""
+    if not memories:
+        return
+    path = Path(config.memory_file)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(memories, indent=2))
+    total = sum(len(v) for v in memories.values())
+    logger.debug(f"Persisted {total} memories to {path}")
+
+
+def persist_knowledge(knowledge: str, config: GameConfig) -> None:
+    """Write knowledge base to disk. Called after every knowledge update."""
+    if not knowledge:
+        return
+    path = Path(config.knowledge_file)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(knowledge)
+    logger.debug(f"Persisted knowledge to {path}")
+
+
 def finalize_episode(state: State, config: GameConfig) -> dict:
     """Save map and knowledge to disk for cross-episode persistence.
 
     Returns an episode summary dict.
     """
-    if state[S.MAP_DATA]:
-        map_path = Path(config.map_file)
-        map_path.parent.mkdir(parents=True, exist_ok=True)
-        map_path.write_text(json.dumps(state[S.MAP_DATA], indent=2))
-        logger.info(f"Saved map to {map_path}")
-
-    if state[S.KNOWLEDGE_BASE]:
-        kb_path = Path(config.knowledge_file)
-        kb_path.parent.mkdir(parents=True, exist_ok=True)
-        kb_path.write_text(state[S.KNOWLEDGE_BASE])
-        logger.info(f"Saved knowledge to {kb_path}")
-
-    if state[S.MEMORIES_BY_LOCATION]:
-        mem_path = Path(config.memory_file)
-        mem_path.parent.mkdir(parents=True, exist_ok=True)
-        mem_path.write_text(json.dumps(state[S.MEMORIES_BY_LOCATION], indent=2))
-        total = sum(len(v) for v in state[S.MEMORIES_BY_LOCATION].values())
-        logger.info(f"Saved {total} memories to {mem_path}")
+    persist_map(state[S.MAP_DATA], config)
+    persist_knowledge(state[S.KNOWLEDGE_BASE], config)
+    persist_memories(state[S.MEMORIES_BY_LOCATION], config)
 
     return {
         "episode_id": state[S.EPISODE_ID],

@@ -5,14 +5,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
-# Run all tests (system pytest, not .venv — pytest is not installed in .venv)
-pytest tests/
+# Run all tests (MUST use uv run — pytest is not on system PATH)
+uv run pytest tests/
 
 # Run a single test
-pytest tests/test_state.py::test_create_initial_state -v
+uv run pytest tests/test_state.py::test_create_initial_state -v
 
 # Run tests excluding LLM client tests (requires API key)
-pytest tests/ --ignore=tests/test_llm_client.py
+uv run pytest tests/ --ignore=tests/test_llm_client.py
 
 # Install dependencies
 pip install -e ".[dev]"

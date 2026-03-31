@@ -82,7 +82,7 @@ def build_turn_app(
             evaluate_action=bound_critic,
             execute_action=bound_execute,
             extract_info=bound_extract,
-            record_results=record_results,
+            record_results=record_results.bind(config=config),
             record_memory=bound_memory,
             check_objective_completion=bound_completion,
             update_objectives=bound_objectives,

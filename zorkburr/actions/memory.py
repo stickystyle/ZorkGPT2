@@ -4,6 +4,7 @@ import logging
 from dataclasses import dataclass, asdict
 import instructor
 from zorkburr.actions import action
+from zorkburr.actions.episode import persist_memories
 from burr.core import State
 from zorkburr.config import GameConfig
 from zorkburr.llm.client import effective_model, nothink_prefix, thinking_kwargs
@@ -94,6 +95,7 @@ def record_memory(state: State, client: instructor.Instructor, config: GameConfi
             loc_list = list(all_mems.get(loc_key, []))
             loc_list.append(mem.to_dict())
             all_mems[loc_key] = loc_list
+            persist_memories(all_mems, config)
             return {"synthesized": True, "memory_title": mem.title}, state.update(**{S.MEMORIES_BY_LOCATION: all_mems})
     except Exception as e:
         logger.warning(f"Memory synthesis failed: {e}")

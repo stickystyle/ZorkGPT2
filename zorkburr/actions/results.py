@@ -2,6 +2,8 @@
 from __future__ import annotations
 from zorkburr.actions import action
 from burr.core import State
+from zorkburr.actions.episode import persist_map
+from zorkburr.config import GameConfig
 from zorkburr.game.map_graph import MapGraph, normalize_direction
 from zorkburr.state import S
 
@@ -13,7 +15,7 @@ from zorkburr.state import S
     writes=[S.MAP_DATA, S.VISITED_LOCATIONS, S.TURNS_SINCE_PROGRESS,
             S.LAST_SCORE_CHANGE_TURN, S.REJECTION_COUNT],
 )
-def record_results(state: State) -> tuple[dict, State]:
+def record_results(state: State, config: GameConfig) -> tuple[dict, State]:
     pre_loc = state[S.PRE_LOCATION_ID]
     cur_loc = state[S.LOCATION_ID]
     action_text = state[S.ACTION_TO_TAKE]
@@ -44,10 +46,13 @@ def record_results(state: State) -> tuple[dict, State]:
     else:
         turns_since += 1
 
+    map_data = mg.to_dict()
+    persist_map(map_data, config)
+
     return (
         {"moved": moved, "score_delta": score_delta},
         state.update(**{
-            S.MAP_DATA: mg.to_dict(),
+            S.MAP_DATA: map_data,
             S.VISITED_LOCATIONS: visited,
             S.TURNS_SINCE_PROGRESS: turns_since,
             S.LAST_SCORE_CHANGE_TURN: last_score_turn,

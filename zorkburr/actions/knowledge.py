@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import instructor
 from zorkburr.actions import action
+from zorkburr.actions.episode import persist_knowledge
 from burr.core import State
 from zorkburr.config import GameConfig
 from zorkburr.state import S
@@ -43,6 +44,7 @@ def update_knowledge(state: State, client: instructor.Instructor, config: GameCo
             **thinking_kwargs(config, False),
         )
         content = response.choices[0].message.content or ""
+        persist_knowledge(content, config)
         return {"knowledge_length": len(content)}, state.update(**{S.KNOWLEDGE_BASE: content})
     except Exception as e:
         logger.warning(f"Knowledge update failed: {e}")
