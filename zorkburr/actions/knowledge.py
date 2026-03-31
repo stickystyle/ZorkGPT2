@@ -6,7 +6,7 @@ from zorkburr.actions import action
 from burr.core import State
 from zorkburr.config import GameConfig
 from zorkburr.state import S
-from zorkburr.llm.client import effective_model, thinking_kwargs
+from zorkburr.llm.client import effective_model, nothink_prefix, thinking_kwargs
 
 logger = logging.getLogger(__name__)
 
@@ -38,9 +38,9 @@ def update_knowledge(state: State, client: instructor.Instructor, config: GameCo
         raw_client = client.client
         response = raw_client.chat.completions.create(
             model=effective_model(config, config.analysis_model),
-            messages=[{"role": "system", "content": _KNOWLEDGE_PROMPT}, {"role": "user", "content": user_msg}],
-            temperature=0.7, max_tokens=4096,
-            **thinking_kwargs(config, use_thinking),
+            messages=[{"role": "system", "content": nothink_prefix(config, False) + _KNOWLEDGE_PROMPT}, {"role": "user", "content": user_msg}],
+            temperature=0.7, max_tokens=1024,
+            **thinking_kwargs(config, False),
         )
         content = response.choices[0].message.content or ""
         return {"knowledge_length": len(content)}, state.update(**{S.KNOWLEDGE_BASE: content})

@@ -39,9 +39,9 @@ def update_objectives(state: State, client: instructor.Instructor, config: GameC
         response: ObjectiveDiscoveryResponse = client.create(
             model=effective_model(config, config.analysis_model),
             response_model=ObjectiveDiscoveryResponse,
-            messages=[{"role": "system", "content": _DISCOVERY_PROMPT}, {"role": "user", "content": user_msg}],
-            temperature=0.7, max_tokens=2048, max_retries=2,
-            **thinking_kwargs(config, use_thinking),
+            messages=[{"role": "system", "content": nothink_prefix(config, False) + _DISCOVERY_PROMPT}, {"role": "user", "content": user_msg}],
+            temperature=0.7, max_tokens=256, max_retries=2,
+            **thinking_kwargs(config, False),
         )
         new_objectives = response.objectives
         completed = set(response.completed)
