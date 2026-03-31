@@ -159,7 +159,7 @@ When an improvement is needed:
 
 2. **Identify the specific problem** — be precise. "Rejections are high" is not enough. Read the critic justifications visible in the surrounding log context. What is the agent proposing that the critic keeps rejecting? What pattern repeats?
 
-3. **Dispatch a general-purpose subagent** with this brief (fill in all `<>` placeholders):
+3. **Dispatch a general-purpose subagent using Opus** (prompt engineering requires judgment — use the most capable model) with this brief (fill in all `<>` placeholders):
 
    ```
    You are improving the ZorkBurr game system. This is a reinforcement learning loop —
