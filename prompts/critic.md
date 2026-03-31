@@ -137,8 +137,13 @@ Your justifications will be shown to the agent when actions are rejected. You ha
    - Actions repeated 3+ times globally **with identical hard rejections**
    - Oscillation patterns (A→B→A→B) showing stuck loops
 
+   **PENALIZE (-0.5 to -0.8):**
+   - **Same-tool-same-target loop:** The same item has been applied to the same target 3+ times in recent history (regardless of verb variation) with no progress — no score change, no location change, no new information revealed. Different verbs do not make this productive if the item+target pair has already failed repeatedly.
+     - Exception: **Active combat** — "attack X with Y" is valid to repeat with the same weapon during ongoing combat with changing feedback (hits, misses, wounds).
+     - Threshold: 2 attempts of the same item on the same target is valid experimentation; the 3rd+ attempt (still no progress) should be penalized.
+
    **DO NOT PENALIZE (Distinguish from Repetition):**
-   - **Systematic experimentation:** TAKE→GET→GRAB→ECHO (different verbs, same object)
+   - **Systematic experimentation:** TAKE→GET→GRAB→ECHO (different verbs, same object) — up to 2 attempts with the same item on the same target
    - **Protocol adherence:** Trying synonyms before environmental verbs (graduated approach)
    - **Learning attempts:** Each action gets NEW/DIFFERENT feedback (puzzle exploration)
    - **Active combat:** Repeated "attack X with Y" during combat with changing feedback (hits, misses, wounds)
@@ -147,9 +152,11 @@ Your justifications will be shown to the agent when actions are rejected. You ha
    - Breaking from repetitive patterns
    - Exploring new directions or objects after stuck
    - Trying different approach after hard rejection (not same exact action)
+   - Switching to a **different item** after a tool-target loop (abandoning a futile item+target pair)
 
-   **Key Distinction:** Count **exact command string** repetitions, NOT object mention frequency.
-   Example: "TAKE SPHERE" (fail) → "GET SPHERE" (fail) → "DISCHARGE" = systematic, NOT repetition.
+   **Key Distinction:** Count **exact command string** repetitions for severe penalties. For same-tool-same-target loops, track the **item+target pair** across verb variations — trying multiple verbs with the same item on the same target is only valid for 1-2 attempts before it becomes a loop.
+   Example (OK): "TAKE SPHERE" (fail) → "GET SPHERE" (fail) → "DISCHARGE" = systematic experimentation, NOT repetition.
+   Example (loop): "verb1 TARGET with ITEM" (fail) → "verb2 TARGET with ITEM" (fail) → "verb3 TARGET with ITEM" = same-tool-same-target loop, PENALIZE at -0.5 to -0.8.
 
 7. **Movement Validation (CRITICAL - Follow This Logic Exactly)**:
 
