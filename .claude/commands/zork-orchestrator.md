@@ -31,7 +31,17 @@ You are the ZorkBurr game orchestrator. Your role is **monitor and developer** �
    `docs/superpowers/specs/2026-03-30-zork-orchestrator-design.md` and the plan at
    `docs/superpowers/plans/2026-03-30-zork-orchestrator.md`.
 
-3. **Initialize `docs/orchestrator/journal.md`** if it doesn't exist:
+3. **Start the Burr tracking server** (if not already running):
+   ```bash
+   curl -sf http://localhost:7241/api/v0/ready && echo "BURR_READY" || echo "BURR_DOWN"
+   ```
+   If `BURR_DOWN`: start it in the background:
+   ```bash
+   burr 2>&1 &
+   ```
+   Wait a few seconds and re-check. The Burr tracker is your primary observability tool — do not proceed without it.
+
+4. **Initialize `docs/orchestrator/journal.md`** if it doesn't exist:
    ```markdown
    # ZorkBurr Orchestrator Journal
 
@@ -40,7 +50,7 @@ You are the ZorkBurr game orchestrator. Your role is **monitor and developer** �
    ---
    ```
 
-4. **Set episode counter to 1.** Track this in your context across iterations.
+5. **Set episode counter to 1.** Track this in your context across iterations.
 
 ---
 
@@ -49,7 +59,7 @@ You are the ZorkBurr game orchestrator. Your role is **monitor and developer** �
 Generate an episode ID (e.g., `ep01`, `ep02`, etc.):
 
 ```bash
-python run_episode.py --max-turns 100 --episode-id ep01 \
+uv run run_episode.py --max-turns 100 --episode-id ep01 \
   > docs/orchestrator/run_log_ep01.txt 2>&1 &
 echo "PID=$!"
 ```
@@ -72,13 +82,24 @@ To read the last 30 lines for a checkpoint:
 tail -30 docs/orchestrator/run_log_ep01.txt
 ```
 
+### Finding the App in Burr
+
+After the episode starts, locate it in the tracker:
+
+```bash
+# List recent apps — the newest one is the current episode
+curl -s 'http://localhost:7241/api/v0/default/__none__/apps?limit=5' | python3 -m json.tool
+```
+
+Note the `app_id` from the response. You'll need it for deep inspection in Phase 2.
+
 ---
 
 ## Phase 2 — Checkpoint Review
 
-After each 25-turn boundary and at episode end, compute these metrics from the log:
+After each 25-turn boundary and at episode end, compute metrics from **both** the log file and the Burr tracker. The log gives you quick summaries; Burr gives you the full picture.
 
-### Checkpoint Metrics
+### Checkpoint Metrics (from log)
 
 ```bash
 # Score values for last 25 turns
@@ -93,6 +114,76 @@ grep "^TURN" docs/orchestrator/run_log_ep01.txt | tail -25 | awk -F'critic=' '{p
 # Rejection rate: turns with any rejections out of last 25
 grep "^TURN" docs/orchestrator/run_log_ep01.txt | tail -25 | grep -v "rejections=0" | wc -l
 ```
+
+### Deep Inspection (from Burr tracker)
+
+The Burr tracker at `http://localhost:7241` stores the **full state snapshot** after every step — including fields the log doesn't surface. Use it when you need to understand *why* something happened, not just *what* happened.
+
+**Fetch the full execution trace:**
+```bash
+# Replace {app_id} with the app_id found in Phase 1
+curl -s 'http://localhost:7241/api/v0/default/{app_id}/__none__/apps' | python3 -c "
+import json, sys
+data = json.load(sys.stdin)
+steps = data.get('steps', [])
+print(f'Total steps: {len(steps)}')
+for s in steps[-10:]:
+    end = s.get('step_end_log', {})
+    state = end.get('state', {})
+    action = s.get('step_start_log', {}).get('action', '?')
+    print(f\"  {action}: score={state.get('score', '?')} loc={state.get('location_name', '?')} critic={state.get('critic_score', '?')}\")
+"
+```
+
+**Read agent reasoning and critic justifications for specific turns:**
+```bash
+curl -s 'http://localhost:7241/api/v0/default/{app_id}/__none__/apps' | python3 -c "
+import json, sys
+data = json.load(sys.stdin)
+steps = data.get('steps', [])
+# Adjust slice to inspect specific turns — these are steps, not turns
+# (multiple steps per turn: generate_action, evaluate_action, execute_action, etc.)
+for s in steps[-30:]:
+    end = s.get('step_end_log', {})
+    state = end.get('state', {})
+    action_name = s.get('step_start_log', {}).get('action', '')
+    if action_name == 'evaluate_action':
+        print(f\"--- Turn {state.get('turn_count', '?')} ---\")
+        print(f\"  Proposed: {state.get('proposed_action', '?')}\")
+        print(f\"  Critic score: {state.get('critic_score', '?')}\")
+        print(f\"  Critic says: {state.get('critic_justification', '?')[:200]}\")
+        print(f\"  Rejections so far: {state.get('rejection_count', 0)}\")
+        print()
+"
+```
+
+**Check accumulated knowledge and memories:**
+```bash
+curl -s 'http://localhost:7241/api/v0/default/{app_id}/__none__/apps' | python3 -c "
+import json, sys
+data = json.load(sys.stdin)
+steps = data.get('steps', [])
+if steps:
+    last_state = steps[-1].get('step_end_log', {}).get('state', {})
+    kb = last_state.get('knowledge_base', 'none')
+    memories = last_state.get('memories_by_location', {})
+    objectives = last_state.get('discovered_objectives', [])
+    print('=== Knowledge Base ===')
+    print(kb[:500] if kb else 'empty')
+    print(f'\n=== Memories ({len(memories)} locations) ===')
+    for loc, mem in list(memories.items())[:5]:
+        print(f'  {loc}: {str(mem)[:150]}')
+    print(f'\n=== Objectives ({len(objectives)}) ===')
+    for o in objectives:
+        print(f'  - {o}')
+"
+```
+
+**When to use Burr vs. the log:**
+- **Log file** — quick turn counts, score deltas, checkpoint metrics (fast, always available)
+- **Burr tracker** — agent reasoning, critic justifications, knowledge base contents, memory quality, full state diffs (use at every checkpoint and always before dispatching an improvement subagent)
+
+> **Rule:** Never dispatch an improvement subagent without first reading the relevant Burr state. The log tells you WHAT went wrong; Burr tells you WHY.
 
 ### Urgent Trigger Checks
 
@@ -167,11 +258,15 @@ When an improvement is needed:
    one targeted change per episode so we can measure its effect.
 
    PROBLEM: <specific diagnosis — e.g., "rejection rate was 45% over turns 26-50. Reading the
-   log, the agent repeatedly proposes compass directions (go north, go east) which the critic
-   rejects because the agent hasn't explored the current room's objects first.">
+   Burr trace, the agent repeatedly proposes compass directions (go north, go east) which the
+   critic rejects because the agent hasn't explored the current room's objects first.">
 
-   EVIDENCE (paste 10-15 lines from the log around the problem):
+   EVIDENCE FROM LOG (paste 10-15 TURN lines around the problem):
    <paste TURN lines>
+
+   EVIDENCE FROM BURR (paste agent reasoning and critic justifications from the tracker):
+   <paste relevant evaluate_action steps showing proposed_action, critic_score,
+    critic_justification, and agent_reasoning>
 
    RECENT JOURNAL (paste last 2-3 entries from docs/orchestrator/journal.md):
    <paste entries>
@@ -217,7 +312,16 @@ When an improvement is needed:
    ---
    ```
 
-5. **Start the next episode** (increment episode counter, go to Phase 1).
+5. **Commit the change** so the evolution of prompts and config is visible in git history:
+
+   ```bash
+   git add prompts/ pyproject.toml docs/orchestrator/journal.md
+   git commit -m "feat(orchestrator): ep<N>→<N+1> — <short description of change>"
+   ```
+
+   The commit message should follow conventional commits and briefly describe the improvement (e.g., `feat(orchestrator): ep08→09 — add cross-turn stuck pattern recognition to agent prompt`).
+
+6. **Start the next episode** (increment episode counter, go to Phase 1).
 
 ---
 
@@ -270,9 +374,12 @@ When stopping, write a final journal entry:
 
 | What | Command pattern |
 |------|----------------|
-| Start episode | `python run_episode.py --max-turns 100 --episode-id epNN > docs/orchestrator/run_log_epNN.txt 2>&1 &` |
+| Start episode | `uv run run_episode.py --max-turns 100 --episode-id epNN > docs/orchestrator/run_log_epNN.txt 2>&1 &` |
 | Poll turn count | `grep -c "^TURN" docs/orchestrator/run_log_epNN.txt` |
 | Check complete | `grep "^EPISODE_END" docs/orchestrator/run_log_epNN.txt` |
 | Read last 30 lines | `tail -30 docs/orchestrator/run_log_epNN.txt` |
 | Stop episode | `kill <PID>` |
 | Read journal | `cat docs/orchestrator/journal.md` |
+| Check Burr health | `curl -sf http://localhost:7241/api/v0/ready` |
+| List recent apps | `curl -s 'http://localhost:7241/api/v0/default/__none__/apps?limit=5'` |
+| Fetch app trace | `curl -s 'http://localhost:7241/api/v0/default/{app_id}/__none__/apps'` |

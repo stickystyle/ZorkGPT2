@@ -7,3 +7,4 @@ data/*.md
 *.egg-info/
 dist/
 .burr/
+docs/orchestrator

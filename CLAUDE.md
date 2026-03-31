@@ -21,7 +21,7 @@ pip install -e ".[dev]"
 /zork-orchestrator   # Claude Code slash command
 
 # Run a single episode manually
-python run_episode.py --max-turns 100 --episode-id test01
+uv run run_episode.py --max-turns 100 --episode-id test01
 ```
 
 ## Configuration
