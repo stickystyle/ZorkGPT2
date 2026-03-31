@@ -38,13 +38,21 @@ class MlxServer:
         if self._process is not None:
             logger.info("Stopping mlx_lm.server")
             self._process.terminate()
-            self._process.wait(timeout=10)
+            try:
+                self._process.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                self._process.kill()
+                self._process.wait()
             self._process = None
 
     def _wait_for_ready(self) -> None:
         url = self._config.local_base_url.rstrip("/") + "/models"
         deadline = time.monotonic() + _STARTUP_TIMEOUT
         while time.monotonic() < deadline:
+            if self._process.poll() is not None:
+                raise RuntimeError(
+                    f"mlx_lm.server exited unexpectedly (returncode={self._process.returncode})"
+                )
             try:
                 urllib.request.urlopen(url, timeout=2)
                 return
