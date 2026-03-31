@@ -6,6 +6,7 @@ from zorkburr.actions import action
 from burr.core import State
 from zorkburr.config import GameConfig
 from zorkburr.state import S
+from zorkburr.llm.client import effective_model, thinking_kwargs
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +22,7 @@ Return the full updated strategic guide as markdown text (not JSON).
            S.COMPLETED_OBJECTIVES, S.SCORE, S.TURN_COUNT, S.MEMORIES_BY_LOCATION],
     writes=[S.KNOWLEDGE_BASE],
 )
-def update_knowledge(state: State, client: instructor.Instructor, config: GameConfig) -> tuple[dict, State]:
+def update_knowledge(state: State, client: instructor.Instructor, config: GameConfig, use_thinking: bool = False) -> tuple[dict, State]:
     recent = state[S.ACTION_HISTORY][-50:]
     action_summary = "\n".join(
         f"Turn {a['turn']}: {a['action']} -> {a.get('response', '')[:150]}" for a in recent
@@ -36,9 +37,10 @@ def update_knowledge(state: State, client: instructor.Instructor, config: GameCo
     try:
         raw_client = client.client
         response = raw_client.chat.completions.create(
-            model=config.analysis_model,
+            model=effective_model(config, config.analysis_model),
             messages=[{"role": "system", "content": _KNOWLEDGE_PROMPT}, {"role": "user", "content": user_msg}],
             temperature=0.7, max_tokens=4096,
+            **thinking_kwargs(config, use_thinking),
         )
         content = response.choices[0].message.content or ""
         return {"knowledge_length": len(content)}, state.update(**{S.KNOWLEDGE_BASE: content})
