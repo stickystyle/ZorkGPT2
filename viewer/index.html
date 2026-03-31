@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ZorkBurr Live Viewer</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
+<style>
+/* === Reset & Base === */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #1a1a2e;
+  --bg-panel: #16213e;
+  --bg-card: #0f3460;
+  --text: #e0e0e0;
+  --text-dim: #8888aa;
+  --green: #00ff41;
+  --green-dim: #00cc33;
+  --blue: #4fc3f7;
+  --yellow: #ffd54f;
+  --orange: #ff9800;
+  --red: #ef5350;
+  --purple: #ce93d8;
+  --border: #2a2a4a;
+  --font-mono: 'Courier New', Courier, monospace;
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+body {
+  font-family: var(--font-sans);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+/* === Header === */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1.5rem;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.header h1 {
+  font-size: 1.2rem;
+  color: var(--green);
+  font-family: var(--font-mono);
+  white-space: nowrap;
+}
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.header-controls select, .header-controls button {
+  background: var(--bg-card);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 0.4rem 0.75rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.header-controls button:hover { border-color: var(--blue); }
+.header-controls button.active { background: var(--blue); color: #000; }
+.stat-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.6rem;
+  background: var(--bg-card);
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-family: var(--font-mono);
+}
+.stat-badge.score { color: var(--yellow); }
+.stat-badge.turn { color: var(--blue); }
+.status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.status-dot.fresh { background: var(--green); }
+.status-dot.stale { background: var(--yellow); }
+.status-dot.dead { background: var(--red); }
+
+/* === Grid Layout === */
+.grid {
+  display: grid;
+  grid-template-columns: 280px 1fr 300px;
+  grid-template-rows: 1fr;
+  height: calc(100vh - 52px);
+  gap: 0;
+}
+@media (max-width: 900px) {
+  .grid {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto;
+    height: auto;
+  }
+}
+
+/* === Panels === */
+.panel {
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  padding: 1rem;
+}
+.panel:last-child { border-right: none; }
+.panel h2 {
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-dim);
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid var(--border);
+}
+
+/* === Left Panel: Knowledge + Objectives === */
+.knowledge-content {
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--text);
+}
+.knowledge-content h1, .knowledge-content h2, .knowledge-content h3 {
+  color: var(--blue);
+  margin: 0.75rem 0 0.4rem;
+  font-size: 1rem;
+}
+.knowledge-content ul { padding-left: 1.2rem; }
+.knowledge-content li { margin-bottom: 0.3rem; }
+.objectives-list { list-style: none; padding: 0; }
+.objectives-list li {
+  padding: 0.3rem 0;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+}
+.obj-check { color: var(--green); }
+.obj-open { color: var(--text-dim); }
+
+/* === Center Panel: Game Log === */
+.game-log {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+.turn-entry {
+  margin-bottom: 1.25rem;
+  border-left: 2px solid var(--border);
+  padding-left: 0.75rem;
+}
+.turn-entry .turn-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.3rem;
+  font-size: 0.75rem;
+  color: var(--text-dim);
+}
+.turn-entry .action-line {
+  color: var(--blue);
+  font-weight: bold;
+  margin-bottom: 0.2rem;
+}
+.turn-entry .response-line {
+  color: var(--green);
+  white-space: pre-wrap;
+  margin-bottom: 0.3rem;
+}
+.turn-entry .reasoning {
+  color: var(--yellow);
+  font-size: 0.8rem;
+  opacity: 0.85;
+  cursor: pointer;
+  overflow: hidden;
+}
+.turn-entry .reasoning.collapsed {
+  max-height: 1.6em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.critic-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 3px;
+  font-size: 0.75rem;
+  font-family: var(--font-mono);
+}
+.critic-badge.good { background: rgba(0,255,65,0.15); color: var(--green); }
+.critic-badge.ok { background: rgba(255,213,79,0.15); color: var(--yellow); }
+.critic-badge.bad { background: rgba(239,83,80,0.15); color: var(--red); }
+
+/* === Turn Slider (historical mode) === */
+.turn-slider-container {
+  display: none;
+  padding: 0.5rem 1rem;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+  align-items: center;
+  gap: 0.75rem;
+}
+.turn-slider-container.visible { display: flex; }
+.turn-slider {
+  flex: 1;
+  accent-color: var(--blue);
+}
+.turn-label {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: var(--blue);
+  min-width: 80px;
+}
+.turn-nav-btn {
+  background: var(--bg-card);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 0.3rem 0.6rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+.turn-nav-btn:hover { border-color: var(--blue); }
+
+/* === Right Panel: Map + Score === */
+.map-container {
+  background: var(--bg-card);
+  border-radius: 6px;
+  padding: 0.75rem;
+  margin-bottom: 1rem;
+  min-height: 200px;
+  overflow: auto;
+}
+.map-container svg { max-width: 100%; height: auto; }
+.score-chart {
+  padding: 0.5rem;
+  background: var(--bg-card);
+  border-radius: 6px;
+}
+.score-chart canvas { width: 100%; height: 80px; }
+.map-stats {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+}
+
+/* === Memories === */
+.memory-card {
+  background: var(--bg-card);
+  border-radius: 4px;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.8rem;
+}
+.memory-card .mem-cat {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  color: var(--purple);
+  margin-bottom: 0.2rem;
+}
+.memory-card .mem-title { color: var(--text); font-weight: bold; }
+.memory-card .mem-text { color: var(--text-dim); margin-top: 0.2rem; }
+
+/* === Loading / Empty States === */
+.empty-state {
+  text-align: center;
+  padding: 2rem;
+  color: var(--text-dim);
+  font-style: italic;
+}
+.loading { animation: pulse 1.5s ease-in-out infinite; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <h1>> ZorkBurr</h1>
+  <div class="header-controls">
+    <select id="episode-select" title="Select episode">
+      <option value="">Loading...</option>
+    </select>
+    <button id="live-btn" class="active" title="Watch live">Live</button>
+    <span class="stat-badge score" id="score-badge">Score: --/--</span>
+    <span class="stat-badge turn" id="turn-badge">Turn: --</span>
+    <span class="status-dot dead" id="status-dot" title="Connection status"></span>
+  </div>
+</div>
+
+<!-- Turn Slider (historical mode) -->
+<div class="turn-slider-container" id="turn-slider-container">
+  <button class="turn-nav-btn" id="prev-turn-btn">&lt;</button>
+  <input type="range" class="turn-slider" id="turn-slider" min="1" max="1" value="1">
+  <button class="turn-nav-btn" id="next-turn-btn">&gt;</button>
+  <span class="turn-label" id="turn-slider-label">Turn 1</span>
+</div>
+
+<!-- Main Grid -->
+<div class="grid">
+  <!-- Left Panel -->
+  <div class="panel" id="left-panel">
+    <h2>Knowledge Base</h2>
+    <div class="knowledge-content" id="knowledge-content">
+      <div class="empty-state">No knowledge yet</div>
+    </div>
+
+    <h2 style="margin-top:1.5rem">Objectives</h2>
+    <ul class="objectives-list" id="objectives-list">
+      <li class="empty-state">No objectives discovered</li>
+    </ul>
+
+    <h2 style="margin-top:1.5rem">Memories Here</h2>
+    <div id="memories-container">
+      <div class="empty-state">No memories at this location</div>
+    </div>
+  </div>
+
+  <!-- Center Panel -->
+  <div class="panel" id="center-panel">
+    <h2>Game Log</h2>
+    <div class="game-log" id="game-log">
+      <div class="empty-state loading">Waiting for game data...</div>
+    </div>
+  </div>
+
+  <!-- Right Panel -->
+  <div class="panel" id="right-panel">
+    <h2>Map</h2>
+    <div class="map-stats" id="map-stats">
+      <span>Rooms: <strong id="room-count">0</strong></span>
+      <span>Visited: <strong id="visited-count">0</strong></span>
+    </div>
+    <div class="map-container" id="map-container">
+      <div class="empty-state">No map data yet</div>
+    </div>
+
+    <h2>Score</h2>
+    <div class="score-chart">
+      <canvas id="score-canvas" height="80"></canvas>
+    </div>
+  </div>
+</div>
+
+<script>
+// === Configuration ===
+const POLL_INTERVAL = 3000;
+const BASE_URL = window.location.origin;
+
+// === State ===
+let isLive = true;
+let currentEpisodeId = null;
+let currentTurn = 0;
+let maxTurn = 0;
+let lastTimestamp = null;
+let turnCache = {};
+let scoreHistory = [];
+let logEntries = [];
+
+// === DOM References ===
+const episodeSelect = document.getElementById('episode-select');
+const liveBtn = document.getElementById('live-btn');
+const scoreBadge = document.getElementById('score-badge');
+const turnBadge = document.getElementById('turn-badge');
+const statusDot = document.getElementById('status-dot');
+const knowledgeContent = document.getElementById('knowledge-content');
+const objectivesList = document.getElementById('objectives-list');
+const memoriesContainer = document.getElementById('memories-container');
+const gameLog = document.getElementById('game-log');
+const mapContainer = document.getElementById('map-container');
+const roomCount = document.getElementById('room-count');
+const visitedCount = document.getElementById('visited-count');
+const scoreCanvas = document.getElementById('score-canvas');
+const turnSliderContainer = document.getElementById('turn-slider-container');
+const turnSlider = document.getElementById('turn-slider');
+const turnSliderLabel = document.getElementById('turn-slider-label');
+const prevTurnBtn = document.getElementById('prev-turn-btn');
+const nextTurnBtn = document.getElementById('next-turn-btn');
+
+// === Mermaid Init ===
+mermaid.initialize({
+  startOnLoad: false,
+  theme: 'dark',
+  themeVariables: {
+    primaryColor: '#0f3460',
+    primaryBorderColor: '#4fc3f7',
+    primaryTextColor: '#e0e0e0',
+    lineColor: '#4fc3f7',
+    secondaryColor: '#16213e',
+    tertiaryColor: '#1a1a2e',
+  },
+});
+
+// === Fetching ===
+async function fetchJSON(url) {
+  const resp = await fetch(url, { cache: 'no-cache' });
+  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+  return resp.json();
+}
+
+async function fetchLiveState() {
+  try {
+    const data = await fetchJSON(`${BASE_URL}/live/current_state.json`);
+    updateStatus('fresh');
+    lastTimestamp = Date.now();
+    return data;
+  } catch (e) {
+    updateStatus('dead');
+    return null;
+  }
+}
+
+async function fetchEpisodeIndex() {
+  try {
+    return await fetchJSON(`${BASE_URL}/episodes/index.json`);
+  } catch {
+    return { episodes: [], current_episode: null };
+  }
+}
+
+async function fetchTurn(episodeId, turn) {
+  const cacheKey = `${episodeId}:${turn}`;
+  if (turnCache[cacheKey]) return turnCache[cacheKey];
+  try {
+    const data = await fetchJSON(`${BASE_URL}/episodes/${episodeId}/turns/turn_${turn}.json`);
+    turnCache[cacheKey] = data;
+    return data;
+  } catch {
+    return null;
+  }
+}
+
+async function fetchEpisodeMeta(episodeId) {
+  try {
+    return await fetchJSON(`${BASE_URL}/episodes/${episodeId}/meta.json`);
+  } catch {
+    return null;
+  }
+}
+
+// === Status Indicator ===
+function updateStatus(state) {
+  statusDot.className = `status-dot ${state}`;
+  statusDot.title = state === 'fresh' ? 'Connected' : state === 'stale' ? 'Stale data' : 'Disconnected';
+}
+
+// Check freshness periodically
+setInterval(() => {
+  if (!isLive || !lastTimestamp) return;
+  const age = Date.now() - lastTimestamp;
+  if (age > 300000) updateStatus('dead');
+  else if (age > 30000) updateStatus('stale');
+}, 5000);
+
+// === Rendering ===
+
+function renderState(data) {
+  if (!data) return;
+
+  const { metadata, turn_data, game_state, strategic, map, recent_history } = data;
+
+  // Header badges
+  scoreBadge.textContent = `Score: ${metadata.score}/${metadata.max_score}`;
+  turnBadge.textContent = `Turn: ${metadata.turn}`;
+
+  // Knowledge base
+  if (strategic.knowledge_base) {
+    knowledgeContent.innerHTML = marked.parse(strategic.knowledge_base);
+  } else {
+    knowledgeContent.innerHTML = '<div class="empty-state">No knowledge yet</div>';
+  }
+
+  // Objectives
+  renderObjectives(strategic.discovered_objectives, strategic.completed_objectives);
+
+  // Memories at location
+  renderMemories(strategic.memories_at_location);
+
+  // Game log
+  if (isLive && recent_history && recent_history.length > 0) {
+    renderLiveLog(recent_history, turn_data, metadata.turn);
+  } else if (!isLive) {
+    renderSingleTurn(turn_data, metadata.turn);
+  }
+
+  // Map
+  renderMap(map);
+
+  // Score chart
+  if (recent_history) {
+    scoreHistory = recent_history.map(h => h.score || 0);
+    scoreHistory.push(metadata.score);
+  }
+  renderScoreChart(scoreHistory);
+}
+
+function renderObjectives(discovered, completed) {
+  const completedNames = new Set((completed || []).map(c => c.objective || c));
+  const items = [];
+
+  for (const obj of (completed || [])) {
+    const name = obj.objective || obj;
+    items.push(`<li><span class="obj-check">&#10003;</span> <s>${escapeHtml(name)}</s></li>`);
+  }
+  for (const obj of (discovered || [])) {
+    if (!completedNames.has(obj)) {
+      items.push(`<li><span class="obj-open">&#9675;</span> ${escapeHtml(obj)}</li>`);
+    }
+  }
+
+  objectivesList.innerHTML = items.length > 0 ? items.join('')
+    : '<li class="empty-state">No objectives discovered</li>';
+}
+
+function renderMemories(memories) {
+  if (!memories || memories.length === 0) {
+    memoriesContainer.innerHTML = '<div class="empty-state">No memories at this location</div>';
+    return;
+  }
+  memoriesContainer.innerHTML = memories.map(m => `
+    <div class="memory-card">
+      <div class="mem-cat">${escapeHtml(m.category || 'MEMORY')}</div>
+      <div class="mem-title">${escapeHtml(m.title || '')}</div>
+      <div class="mem-text">${escapeHtml(m.text || '')}</div>
+    </div>
+  `).join('');
+}
+
+function renderLiveLog(history, currentTurn, turnNum) {
+  let html = '';
+
+  // Render recent history entries
+  for (const entry of history) {
+    html += buildTurnEntry(entry.turn, entry.action, entry.response, null, null);
+  }
+
+  // Render current turn with full detail
+  if (currentTurn && currentTurn.action) {
+    html += buildTurnEntryFull(turnNum, currentTurn);
+  }
+
+  gameLog.innerHTML = html || '<div class="empty-state">No game data yet</div>';
+  gameLog.scrollTop = gameLog.scrollHeight;
+}
+
+function renderSingleTurn(turnData, turnNum) {
+  if (!turnData || !turnData.action) {
+    gameLog.innerHTML = '<div class="empty-state">No data for this turn</div>';
+    return;
+  }
+  gameLog.innerHTML = buildTurnEntryFull(turnNum, turnData);
+}
+
+function buildTurnEntry(turn, action, response) {
+  return `
+    <div class="turn-entry">
+      <div class="turn-header">Turn ${turn}</div>
+      <div class="action-line">> ${escapeHtml(action || '')}</div>
+      <div class="response-line">${escapeHtml(response || '')}</div>
+    </div>
+  `;
+}
+
+function buildTurnEntryFull(turn, td) {
+  const criticClass = td.critic_score >= 0.6 ? 'good' : td.critic_score >= 0.3 ? 'ok' : 'bad';
+  const criticText = td.critic_score !== undefined ? td.critic_score.toFixed(2) : '?';
+  const overrideTag = td.was_overridden ? ' (overridden)' : '';
+
+  return `
+    <div class="turn-entry">
+      <div class="turn-header">
+        Turn ${turn}
+        <span class="critic-badge ${criticClass}">${criticText}${overrideTag}</span>
+      </div>
+      ${td.agent_reasoning ? `
+        <div class="reasoning collapsed" onclick="this.classList.toggle('collapsed')"
+             title="Click to expand reasoning">${escapeHtml(td.agent_reasoning)}</div>
+      ` : ''}
+      <div class="action-line">> ${escapeHtml(td.action || '')}</div>
+      <div class="response-line">${escapeHtml(td.game_response || '')}</div>
+    </div>
+  `;
+}
+
+// === Map Rendering ===
+async function renderMap(mapData) {
+  if (!mapData || !mapData.rooms || Object.keys(mapData.rooms).length === 0) {
+    mapContainer.innerHTML = '<div class="empty-state">No map data yet</div>';
+    roomCount.textContent = '0';
+    visitedCount.textContent = '0';
+    return;
+  }
+
+  roomCount.textContent = mapData.total_rooms || Object.keys(mapData.rooms).length;
+  visitedCount.textContent = mapData.visited_count || 0;
+
+  const mermaidDef = buildMermaid(mapData);
+  try {
+    const { svg } = await mermaid.render('map-diagram', mermaidDef);
+    mapContainer.innerHTML = svg;
+  } catch (e) {
+    mapContainer.innerHTML = `<div class="empty-state">Map render error</div>`;
+  }
+}
+
+function buildMermaid(mapData) {
+  const lines = ['graph TD'];
+  const rooms = mapData.rooms || {};
+  const connections = mapData.connections || {};
+
+  for (const [id, name] of Object.entries(rooms)) {
+    const sanitized = String(name).replace(/"/g, "'").replace(/[\[\](){}]/g, '');
+    lines.push(`    R${id}["${sanitized}"]`);
+  }
+
+  const seen = new Set();
+  for (const [fromId, exits] of Object.entries(connections)) {
+    for (const [dir, toId] of Object.entries(exits)) {
+      const edgeKey = `${fromId}-${toId}`;
+      const reverseKey = `${toId}-${fromId}`;
+      if (seen.has(edgeKey) || seen.has(reverseKey)) continue;
+      seen.add(edgeKey);
+      lines.push(`    R${fromId} -->|${dir}| R${toId}`);
+    }
+  }
+
+  if (mapData.current_room && rooms[String(mapData.current_room)]) {
+    lines.push(`    class R${mapData.current_room} currentRoom`);
+    lines.push('    classDef currentRoom fill:#ffeb3b,stroke:#f57f17,stroke-width:3px,color:#000');
+  }
+
+  return lines.join('\n');
+}
+
+// === Score Chart ===
+function renderScoreChart(scores) {
+  const ctx = scoreCanvas.getContext('2d');
+  const w = scoreCanvas.width = scoreCanvas.offsetWidth * 2;
+  const h = scoreCanvas.height = 160;
+  ctx.clearRect(0, 0, w, h);
+
+  if (!scores || scores.length < 2) return;
+
+  const max = Math.max(...scores, 1);
+  const padding = 10;
+  const graphW = w - padding * 2;
+  const graphH = h - padding * 2;
+
+  ctx.strokeStyle = '#4fc3f7';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+
+  for (let i = 0; i < scores.length; i++) {
+    const x = padding + (i / (scores.length - 1)) * graphW;
+    const y = h - padding - (scores[i] / max) * graphH;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+
+  // Fill under the line
+  ctx.lineTo(padding + graphW, h - padding);
+  ctx.lineTo(padding, h - padding);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(79, 195, 247, 0.1)';
+  ctx.fill();
+
+  // Score label
+  ctx.fillStyle = '#ffd54f';
+  ctx.font = '22px monospace';
+  ctx.textAlign = 'right';
+  ctx.fillText(scores[scores.length - 1], w - padding, padding + 22);
+}
+
+// === Episode Selector ===
+async function loadEpisodeIndex() {
+  const index = await fetchEpisodeIndex();
+  episodeSelect.innerHTML = '';
+
+  if (!index.episodes || index.episodes.length === 0) {
+    episodeSelect.innerHTML = '<option value="">No episodes</option>';
+    return;
+  }
+
+  for (const ep of index.episodes) {
+    const status = ep.status === 'running' ? ' (live)' : ` (${ep.turn_count} turns, score ${ep.score})`;
+    const opt = document.createElement('option');
+    opt.value = ep.episode_id;
+    opt.textContent = `${ep.episode_id}${status}`;
+    episodeSelect.appendChild(opt);
+  }
+
+  if (index.current_episode) {
+    episodeSelect.value = index.current_episode;
+    currentEpisodeId = index.current_episode;
+  }
+}
+
+episodeSelect.addEventListener('change', async () => {
+  const episodeId = episodeSelect.value;
+  if (!episodeId) return;
+
+  // Switch to historical mode
+  isLive = false;
+  liveBtn.classList.remove('active');
+  turnSliderContainer.classList.add('visible');
+  currentEpisodeId = episodeId;
+
+  const meta = await fetchEpisodeMeta(episodeId);
+  if (meta) {
+    maxTurn = meta.turn_count;
+    turnSlider.max = maxTurn;
+    turnSlider.value = maxTurn;
+    currentTurn = maxTurn;
+    turnSliderLabel.textContent = `Turn ${maxTurn}`;
+    loadHistoricalTurn(episodeId, maxTurn);
+  }
+});
+
+// === Live/Historical Toggle ===
+liveBtn.addEventListener('click', () => {
+  isLive = true;
+  liveBtn.classList.add('active');
+  turnSliderContainer.classList.remove('visible');
+  logEntries = [];
+  gameLog.innerHTML = '<div class="empty-state loading">Reconnecting...</div>';
+});
+
+// === Turn Slider ===
+turnSlider.addEventListener('input', () => {
+  currentTurn = parseInt(turnSlider.value);
+  turnSliderLabel.textContent = `Turn ${currentTurn}`;
+  loadHistoricalTurn(currentEpisodeId, currentTurn);
+});
+
+prevTurnBtn.addEventListener('click', () => {
+  if (currentTurn > 1) {
+    currentTurn--;
+    turnSlider.value = currentTurn;
+    turnSliderLabel.textContent = `Turn ${currentTurn}`;
+    loadHistoricalTurn(currentEpisodeId, currentTurn);
+  }
+});
+
+nextTurnBtn.addEventListener('click', () => {
+  if (currentTurn < maxTurn) {
+    currentTurn++;
+    turnSlider.value = currentTurn;
+    turnSliderLabel.textContent = `Turn ${currentTurn}`;
+    loadHistoricalTurn(currentEpisodeId, currentTurn);
+  }
+});
+
+async function loadHistoricalTurn(episodeId, turn) {
+  const data = await fetchTurn(episodeId, turn);
+  if (data) renderState(data);
+}
+
+// === Polling Loop ===
+async function poll() {
+  if (!isLive) return;
+  const data = await fetchLiveState();
+  if (data) renderState(data);
+}
+
+// Initial load
+loadEpisodeIndex();
+poll();
+setInterval(poll, POLL_INTERVAL);
+// Refresh episode list every 30s
+setInterval(loadEpisodeIndex, 30000);
+
+// === Utility ===
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = String(text);
+  return div.innerHTML;
+}
+</script>
+</body>
+</html>
