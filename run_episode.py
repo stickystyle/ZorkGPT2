@@ -16,6 +16,16 @@ from zorkburr.llm.client import create_llm_client
 from zorkburr.state import S
 
 
+_REASON_MAP = {
+    "victory": "game_over_win",
+    "death": "game_over_death",
+}
+
+
+def _resolve_end_reason(game_over_reason: str) -> str:
+    return _REASON_MAP.get(game_over_reason, f"game_over_unknown:{game_over_reason}")
+
+
 def format_turn_line(
     turn_num: int,
     loc: str,
@@ -71,7 +81,7 @@ def run_episode(max_turns: int, episode_id: str) -> None:
             halt_after=["execute_action", "turn_complete"]
         ):
             if action_obj.name == "turn_complete":
-                end_reason = "game_over_win" if state[S.GAME_OVER_REASON] == "victory" else "game_over_death"
+                end_reason = _resolve_end_reason(state[S.GAME_OVER_REASON])
                 objectives_found = len(state[S.DISCOVERED_OBJECTIVES])
                 break
 
@@ -94,7 +104,7 @@ def run_episode(max_turns: int, episode_id: str) -> None:
                 )
 
                 if state[S.GAME_OVER]:
-                    end_reason = "game_over_win" if state[S.GAME_OVER_REASON] == "victory" else "game_over_death"
+                    end_reason = _resolve_end_reason(state[S.GAME_OVER_REASON])
                     objectives_found = len(state[S.DISCOVERED_OBJECTIVES])
                     break
 
@@ -102,19 +112,21 @@ def run_episode(max_turns: int, episode_id: str) -> None:
                     objectives_found = len(state[S.DISCOVERED_OBJECTIVES])
                     break
     finally:
-        final_state = app.state
-        print(
-            format_episode_end(
-                turns=turn_num,
-                score=final_state[S.SCORE],
-                max_score=final_state[S.MAX_SCORE],
-                locations=len(locations_visited),
-                objectives_found=objectives_found,
-                reason=end_reason,
-            ),
-            flush=True,
-        )
-        jericho.close()
+        try:
+            final_state = app.state
+            print(
+                format_episode_end(
+                    turns=turn_num,
+                    score=final_state[S.SCORE],
+                    max_score=final_state[S.MAX_SCORE],
+                    locations=len(locations_visited),
+                    objectives_found=objectives_found,
+                    reason=end_reason,
+                ),
+                flush=True,
+            )
+        finally:
+            jericho.close()
 
 
 def _build_parser() -> argparse.ArgumentParser:

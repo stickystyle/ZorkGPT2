@@ -64,7 +64,6 @@ def test_format_episode_end_win():
 def test_argparse_defaults(monkeypatch):
     import sys
     monkeypatch.setattr(sys, "argv", ["run_episode.py"])
-    import argparse
     # Import and call the parser directly without running main()
     from run_episode import _build_parser
     args = _build_parser().parse_args([])
