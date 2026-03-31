@@ -4,7 +4,7 @@ from zorkburr.config import GameConfig
 def test_load_config_from_toml():
     config = GameConfig()
     assert config.max_turns_per_episode == 1000
-    assert config.agent_model == "anthropic/claude-sonnet-4-20250514"
+    assert config.agent_model == "anthropic/claude-sonnet-4.6"
     assert config.enable_critic is True
     assert config.critic_rejection_threshold == 0.3
     assert config.game_file == "roms/zork1.z5"

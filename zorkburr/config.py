@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-import os
 import tomllib
 from pathlib import Path
 from typing import Any
 
 from pydantic import Field
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings
+from pydantic_settings.sources import PydanticBaseSettingsSource
 
 
 def _load_tool_config() -> dict:
@@ -19,6 +19,22 @@ def _load_tool_config() -> dict:
     with open(pyproject, "rb") as f:
         data = tomllib.load(f)
     return data.get("tool", {}).get("zorkburr", {})
+
+
+class _TomlSettingsSource(PydanticBaseSettingsSource):
+    """Load configuration from pyproject.toml [tool.zorkburr]."""
+
+    def get_field_value(self, field):
+        """Not used in this source."""
+        return None, None, False
+
+    def __call__(self):
+        """Return the toml data as a settings dict."""
+        toml_data = _load_tool_config()
+        retry = toml_data.pop("retry", {})
+        for k, v in retry.items():
+            toml_data[f"retry_{k}"] = v
+        return toml_data
 
 
 class GameConfig(BaseSettings):
@@ -84,19 +100,20 @@ class GameConfig(BaseSettings):
     retry_initial_delay: float = 1.0
     retry_max_delay: float = 30.0
 
-    def __init__(self, **kwargs):
-        # Load toml data first, but let env vars override (they're handled by pydantic-settings)
-        toml_data = _load_tool_config()
-        retry = toml_data.pop("retry", {})
-        for k, v in retry.items():
-            toml_data[f"retry_{k}"] = v
-
-        # Check env vars and override toml data if present
-        # This mirrors pydantic-settings behavior with aliases
-        env_overrides = {}
-        if os.getenv("USE_LOCAL_MODELS"):
-            env_overrides["use_local_models"] = os.getenv("USE_LOCAL_MODELS").lower() == "true"
-
-        # Merge: kwargs take precedence over env, which takes precedence over toml
-        merged = {**toml_data, **env_overrides, **kwargs}
-        super().__init__(**merged)
+    @classmethod
+    def settings_customise_sources(
+        cls,
+        settings_customise_sources=None,
+        init_settings=None,
+        env_settings=None,
+        dotenv_settings=None,
+        file_secret_settings=None,
+    ):
+        """Customize settings sources: init > env > toml > file > defaults."""
+        return (
+            init_settings,
+            env_settings,
+            _TomlSettingsSource(cls),
+            dotenv_settings,
+            file_secret_settings,
+        )
