@@ -208,6 +208,109 @@ grep "^EPISODE_END" docs/orchestrator/run_log_ep01.txt | awk -F'turns=' '{print 
 ```
 If reason=game_over_death AND turns < 50: this is an urgent trigger (agent died too early — improvement needed).
 
+### Gameplay Quality Checks (from Burr)
+
+These checks require reading the full Burr state — they assess whether the agent is **learning and applying** its accumulated knowledge, not just whether the system is running. Perform these at every checkpoint alongside the urgent trigger checks.
+
+**Fetch agent reasoning, memories, knowledge base, and objectives for the last 25 turns:**
+
+```bash
+curl -s 'http://localhost:7241/api/v0/default/{app_id}/__none__/apps' | python3 -c "
+import json, sys
+data = json.load(sys.stdin)
+steps = data.get('steps', [])
+
+# Collect the last ~25 generate_action steps (one per turn)
+agent_steps = [s for s in steps if s.get('step_start_log', {}).get('action') == 'generate_action'][-25:]
+
+# Get latest state for KB, memories, objectives
+last_state = steps[-1].get('step_end_log', {}).get('state', {}) if steps else {}
+kb = last_state.get('knowledge_base', '')
+memories = last_state.get('memories_by_location', {})
+objectives = last_state.get('discovered_objectives', [])
+
+print('=== KNOWLEDGE BASE ===')
+print(kb[:800] if kb else '(empty)')
+
+print(f'\n=== MEMORIES ({sum(len(v) for v in memories.values())} total across {len(memories)} locations) ===')
+for loc_id, mems in list(memories.items())[:8]:
+    titles = [m.get('title', '?') for m in mems[:3]]
+    print(f'  Location {loc_id}: {titles}')
+
+print(f'\n=== OBJECTIVES ({len(objectives)}) ===')
+for o in objectives:
+    print(f'  - {o}')
+
+print('\n=== AGENT REASONING (last 10 turns) ===')
+for s in agent_steps[-10:]:
+    state = s.get('step_end_log', {}).get('state', {})
+    reasoning = state.get('agent_reasoning', '')[:250]
+    action = state.get('proposed_action', '?')
+    loc = state.get('location_name', '?')
+    print(f'  Turn {state.get(\"turn_count\", \"?\")}: [{loc}] {action}')
+    print(f'    Thinking: {reasoning}')
+    print()
+"
+```
+
+**After fetching, evaluate these four dimensions:**
+
+#### 1. Memory Utilization
+
+Read the agent's `agent_reasoning` text for turns where the agent visited locations that have memories. Look for evidence that the agent is **referencing or acting on** location memories.
+
+**Positive signals** (in reasoning text): mentions of prior visits, references to what happened before at this location, avoiding previously-discovered dangers, reusing successful approaches.
+
+**Negative signals**: Agent arrives at a location with 3+ memories and its reasoning shows no awareness of them — it re-examines objects it already catalogued, repeats actions that previously failed, or walks into dangers it already recorded.
+
+**Trigger:** Agent visits 3+ locations that have memories AND reasoning text shows no evidence of memory consultation in >50% of those visits.
+
+#### 2. Knowledge Base Alignment
+
+Compare the knowledge base content against the agent's recent actions and reasoning. The KB contains strategic guidance the agent distilled from its own experience — it should be influencing decisions.
+
+**Positive signals**: Agent's reasoning references strategic patterns from the KB, agent prioritizes actions consistent with KB strategies, agent avoids pitfalls the KB warns about.
+
+**Negative signals**: KB says "always light the lantern before going underground" but agent enters dark areas without a light source. KB identifies a puzzle strategy but agent uses brute-force instead.
+
+**Trigger:** KB has substantive content (>200 chars) AND agent's reasoning in last 15 turns shows zero references to KB strategies AND agent takes 3+ actions that directly contradict KB guidance.
+
+#### 3. Objective Quality
+
+Inspect the `discovered_objectives` list for attainability and specificity.
+
+**Well-formed objectives**: Reference specific locations or items, have clear completion criteria, are achievable given current game state. Example: "reach Forest Path (L75) and climb tree for jeweled egg"
+
+**Poorly-formed objectives**: Vague ("explore more"), impossible given current state ("get item from location agent can't reach"), stale (set 40+ turns ago with no progress), duplicative (multiple objectives for the same goal).
+
+**Trigger:** >50% of objectives are vague/stale/impossible, OR objectives haven't changed in 25+ turns despite the agent visiting new areas and gaining score.
+
+#### 4. Objective Pursuit
+
+Cross-reference the active objectives against recent actions and locations visited. The agent should be making visible progress toward at least one objective.
+
+**Positive signals**: Agent's reasoning explicitly references an objective, agent navigates toward an objective's target location, agent picks up items needed for an objective.
+
+**Negative signals**: Agent has 3 active objectives but wanders aimlessly with no reasoning that references any of them. Agent sets an objective ("get lamp from attic") then immediately walks in the opposite direction with no explanation.
+
+**Trigger:** Agent has active objectives AND <20% of actions in the last 15 turns show any alignment with any objective (either in reasoning text or in movement toward objective targets).
+
+---
+
+**Gameplay quality journal notation:** Add a line to each checkpoint entry:
+
+```markdown
+**Gameplay quality:** LEARNING | DRIFTING | IGNORING
+  - Memory use: <evidence summary>
+  - KB alignment: <evidence summary>
+  - Objective quality: <X well-formed / Y total>
+  - Objective pursuit: <evidence summary>
+```
+
+- **LEARNING**: Agent references memories/KB in reasoning, objectives are well-formed and being pursued
+- **DRIFTING**: Some references but inconsistent — agent sometimes ignores available knowledge
+- **IGNORING**: Agent rarely references memories/KB, objectives are stale or vague, actions don't align with stated goals
+
 ### Write Journal Entry
 
 After every checkpoint, append to `docs/orchestrator/journal.md`:
@@ -219,6 +322,11 @@ After every checkpoint, append to `docs/orchestrator/journal.md`:
 **Locations visited:** <count total> (<new this block> new)
 **Avg critic score:** <0.XX>
 **Rejection rate:** <X>/<25> turns had rejections (<XX>%)
+**Gameplay quality:** LEARNING | DRIFTING | IGNORING
+  - Memory use: <does reasoning reference location memories? evidence>
+  - KB alignment: <do actions align with KB strategies? evidence>
+  - Objective quality: <X well-formed / Y total>
+  - Objective pursuit: <% of recent actions aligned with an objective>
 **Triggers:** none | <trigger name and detail>
 **Notes:** <1-2 sentences of your analysis>
 
@@ -236,6 +344,10 @@ Dispatch a subagent **only if at least one** of these is true:
 | High rejection rate | > 30% of turns had rejections (>7 of 25) |
 | Urgent trigger fired | Rejection spiral, stuck loop, or LLM error pile-up |
 | Early death | game_over_death AND turns < 50 |
+| Ignoring memories | Agent visits memorized locations but reasoning shows no memory consultation (>50% of visits) |
+| KB contradiction | KB has content but agent takes 3+ actions that directly contradict it with no reasoning references |
+| Stale/vague objectives | >50% of objectives are vague or unchanged for 25+ turns |
+| Objective drift | Agent has active objectives but <20% of last 15 actions align with any of them |
 
 If none apply: write a HEALTHY journal entry and continue polling.
 
