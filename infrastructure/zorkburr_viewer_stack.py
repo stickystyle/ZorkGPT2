@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""CDK stack for ZorkBurr viewer: S3 + CloudFront + optional Route53/ACM.
+# ABOUTME: CDK stack for ZorkGPT viewer: S3 + CloudFront + Route53/ACM.
+# ABOUTME: Deploys the live viewer at zorkgpt.com and www.zorkgpt.com.
+"""CDK stack for ZorkGPT viewer: S3 + CloudFront + Route53/ACM.
+
+Deploys the live viewer at zorkgpt.com and www.zorkgpt.com.
 
 Usage:
-    # Without custom domain (uses d*.cloudfront.net URL):
     cdk deploy
-
-    # With custom domain:
-    cdk deploy -c domain_name=zorkburr.com
 """
 import aws_cdk as cdk
 from aws_cdk import (
@@ -28,7 +28,7 @@ class ZorkBurrViewerStack(Stack):
     def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
-        domain_name = self.node.try_get_context("domain_name")
+        domain_name = "zorkgpt.com"
 
         # --- S3 Bucket ---
         self.bucket = s3.Bucket(
@@ -105,21 +105,18 @@ class ZorkBurrViewerStack(Stack):
             enable_accept_encoding_brotli=True,
         )
 
-        # --- Optional Route53 + ACM ---
-        certificate = None
-        domain_names = None
-        if domain_name:
-            hosted_zone = route53.HostedZone(
-                self, "HostedZone", zone_name=domain_name,
-            )
-            certificate = acm.Certificate(
-                self,
-                "Certificate",
-                domain_name=domain_name,
-                subject_alternative_names=[f"www.{domain_name}"],
-                validation=acm.CertificateValidation.from_dns(hosted_zone),
-            )
-            domain_names = [domain_name, f"www.{domain_name}"]
+        # --- Route53 + ACM ---
+        hosted_zone = route53.HostedZone(
+            self, "HostedZone", zone_name=domain_name,
+        )
+        certificate = acm.Certificate(
+            self,
+            "Certificate",
+            domain_name=domain_name,
+            subject_alternative_names=[f"www.{domain_name}"],
+            validation=acm.CertificateValidation.from_dns(hosted_zone),
+        )
+        domain_names = [domain_name, f"www.{domain_name}"]
 
         # --- CloudFront Distribution ---
         self.distribution = cloudfront.Distribution(
@@ -157,25 +154,24 @@ class ZorkBurrViewerStack(Stack):
         )
 
         # --- Route53 A Records ---
-        if domain_name:
-            route53.ARecord(
-                self,
-                "ARecord",
-                zone=hosted_zone,
-                record_name=domain_name,
-                target=route53.RecordTarget.from_alias(
-                    targets.CloudFrontTarget(self.distribution)
-                ),
-            )
-            route53.ARecord(
-                self,
-                "WWWARecord",
-                zone=hosted_zone,
-                record_name=f"www.{domain_name}",
-                target=route53.RecordTarget.from_alias(
-                    targets.CloudFrontTarget(self.distribution)
-                ),
-            )
+        route53.ARecord(
+            self,
+            "ARecord",
+            zone=hosted_zone,
+            record_name=domain_name,
+            target=route53.RecordTarget.from_alias(
+                targets.CloudFrontTarget(self.distribution)
+            ),
+        )
+        route53.ARecord(
+            self,
+            "WWWARecord",
+            zone=hosted_zone,
+            record_name=f"www.{domain_name}",
+            target=route53.RecordTarget.from_alias(
+                targets.CloudFrontTarget(self.distribution)
+            ),
+        )
 
         # --- Outputs ---
         CfnOutput(self, "BucketName", value=self.bucket.bucket_name,
@@ -183,11 +179,8 @@ class ZorkBurrViewerStack(Stack):
         CfnOutput(self, "DistributionId", value=self.distribution.distribution_id,
                   description="CloudFront distribution ID")
         CfnOutput(self, "ViewerURL",
-                  value=f"https://{domain_name}" if domain_name
-                  else f"https://{self.distribution.distribution_domain_name}",
+                  value=f"https://{domain_name}",
                   description="URL to access the viewer")
-
-        if domain_name:
-            CfnOutput(self, "NameServers",
-                      value=cdk.Fn.join(",", hosted_zone.hosted_zone_name_servers),
-                      description="Configure these with your domain registrar")
+        CfnOutput(self, "NameServers",
+                  value=cdk.Fn.join(",", hosted_zone.hosted_zone_name_servers),
+                  description="Configure these with your domain registrar")
