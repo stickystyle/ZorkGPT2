@@ -37,7 +37,7 @@ class MlxServer:
         logger.info(f"Starting mlx_lm.server: model={self._config.local_model} port={port}")
         self._process = subprocess.Popen(
             [sys.executable, "-m", "mlx_lm.server", "--model", self._config.local_model, "--port", str(port),
-             "--prompt-cache-bytes", "1073741824", "--prefill-step-size", "512"],
+             "--prompt-cache-bytes", "1073741824"],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
