@@ -8,3 +8,5 @@ data/*.md
 dist/
 .burr/
 docs/orchestrator
+.playwright-mcp/
+MagicMock/
