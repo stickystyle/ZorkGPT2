@@ -241,17 +241,17 @@ class TestRecentHistory:
         assert result["recent_history"][0]["turn"] == 1
         assert result["recent_history"][-1]["turn"] == 5
 
-    def test_recent_history_capped_at_10(self):
+    def test_recent_history_capped_at_50(self):
         history = [
             {"turn": i, "action": f"action_{i}", "response": f"resp_{i}", "score": i}
-            for i in range(1, 21)
+            for i in range(1, 61)
         ]
         state = create_initial_state("ep").update(**{S.ACTION_HISTORY: history})
         result = export_turn_state(state)
-        assert len(result["recent_history"]) == 10
-        # Should be the most recent 10
+        assert len(result["recent_history"]) == 50
+        # Should be the most recent 50
         assert result["recent_history"][0]["turn"] == 11
-        assert result["recent_history"][-1]["turn"] == 20
+        assert result["recent_history"][-1]["turn"] == 60
 
 
 class TestEdgeCases:
