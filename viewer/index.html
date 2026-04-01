@@ -647,9 +647,10 @@ let cachedEpisodeIndex = { episodes: [] };
 
 function getHighScore(excludeEpisodeId) {
   let best = 0;
-  for (const ep of cachedEpisodeIndex.episodes) {
-    if (ep.episode_id !== excludeEpisodeId && (ep.score || 0) > best) {
-      best = ep.score;
+  for (const ep of cachedEpisodeIndex.episodes ?? []) {
+    const score = ep.score ?? 0;
+    if (ep.episode_id !== excludeEpisodeId && score > best) {
+      best = score;
     }
   }
   return best;
@@ -1134,7 +1135,9 @@ function renderScoreChart(scores) {
 // === Episode Selector ===
 async function loadEpisodeIndex() {
   const index = await fetchEpisodeIndex();
-  cachedEpisodeIndex = index;
+  if (index.episodes && index.episodes.length > 0) {
+    cachedEpisodeIndex = index;
+  }
   const previousSelection = currentEpisodeId;
   episodeSelect.innerHTML = '';
 
