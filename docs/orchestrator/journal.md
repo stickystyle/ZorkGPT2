@@ -1568,3 +1568,107 @@ Started: 2026-03-30
 **Result:** PENDING
 
 ---
+
+## Episode 31 — COMPLETE (DIED at turn 22 — no lantern in cellar)
+**Turns:** 22
+**Final score:** 25/350 (peak 35, -10 death penalty)
+**Locations visited:** 7 unique
+**Objectives found:** 6
+**End reason:** game_over_death (grue in dark cellar — no lantern)
+**Key achievements:**
+  - House entry at turn 8 (score 10)
+  - Rug puzzle at turns 16-17
+  - Cellar entry at turn 18 (score 35)
+**Key problems:**
+  - Agent confused items ON trophy case vs IN trophy case — "take from trophy case" got nothing
+  - Took sword (forced after 3 rejections) but never took lantern
+  - Went underground without lantern → trapped in dark cellar → died to grue
+  - Skipped egg entirely (went straight to house from North_House)
+  - Treasure management prompt NOT tested (no treasures collected to deposit)
+**Root cause:** Agent reasoning assumed "trophy case opened and emptied" after failed take commands. Items are ON the case not IN it — "take lantern" (no "from trophy case") is the correct syntax. This is variance — ep30 used "take lantern, sword" successfully.
+**Treasure prompt evaluation:** INCONCLUSIVE — agent didn't collect egg, so deposit strategy couldn't trigger.
+**Improvement dispatched:** No — one-off equipment syntax issue, not systemic. Need another episode to test treasure management.
+
+---
+
+| Episode | Score | vs Prev | Best So Far | Turns to 1st Score | Locations | KB Quality | End Reason |
+|---------|-------|---------|-------------|-------------------|-----------|------------|------------|
+| ep24 | 45 | +5 | 45 | 8 | 20 | strategic | max_turns |
+| ep25 | 30(40) | -15 | 45 | 6 | 10 | strategic | death t40 |
+| ep26 | 10 | -20 | 45 | 36 | 12 | turn_nums | max_turns |
+| ep27 | 30(40) | +20 | 45 | 7 | 11 | none | death t46 |
+| ep28 | 35(45) | +5 | 45 | 11 | 22 | clean! | death t92 |
+| ep29 | 35(45) | 0 | 45 | 8 | 17 | clean | death t54 |
+| ep30 | 30(40) | -5 | 45 | 6 | 12 | clean | death t36 |
+| ep31 | 25(35) | -5 | 45 | 8 | 7 | n/a | death t22 |
+
+**Trend:** Score DECLINING — 3 consecutive drops (45→40→35). Best still 45 from ep24. Agent dying earlier each episode (t54→t36→t22). This episode's failure was syntax variance (ON vs IN trophy case), not systemic. Treasure management prompt untested. Running ep32 for proper evaluation.
+
+---
+
+## Episode 32 — Turn 25 Checkpoint
+**Type:** CONCERN
+**Score:** 45/350 at turn 24 (delta: +45 since start — NEW RECORD at cellar entry)
+**Locations visited:** 8 total
+**Avg critic score:** 0.55
+**Rejection rate:** 5/25 turns had rejections (20%)
+**Gameplay quality:** DRIFTING
+  - Memory use: Agent references memories, correctly identified rug puzzle and dark cellar warning
+  - KB alignment: Agent followed treasure management strategy (deposited egg!) but KB misleads about sword/lantern location ("took lantern and sword" implies they're in trophy case)
+  - Objective quality: Not evaluated — same stale set as ep31
+  - Objective pursuit: Agent solving rug puzzle but not equipping properly
+  - Learning system quality: KB is strategic but contains misleading item association (trophy case ↔ sword/lantern)
+**Triggers:** Agent entered cellar WITHOUT sword or lantern (2nd consecutive episode)
+**Notes:** TREASURE MANAGEMENT PROMPT CONFIRMED WORKING — agent deposited egg in trophy case at turn 23, reasoning explicitly cited "needs to be deposited before entering dangerous combat areas." Score 45 at cellar (vs 40 in ep30). But systemic failure: agent can't take sword/lantern from room.
+
+---
+
+## Episode 32 — COMPLETE (DIED at turn 39 — troll, no weapon)
+**Turns:** 39
+**Final score:** 35/350 (peak 45, -10 death penalty)
+**Locations visited:** 11 unique
+**Objectives found:** 7
+**End reason:** game_over_death (troll killed agent — had no sword)
+**Key achievements:**
+  - Egg deposited in trophy case (+5 bonus points!) — treasure management working
+  - Score 45 at cellar entry (new high for cellar stage)
+  - Agent correctly identified need to deposit egg before danger
+**Key problems:**
+  - FAILED to take sword and lantern (2nd consecutive episode)
+  - Agent assumes items are IN trophy case, not ON it — "take from trophy case" gets nothing
+  - Entered cellar without lantern (dark), without sword (defenseless)
+  - Tried to fight troll with bottle — died
+**Root cause (SYSTEMIC):** KB says "Opened trophy case and took lantern and sword" creating false association. Agent opens case, finds it empty, moves on WITHOUT trying "take sword" or "take lantern" as standalone room commands. Items are ON the case, not IN it.
+**Improvement dispatched:** Yes — agent prompt: item acquisition from surfaces vs containers
+
+---
+
+## Episode 30 → 31 — IMPROVEMENT (Treasure Management) — Result Update
+**Result:** IMPROVED — Agent deposited egg in trophy case in ep32 (turn 23), scoring 45 at cellar vs 40 without deposit. Agent reasoning explicitly cited treasure management strategy. Prompt working as intended. Ep31 inconclusive (no egg collected).
+
+---
+
+| Episode | Score | vs Prev | Best So Far | Turns to 1st Score | Locations | KB Quality | End Reason |
+|---------|-------|---------|-------------|-------------------|-----------|------------|------------|
+| ep25 | 30(40) | -15 | 45 | 6 | 10 | strategic | death t40 |
+| ep26 | 10 | -20 | 45 | 36 | 12 | turn_nums | max_turns |
+| ep27 | 30(40) | +20 | 45 | 7 | 11 | none | death t46 |
+| ep28 | 35(45) | +5 | 45 | 11 | 22 | clean! | death t92 |
+| ep29 | 35(45) | 0 | 45 | 8 | 17 | clean | death t54 |
+| ep30 | 30(40) | -5 | 45 | 6 | 12 | clean | death t36 |
+| ep31 | 25(35) | -5 | 45 | 8 | 7 | n/a | death t22 |
+| ep32 | 35(45) | +10 | 45 | 8 | 11 | clean | death t39 |
+
+**Trend:** Treasure management confirmed working (+5 points). But equipment gathering BROKEN for 2 episodes — agent can't take sword/lantern from room surface. This is the current bottleneck: without sword, troll is unwinnable; without lantern, cellar is a death trap. Must fix item acquisition before anything else.
+
+---
+
+## Episode 32 → 33 — IMPROVEMENT
+**Type:** BLOCKER
+**Trigger:** Agent fails to take items from room surfaces for 2 consecutive episodes (ep31, ep32)
+**Change:** Added "Items on surfaces vs in containers" rule to `prompts/agent.md` in the Inventory & Containers section. Teaches the agent that items visible in a room description may be ON surfaces or ABOVE furniture, not necessarily IN a nearby container. Instructs the agent to always try `take [item]` as a direct command first, and only use `take [item] from [container]` when an item is explicitly described as being inside that container.
+**Reasoning:** The agent sees items described as being "on" or "above" a container and assumes they are inside it. It opens the container, finds it empty, and moves on without ever trying the simple `take [item]` command. This is a game-agnostic text adventure principle: items can be on surfaces, above furniture, or on the floor, and `take [item]` works regardless of spatial relationship.
+**Target metric:** Agent should have sword and lantern in inventory before entering cellar
+**Result:** PENDING
+
+---

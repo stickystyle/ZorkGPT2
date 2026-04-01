@@ -190,6 +190,7 @@ Analysis:
 - Containers must be open to access contents
 - One level deep access only (can't reach into nested containers)
 - Objects have sizes, containers have limits
+- **Items on surfaces vs in containers:** Items in a room may be ON surfaces, ABOVE furniture, or simply lying around — not necessarily IN a container. If you can see an item mentioned in the room description, always try `take [item]` as a direct command first. Do NOT assume items are inside a nearby container just because one is present. The command `take [item]` works regardless of whether the item is on a surface, above something, or on the floor. Only use `take [item] from [container]` if the item is explicitly described as being inside that container.
 
 *Persistence:*
 - Dropped items stay where left
