@@ -569,3 +569,13 @@ Started: 2026-03-30
 **Impact:** Should eliminate the structural rejection rate problem that has plagued ALL episodes (ep6-ep23). Expected: rejection rate drops from ~40% to <15%, turn speed drops from ~5-7 min to ~3 min.
 
 ---
+
+## Episodes 24-27 — KILLED (MLX server connection hang)
+**Turns completed:** ep24: ~8, ep25: ~4, ep26: ~6, ep27: 3
+**End reason:** All killed — MLX server connection hangs. Process stuck at 0% CPU on LLM call (usually generate_action) for 20+ minutes.
+**Exits fix verified:** All completed turns showed 0 rejections — exits fix working perfectly. Agent reached Behind_House by turn 7 in ep24 (was turn 22 in ep21). Exploration speed dramatically improved.
+**Root cause:** httpx per-operation timeouts (180s read/write/connect) reset with each streamed chunk from MLX. If the server streams one token every 30s, the 180s read timeout never fires. The connection stays open indefinitely.
+**Fix attempt 1:** Added httpx.Timeout(180.0, connect=10.0) to OpenAI client — INEFFECTIVE against streaming hangs.
+**Fix attempt 2:** Added _TimedInstructor wrapper with concurrent.futures total wall-clock timeout (120s default). Also reduced httpx read timeout from 180s to 60s. This ensures ANY LLM call that takes >120s wall-clock time raises TimeoutError, which action-level exception handlers catch gracefully (agent falls back to "look", critic auto-accepts, etc.).
+
+---

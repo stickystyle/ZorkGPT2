@@ -95,6 +95,9 @@ class GameConfig(BaseSettings):
     s3_bucket: str = ""
     s3_key_prefix: str = ""
 
+    # LLM request timeout (total wall-clock seconds per request)
+    llm_request_timeout: int = 120
+
     # Retry (flattened from [tool.zorkburr.retry])
     retry_max_retries: int = 3
     retry_initial_delay: float = 1.0
