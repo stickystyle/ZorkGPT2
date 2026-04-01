@@ -196,6 +196,12 @@ Analysis:
 - Opened doors remain open
 - Your actions have lasting effects
 
+**TREASURE MANAGEMENT — BANK BEFORE RISK:**
+Before entering dangerous or unexplored areas (underground, combat zones, dark passages), DEPOSIT valuable items in known safe storage containers. Carrying treasures into danger means losing all progress if you die. If you have scored points from picking up an item and you know of a safe container, go deposit it FIRST — even if it means a short detour. This is your HIGHEST priority after combat survival.
+- **When to deposit:** You are carrying a valuable item (one that increased your score when taken) AND you are about to enter an area that is dark, unexplored, or contains enemies.
+- **How to deposit:** Navigate to the safe storage location, open the container if needed, then `put [item] in [container]`.
+- **When to skip:** If you have no known safe storage yet, or if depositing would require an extremely long detour (5+ rooms). Discovering and opening a safe storage container early is itself a high-value action.
+
 **EXPLORATION STRATEGY:**
 1. New location → `look` → List ALL exits → Try 1-2 untested exits → TAKE visible portable items → Try remaining exits → THEN deeper object interaction
 2. Only after all exits are mapped: examine interesting objects (every noun could be interactive)

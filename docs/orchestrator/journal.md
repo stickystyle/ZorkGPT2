@@ -1397,3 +1397,174 @@ Started: 2026-03-30
 **Result:** PENDING
 
 ---
+
+## Episode 27 — COMPLETE (DIED at turn 46 — troll combat)
+**Turns:** 46
+**Final score:** 30/350 (peak 40, -10 death penalty)
+**Locations visited:** 11 unique
+**Objectives found:** 10
+**End reason:** game_over_death (troll killed agent)
+**Key achievements:**
+  - Score 15 at turn 16 (house entry via window)
+  - Cross-episode memory disclaimer WORKED — agent solved rug puzzle (turns 21-34)
+  - Score 40 at turn 35 (cellar entry)
+  - Agent fought troll for 10 turns with correct strategy (sword)
+**Key problems:**
+  - Troll RNG killed agent again (3rd consecutive death: ep23, ep25, ep27; survived only ep24)
+  - No KB generated (episode too short — 46 turns < knowledge_update_interval)
+  - Map shrunk from 26→12 rooms (possible MapGraph merge issue)
+**Cross-episode memory fix:** CONFIRMED WORKING — agent solved rug puzzle after memory disclaimer was added. Ep26 (no disclaimer) failed to solve it; ep27 (with disclaimer) solved it.
+**Memory synthesis fix:** Applied but too early to evaluate (new memories will be generated over next episodes)
+**Improvement dispatched:** No — troll death is RNG. System is performing well otherwise.
+
+---
+
+## Episode 26 → 27 — IMPROVEMENT (Memory Conflation + KB Turn Numbers) — Result Update
+**Result:** IMPROVED — Cross-episode memory disclaimer fixed the rug puzzle regression (ep26: failed, ep27: solved). Agent reached cellar at turn 35 (score 40). KB turn numbers untested (no KB generated in ep27). Memory synthesis "mechanics not state" rule applied but needs more episodes to evaluate.
+
+---
+
+| Episode | Score | vs Prev | Best So Far | Turns to 1st Score | Locations | KB Quality | End Reason |
+|---------|-------|---------|-------------|-------------------|-----------|------------|------------|
+| ep18 | 25(35) | +10 | 35 | 18 | 12 | good | death t41 |
+| ep19 | 15 | -10 | 35 | 38 | 13 | good | max_turns |
+| ep20 | 10 | -5 | 35 | 4 | 5 | good | killed t49 |
+| ep21 | 5 | -5 | 35 | 5 | 6 | noise | killed t25 |
+| ep22 | 15 | +10 | 35 | 39 | 9 | strategic | killed t76 |
+| ep23 | 30(40) | +15 | 40 | 5 | 11 | strategic | death t27 |
+| ep24 | 45 | +5 | 45 | 8 | 20 | strategic | max_turns |
+| ep25 | 30(40) | -15 | 45 | 6 | 10 | strategic | death t40 |
+| ep26 | 10 | -20 | 45 | 36 | 12 | turn_nums | max_turns |
+| ep27 | 30(40) | +20 | 45 | 7 | 11 | none | death t46 |
+
+**Trend:** System reliably reaches score 40 (cellar) — 5 of last 6 episodes hit 40+. Troll is the bottleneck: 4 deaths, 1 survival. Best score 45 (ep24) when troll survived. Memory conflation fix restored rug puzzle solving after ep26 regression. Next: need either (1) better troll survival rate, or (2) alternate path past troll, or (3) deposit egg in trophy case before going underground.
+
+---
+
+## Episode 28 — COMPLETE (DIED at turn 92 — underground)
+**Turns:** 92
+**Final score:** 35/350 (peak 45, -10 death penalty)
+**Locations visited:** 22 unique (2nd most ever)
+**Objectives found:** 15
+**End reason:** game_over_death (died underground, likely grue/lantern)
+**Key achievements:**
+  - Troll killed (turns 46-49) — 2nd successful kill
+  - Deep underground exploration: Dam, Dam_Base, Dam_Lobby, Maintenance Room, Reservoir_South, Stream_View
+  - Found wrench in Maintenance Room (turn 71)
+  - KB generated WITHOUT turn numbers — prompt fix confirmed working
+  - Memory conflation fix confirmed — rug puzzle solved (turns 41-42)
+**Key problems:**
+  - Spent 20+ turns in Maintenance/Dam_Lobby trying to fix pipe and press buttons instead of using wrench on Dam bolt
+  - Died late (turn 92) — possibly lantern ran out (80-turn lifespan)
+  - Map fix not active yet (ep28 started before fix)
+**Cross-episode data:** KB 2906 chars (no turn numbers!), 33 memories/14 locations, 25-room merged map
+**Map bug fix:** MapGraph int conversion bug fixed and committed. Map now merges across episodes.
+
+---
+
+| Episode | Score | vs Prev | Best So Far | Turns to 1st Score | Locations | KB Quality | End Reason |
+|---------|-------|---------|-------------|-------------------|-----------|------------|------------|
+| ep23 | 30(40) | +15 | 40 | 5 | 11 | strategic | death t27 |
+| ep24 | 45 | +5 | 45 | 8 | 20 | strategic | max_turns |
+| ep25 | 30(40) | -15 | 45 | 6 | 10 | strategic | death t40 |
+| ep26 | 10 | -20 | 45 | 36 | 12 | turn_nums | max_turns |
+| ep27 | 30(40) | +20 | 45 | 7 | 11 | none | death t46 |
+| ep28 | 35(45) | +5 | 45 | 11 | 22 | clean! | death t92 |
+
+**Trend:** System reliably reaches 40+ (6 of last 7 episodes). Troll killed in ep24 and ep28. KB quality now excellent (no turn numbers, strategic categories). Memory conflation fix working. Map bug fixed. Next priorities: (1) wrench → dam bolt connection, (2) lantern management for long episodes, (3) treasure deposit in trophy case.
+
+---
+
+## Episode 29 — COMPLETE (DIED at turn 54 — likely water flooding)
+**Turns:** 54
+**Final score:** 35/350 (peak 45, -10 death penalty)
+**Locations visited:** 17 unique
+**Objectives found:** 8
+**End reason:** game_over_death (died, likely from water flooding after pressing buttons)
+**Key achievements:**
+  - FASTEST EVER to cellar: score 40 at turn 20 (rug puzzle turns 17-18, cellar turn 20)
+  - Troll killed with 1 attack (turn 22!) — fastest ever
+  - Score 45 at turn 28 (fastest ever to 45)
+  - Found wrench at turn 43, took screwdriver turn 46
+  - Tried "turn bolt with wrench" at turn 52 — RIGHT IDEA, wrong room (Dam_Lobby not Dam)
+**Key problems:**
+  - Pressed blue/yellow/brown buttons in Maintenance (turns 40-42) — blue button causes flooding
+  - Used wrench in Dam_Lobby instead of Dam (agent didn't navigate south to Dam first)
+  - Died from flooding (turn 54) after examining water at Dam_Lobby
+**Notes:** Memory from ep24/28 about wrench partially working — agent knows to get wrench and try bolt, but doesn't navigate to the Dam to use it. The Dam is south of Dam_Lobby. Need agent to recognize the bolt is at the Dam, not Dam_Lobby.
+**Objective completion fix:** Applied but not active yet (ep29 started before fix). Will take effect in ep30.
+
+---
+
+| Episode | Score | vs Prev | Best So Far | Turns to 1st Score | Locations | KB Quality | End Reason |
+|---------|-------|---------|-------------|-------------------|-----------|------------|------------|
+| ep23 | 30(40) | +15 | 40 | 5 | 11 | strategic | death t27 |
+| ep24 | 45 | +5 | 45 | 8 | 20 | strategic | max_turns |
+| ep25 | 30(40) | -15 | 45 | 6 | 10 | strategic | death t40 |
+| ep26 | 10 | -20 | 45 | 36 | 12 | turn_nums | max_turns |
+| ep27 | 30(40) | +20 | 45 | 7 | 11 | none | death t46 |
+| ep28 | 35(45) | +5 | 45 | 11 | 22 | clean! | death t92 |
+| ep29 | 35(45) | 0 | 45 | 8 | 17 | clean | death t54 |
+
+**Trend:** System reliably reaches 45 (troll killed) in ~28 turns. Deaths are now from underground hazards (flooding, grue) rather than troll. Wrench→dam bolt connection is close but agent uses wrench in wrong room. Map merging active, KB clean (no turn numbers). Next: agent needs to navigate from Dam_Lobby south to Dam before using wrench on bolt.
+
+---
+
+## Episode 30 — Turn 25 Checkpoint
+**Type:** CONCERN
+**Score:** 15/350 (delta: +15 since start)
+**Locations visited:** 9 total (9 new)
+**Avg critic score:** 0.67
+**Rejection rate:** 5/25 turns had rejections (20%)
+**Gameplay quality:** LEARNING
+  - Memory use: Agent references memories well — turn 26 reasoning cites "Previous episode memories confirm the dark staircase..." and turn 31 references memory about rug puzzle state
+  - KB alignment: KB mentions trophy case, lantern, sword — agent collected all. But agent doesn't deposit egg in trophy case before going underground despite KB listing it as a score item
+  - Objective quality: 2 well-formed / 7 total — 5 objectives already completed but not cleared (rug, tree, trophy case, staircase, west passage)
+  - Objective pursuit: Agent follows objectives (entered staircase, explored west passage) but completion check not clearing them
+  - Learning system quality: KB is strategic (score changes, puzzle mechanics, items) — clean, no turn numbers. Memories actionable.
+**Triggers:** Stale objectives (5/7 already completed)
+**Notes:** Agent progressing efficiently — egg at turn 6, house at turn 16, rug at turn 22, gear at turn 25. Objective completion fix may not be triggering frequently enough.
+
+---
+
+## Episode 30 — COMPLETE (DIED at turn 36 — troll combat)
+**Turns:** 36
+**Final score:** 30/350 (peak 40, -10 death penalty)
+**Locations visited:** 12 unique
+**Objectives found:** 7
+**End reason:** game_over_death (troll killed agent at turn 36)
+**Key achievements:**
+  - Egg at turn 6, house entry at turn 16, rug puzzle at turn 22, cellar at turn 33
+  - Agent referenced cross-episode memories correctly throughout
+  - KB clean and strategic (3199 chars, no turn numbers)
+**Key problems:**
+  - 4th troll death in last 8 episodes (ep23, ep25, ep27, ep30)
+  - Agent carries egg underground but never deposits it in trophy case first
+  - 5/7 objectives stale — completion check not clearing them
+**Improvement dispatched:** Yes — agent prompt: treasure management strategy
+
+---
+
+| Episode | Score | vs Prev | Best So Far | Turns to 1st Score | Locations | KB Quality | End Reason |
+|---------|-------|---------|-------------|-------------------|-----------|------------|------------|
+| ep24 | 45 | +5 | 45 | 8 | 20 | strategic | max_turns |
+| ep25 | 30(40) | -15 | 45 | 6 | 10 | strategic | death t40 |
+| ep26 | 10 | -20 | 45 | 36 | 12 | turn_nums | max_turns |
+| ep27 | 30(40) | +20 | 45 | 7 | 11 | none | death t46 |
+| ep28 | 35(45) | +5 | 45 | 11 | 22 | clean! | death t92 |
+| ep29 | 35(45) | 0 | 45 | 8 | 17 | clean | death t54 |
+| ep30 | 30(40) | -5 | 45 | 6 | 12 | clean | death t36 |
+
+**Trend:** Best score stuck at 45 for 7 episodes. Agent reliably reaches 40 (cellar) but troll survival is ~43% (3 kills / 7 encounters). When troll is survived, agent explores deep underground but dies to other hazards (flooding, grue). Two improvements needed: (1) deposit egg in trophy case before underground to bank points, (2) better treasure management overall. The agent never puts the egg away — it could score 5 bonus points per episode by depositing it.
+
+---
+
+## Episode 30 → 31 — IMPROVEMENT
+**Type:** INCREMENTAL
+**Trigger:** Agent never deposits treasures before entering dangerous areas (7 consecutive episodes, ep24-ep30)
+**Change:** Added "TREASURE MANAGEMENT — BANK BEFORE RISK" section to `prompts/agent.md`, placed immediately before EXPLORATION STRATEGY for high visibility. Teaches: deposit valuable items in known safe storage before entering dangerous/unexplored areas. Includes when-to-deposit triggers (carrying scored item + about to enter danger), how-to-deposit syntax, and when-to-skip exceptions.
+**Reasoning:** The agent reliably picks up the egg (+5pts) and opens the trophy case, but never connects the two actions. The KB contains both facts but the agent prompt had no strategic principle about preserving progress. This is game-agnostic — any text adventure with treasures and dangerous areas benefits from banking valuables before risk.
+**Target metric:** Agent should attempt `put [treasure] in [container]` at least once before going underground in ep31
+**Result:** PENDING
+
+---
