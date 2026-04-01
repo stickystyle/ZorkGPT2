@@ -70,16 +70,18 @@ def update_objectives(state: State, client: instructor.Instructor, config: GameC
 
 @action(
     reads=[S.DISCOVERED_OBJECTIVES, S.COMPLETED_OBJECTIVES, S.GAME_RESPONSE,
-           S.ACTION_TO_TAKE, S.TURN_COUNT, S.SCORE],
+           S.ACTION_TO_TAKE, S.TURN_COUNT, S.SCORE, S.PRE_SCORE],
     writes=[S.DISCOVERED_OBJECTIVES, S.COMPLETED_OBJECTIVES],
 )
 def check_objective_completion(state: State, client: instructor.Instructor, config: GameConfig) -> tuple[dict, State]:
     objectives = state[S.DISCOVERED_OBJECTIVES]
     if not objectives:
         return {"completed": []}, state
+    score_delta = state[S.SCORE] - state[S.PRE_SCORE]
     user_msg = (
         f"Active objectives: {objectives}\n\nAction taken: {state[S.ACTION_TO_TAKE]}\n"
         f"Game response: {state[S.GAME_RESPONSE][:500]}\nCurrent score: {state[S.SCORE]}"
+        f" (changed by {score_delta:+d} this turn)"
     )
     try:
         response: ObjectiveCompletionResponse = client.create(

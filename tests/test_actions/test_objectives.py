@@ -38,7 +38,7 @@ def test_check_completion_marks_done():
         S.DISCOVERED_OBJECTIVES: ["Open the mailbox", "Find treasure"],
         S.COMPLETED_OBJECTIVES: [],
         S.GAME_RESPONSE: "Opening the mailbox reveals a leaflet.",
-        S.ACTION_TO_TAKE: "open mailbox", S.TURN_COUNT: 5, S.SCORE: 5,
+        S.ACTION_TO_TAKE: "open mailbox", S.TURN_COUNT: 5, S.SCORE: 5, S.PRE_SCORE: 0,
     })
     _, new_state = check_objective_completion.run(
         state, client=mock_client, config=MagicMock()
