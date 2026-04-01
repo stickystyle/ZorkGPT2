@@ -4,7 +4,7 @@ import logging
 import instructor
 from burr.core import action, State
 from zorkburr.config import GameConfig
-from zorkburr.llm.client import effective_model, nothink_prefix, thinking_kwargs
+from zorkburr.llm.client import effective_model, nothink_prefix
 from zorkburr.llm.models import AgentResponse
 from zorkburr.llm.prompts import load_prompt
 from zorkburr.state import S
@@ -58,7 +58,6 @@ def generate_action(state: State, client: instructor.Instructor, config: GameCon
             temperature=config.default_temperature,
             max_tokens=config.default_max_tokens,
             max_retries=3,
-            **thinking_kwargs(config, use_thinking),
         )
         action_text = clean_action(response.action)
         reasoning = response.thinking

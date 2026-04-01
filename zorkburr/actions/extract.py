@@ -6,7 +6,7 @@ from zorkburr.actions import action
 from burr.core import State
 from zorkburr.config import GameConfig
 from zorkburr.game.jericho_interface import JerichoInterface
-from zorkburr.llm.client import effective_model, nothink_prefix, thinking_kwargs
+from zorkburr.llm.client import effective_model, nothink_prefix
 from zorkburr.llm.models import ExtractorResponse
 from zorkburr.llm.prompts import load_prompt
 from zorkburr.state import S
@@ -54,7 +54,6 @@ def extract_info(state: State, client: instructor.Instructor, jericho: JerichoIn
             temperature=0.0,
             max_tokens=128,
             max_retries=2,
-            **thinking_kwargs(config, False),
         )
         in_combat = response.in_combat
         is_room_description = response.is_room_description

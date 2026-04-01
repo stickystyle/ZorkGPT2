@@ -10,7 +10,7 @@ from zorkburr.app import build_turn_app
 from zorkburr.config import GameConfig
 from zorkburr.game.jericho_interface import JerichoInterface
 from zorkburr.llm.client import create_llm_client
-from zorkburr.llm.mlx_server import MlxServer
+from zorkburr.llm.llama_server import LlamaServer
 from zorkburr.state import S
 
 logging.basicConfig(
@@ -98,7 +98,7 @@ def main():
         sys.exit(1)
 
     if config.use_local_models:
-        with MlxServer(config):
+        with LlamaServer(config):
             _run_episodes(config, args)
     else:
         _run_episodes(config, args)

@@ -20,8 +20,6 @@ dependencies = [
     "pydantic>=2.11.0",
     "pydantic-settings>=2.11.0",
     "python-dotenv>=1.0.0",
-    "mlx-lm>=0.31.1",
-    "huggingface-hub[cli]>=1.8.0",
 ]
 
 [project.optional-dependencies]
@@ -39,7 +37,11 @@ pythonpath = ["."]
 max_turns_per_episode = 1000
 turn_delay_seconds = 0.0
 use_local_models = true
-local_model = "mlx-community/Qwen3-14B-8bit"
+local_model = "models/Qwen3.5-35B-A3B-Q4_K_M.gguf"
+llama_server_path = "llama-server"
+context_size = 8192
+n_gpu_layers = -1
+n_parallel = 1
 local_base_url = "http://localhost:8887/v1"
 agent_model = "qwen/qwen3-14b"
 critic_model = "qwen/qwen3-14b"

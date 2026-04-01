@@ -59,7 +59,7 @@ def test_check_completion_no_objectives():
     assert result["completed"] == []
 
 
-def test_update_objectives_passes_thinking_extra_body():
+def test_update_objectives_no_extra_body_for_local():
     mock_client = MagicMock()
     mock_client.create.return_value = ObjectiveDiscoveryResponse(objectives=[], completed=[])
     state = State({
@@ -71,7 +71,7 @@ def test_update_objectives_passes_thinking_extra_body():
         state, client=mock_client, config=_mock_config(use_local_models=True), use_thinking=True
     )
     call_kwargs = mock_client.create.call_args.kwargs
-    assert call_kwargs.get("extra_body") == {"thinking": True}
+    assert "extra_body" not in call_kwargs
 
 
 def test_update_objectives_no_extra_body_on_openrouter():

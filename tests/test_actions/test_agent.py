@@ -69,7 +69,7 @@ def test_generate_action_fallback_on_error():
     )
     assert new_state[S.PROPOSED_ACTION] == "look"  # Safe fallback
 
-def test_generate_action_passes_thinking_extra_body_when_local():
+def test_generate_action_no_extra_body_for_local():
     mock_client = MagicMock()
     mock_client.create.return_value = AgentResponse(
         thinking="deep reasoning", action="north", new_objective=""
@@ -85,7 +85,7 @@ def test_generate_action_passes_thinking_extra_body_when_local():
         state, client=mock_client, config=_mock_config(use_local_models=True), use_thinking=True
     )
     call_kwargs = mock_client.create.call_args.kwargs
-    assert call_kwargs.get("extra_body") == {"thinking": True}
+    assert "extra_body" not in call_kwargs
 
 def test_generate_action_no_extra_body_on_openrouter():
     mock_client = MagicMock()

@@ -52,10 +52,14 @@ class GameConfig(BaseSettings):
     openrouter_api_key: str = Field(default="", alias="OPENROUTER_API_KEY")
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
 
-    # Local models
+    # Local models (llama-server)
     use_local_models: bool = Field(default=False, alias="USE_LOCAL_MODELS")
-    local_model: str = "mlx-community/Qwen3-14B-MLX-8bit"
+    local_model: str = "models/Qwen3.5-35B-A3B-Q4_K_M.gguf"
     local_base_url: str = "http://localhost:8080/v1"
+    llama_server_path: str = "llama-server"
+    context_size: int = 8192
+    n_gpu_layers: int = -1
+    n_parallel: int = 1
 
     # Game
     max_turns_per_episode: int = 1000

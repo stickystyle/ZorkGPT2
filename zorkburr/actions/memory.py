@@ -7,7 +7,7 @@ from zorkburr.actions import action
 from zorkburr.actions.episode import persist_memories
 from burr.core import State
 from zorkburr.config import GameConfig
-from zorkburr.llm.client import effective_model, nothink_prefix, thinking_kwargs
+from zorkburr.llm.client import effective_model, nothink_prefix
 from zorkburr.llm.models import MemorySynthesisResponse
 from zorkburr.state import S
 
@@ -82,7 +82,6 @@ def record_memory(state: State, client: instructor.Instructor, config: GameConfi
                 {"role": "user", "content": context},
             ],
             temperature=0.5, max_tokens=512, max_retries=2,
-            **thinking_kwargs(config, False),
         )
         if response.should_remember:
             mem = Memory(

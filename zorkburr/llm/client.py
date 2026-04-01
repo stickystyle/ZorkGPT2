@@ -14,9 +14,6 @@ from zorkburr.config import GameConfig
 
 logger = logging.getLogger(__name__)
 
-THINKING_ACTIONS = frozenset({"generate_action", "update_objectives", "update_knowledge"})
-
-
 class _TimedInstructor:
     """Proxy that adds a total wall-clock timeout to instructor's create() calls.
 
@@ -75,13 +72,6 @@ class _TimedInstructor:
 
     def __getattr__(self, name):
         return getattr(self._client, name)
-
-
-def thinking_kwargs(config: GameConfig, use_thinking: bool) -> dict:
-    """Return extra_body for Qwen3 think toggle on local runs; empty dict on OpenRouter."""
-    if config.use_local_models:
-        return {"extra_body": {"thinking": use_thinking}}
-    return {}
 
 
 def nothink_prefix(config: GameConfig, use_thinking: bool) -> str:

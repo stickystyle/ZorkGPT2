@@ -14,7 +14,7 @@ from zorkburr.app import build_turn_app
 from zorkburr.config import GameConfig
 from zorkburr.game.jericho_interface import JerichoInterface
 from zorkburr.llm.client import create_llm_client
-from zorkburr.llm.mlx_server import MlxServer
+from zorkburr.llm.llama_server import LlamaServer
 from zorkburr.state import S
 
 
@@ -140,7 +140,7 @@ def _run(config: GameConfig, max_turns: int, episode_id: str) -> None:
 def run_episode(max_turns: int, episode_id: str) -> None:
     config = GameConfig()
     if config.use_local_models:
-        with MlxServer(config):
+        with LlamaServer(config):
             _run(config, max_turns, episode_id)
     else:
         _run(config, max_turns, episode_id)

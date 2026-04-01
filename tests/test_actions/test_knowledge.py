@@ -51,7 +51,7 @@ def test_update_knowledge_fallback_on_error():
     assert new_state[S.KNOWLEDGE_BASE] == "existing"
 
 
-def test_update_knowledge_passes_thinking_extra_body():
+def test_update_knowledge_no_extra_body_for_local():
     mock_client = MagicMock()
     mock_raw = MagicMock()
     mock_client.client = mock_raw
@@ -64,7 +64,7 @@ def test_update_knowledge_passes_thinking_extra_body():
         _base_state(), client=mock_client, config=_mock_config(use_local_models=True), use_thinking=True
     )
     call_kwargs = mock_raw.chat.completions.create.call_args.kwargs
-    assert call_kwargs.get("extra_body") == {"thinking": True}
+    assert "extra_body" not in call_kwargs
 
 
 def test_update_knowledge_no_extra_body_on_openrouter():
