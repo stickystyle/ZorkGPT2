@@ -1094,3 +1094,63 @@ Started: 2026-03-30
 **Result:** PENDING
 
 ---
+
+## Episode 22 — Turn 25 Checkpoint
+**Type:** CONCERN — score 5, agent mapping house exterior but not entering
+**Score:** 5/350 (delta: +5 from egg turn 5, then 0 for 20 turns)
+**Locations:** 7 unique (added West_House vs ep21)
+**Avg critic:** 0.59, **Rejection rate:** 4/25 (16%)
+**Notes:** Agent visited Behind_House at turn 10 but thought window "already completed" from cross-episode memory. Tried "open window" at North_House (wrong location, boarded). Structural entry fix partially working.
+
+## Episode 22 — Turn 50 Checkpoint
+**Type:** HEALTHY (improving) — agent entered house at turn 39
+**Score:** 15/350 (delta: +10 since turn 25 — house entry at turn 39)
+**Locations visited:** 8 total, 7 in this block (Behind_House, Clearing, Forest, Forest_Path, Kitchen, Living_)
+**Avg critic score:** 0.53
+**Rejection rate:** 5/25 (20%) — healthy
+**Gameplay quality:** DRIFTING
+  - Memory use: Agent at Behind_House (turn 36) used structural entry point fix — tried "enter window" then "open window" then entered. Cross-episode memory conflation still an issue (thought entry "already completed" at turn 10).
+  - KB alignment: No KB loaded (cleared stale one). New KB should be generated at next knowledge_update_interval.
+  - Objective quality: Not checked (monitoring)
+  - Objective pursuit: Agent entered house but left again at turn 47 without getting lantern/sword. Now in Forest.
+**Triggers:** None — score improving. Monitoring to turn 75.
+**Notes:** Structural entry fix confirmed working (turns 37-39). Agent sequence: enter window (fail, closed) → open window → enter window (success, +10). But agent left house after only 4 turns inside without equipping. The "Exits Before Objects" rule may have pulled it out through the Kitchen exit before it could get lantern/sword from Living Room.
+
+---
+
+## Episode 22 — Turn 75 Checkpoint (killed for improvement)
+**Type:** URGENT — score stagnant for 2 consecutive checkpoints, agent trapped in forest
+**Score:** 15/350 (delta: +0 since turn 50, 0 since turn 39 when house entry scored)
+**Locations visited (turns 51-75):** 4 (Clearing, Forest, Forest_Path, Up_a_Tree) — only forest
+**Avg critic score:** 0.58
+**Rejection rate:** 6/25 (24%)
+**Gameplay quality:** IGNORING
+  - Memory use: Agent has memories for Kitchen, Living Room, Attic but never returns to house
+  - KB alignment: No KB (cleared stale one, new one not yet generated within 75 turns)
+  - Objective quality: Not checked — agent stuck in exploration loop
+  - Objective pursuit: Zero alignment with any useful objective for 25 turns
+  - Learning system quality: KB not generated yet. Memories exist but agent doesn't leverage them for return visits.
+**Triggers:** Score stagnant 2 consecutive checkpoints (0 + 0 delta)
+**Root cause:** "Exits Before Objects" rule is too aggressive. Agent enters rooms, maps exits, immediately leaves without collecting items. In house: Kitchen → Living Room → back to Kitchen → outside in 4 turns. Never took lantern, sword, or other items. The rule prevents "take" actions during exit-mapping, so agent just maps exits breadth-first and collects nothing.
+**Notes:** The structural entry fix worked (agent entered via window at turn 39). But exits-before-objects prevents item collection. Agent needs to take portable items WHILE mapping exits.
+
+---
+
+## Episode 22 — COMPLETE (killed at turn 76)
+**Turns:** 76
+**Final score:** 15/350
+**Locations visited:** 9 unique
+**End reason:** early_stop (killed for improvement)
+**Notes:** Structural entry fix confirmed working. KB format fix untested (KB not regenerated). Exits Before Objects still too aggressive.
+
+---
+
+## Episode 22 → 23 — IMPROVEMENT
+**Type:** INCREMENTAL
+**Trigger:** Score stagnant 2 checkpoints (exits-before-objects too aggressive, agent never collects items)
+**Change:** Softened "HARD RULE — Exits Before Objects" in prompts/agent.md to "Exits First, But Collect Along the Way" — a phased approach (try 1-2 exits → take visible portable items → finish mapping exits). Also softened "Forced Movement When Stuck" to allow a quick `take` action before forcing movement. Updated exploration strategy summary to match.
+**Reasoning:** The hard rule forced the agent to map ALL exits before ANY item interaction, causing it to race through rooms (Kitchen → Living Room → Kitchen → outside in 4 turns) without collecting lantern, sword, or other critical items. ep18 (before aggressive rule) scored 35; ep22 (with aggressive rule) scored only 15 and got stuck in a 29-turn forest loop. The new phased approach preserves exploration priority while allowing item collection in the same visit.
+**Target metric:** Agent should take portable items on first visit to rooms; score should exceed 15 within 50 turns
+**Result:** PENDING
+
+---

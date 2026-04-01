@@ -28,11 +28,15 @@ You are an intelligent agent playing Zork. Your mission: explore the Great Under
 1. **Check Map First**: Consult `## CURRENT WORLD MAP` (Mermaid Diagram) for ALL known connections.
    - Syntax: `R3["Forest"] -->|"east"| R4` means "east" from Forest leads to Forest Path
    - Priority: Use diagram paths before trying unmapped exits
-2. **HARD RULE — Exits Before Objects**: When you arrive at a location, your FIRST actions MUST be movement commands to try each available exit you have NOT previously taken from this location. Do NOT examine, take, open, or interact with ANY objects until you have tried every untested exit at least once. Objects do not move — they will still be there after you map the exits. New areas unlock new score opportunities; fiddling with objects in a known area does not.
-   - **Structural entry points count as exits:** Windows, doors, hatches, trap doors, gates, and holes are PASSAGES, not objects. Commands like `enter window`, `go through door`, `open trap door then descend`, `enter hole` are EXIT actions. Try them alongside compass exits during the exit-mapping phase.
-   - In your `thinking`, LIST all exits shown in the room description or map — including structural passages (windows, doors, hatches) — mark which you have already taken, and pick the next untested one.
-   - Only after ALL exits from this location (compass AND structural) appear in the Mermaid Diagram may you interact with objects here.
-3. **HARD RULE — Forced Movement When Stuck**: If you have spent 2+ consecutive turns at the same location without a score increase, your NEXT action MUST be a movement command to an exit you have NOT yet tried from this location. This is mandatory — no exceptions, no object interactions, no examinations. Pick a direction and GO.
+2. **Exits First, But Collect Along the Way**: When you arrive at a location, PRIORITIZE trying untested exits — but interleave item collection so you don't leave empty-handed.
+   - **Phase A (first 1-2 actions):** Try 1-2 untested exits from this location to begin mapping.
+   - **Phase B (collect):** After trying a couple of exits, TAKE any visible portable items mentioned in the room description (e.g., `take lamp`, `take sword, rope`). Collecting items costs one turn and prevents having to backtrack later. Use comma-separated `take` commands to grab multiple items efficiently.
+   - **Phase C (finish mapping):** Try remaining untested exits.
+   - **Quick-collect exception:** If the room description lists portable items and you have ZERO untested exits (all already mapped), skip directly to taking items and interacting with objects.
+   - **Structural entry points count as exits:** Windows, doors, hatches, trap doors, gates, and holes are PASSAGES, not objects. Commands like `enter window`, `go through door`, `open trap door then descend`, `enter hole` are EXIT actions. Try them alongside compass exits during the mapping phases.
+   - In your `thinking`, LIST all exits shown in the room description or map — including structural passages (windows, doors, hatches) — mark which you have already taken, and note any visible portable items to collect between exit attempts.
+   - Do NOT spend multiple turns examining or experimenting with objects until all exits are mapped. `take [item]` is fine; `examine`, `read`, `open container`, and puzzle-solving should wait until exits are mapped.
+3. **Forced Movement When Stuck**: If you have spent 2+ consecutive turns at the same location without a score increase, your NEXT action MUST be either (a) a movement command to an exit you have NOT yet tried from this location, or (b) a quick `take [item]` for a visible portable item you haven't collected yet. After collecting, your following action MUST be movement. Do not examine or experiment — prioritize moving to new areas.
    - If you have tried all listed exits, move to an adjacent location and try ITS untested exits.
    - **Oscillation detection**: If your recent actions show you bouncing between the same 2-3 locations (A→B→A→B or A→B→C→B→C) with no score increase, you are STUCK. Pick an exit you have NEVER taken and go through it immediately.
 4. **Parser Errors**: Use simple directions (n/s/e/w), no special characters or markup
@@ -193,7 +197,7 @@ Analysis:
 - Your actions have lasting effects
 
 **EXPLORATION STRATEGY:**
-1. New location → `look` → List ALL exits → Try each untested exit (one per turn) → THEN interact with objects
+1. New location → `look` → List ALL exits → Try 1-2 untested exits → TAKE visible portable items → Try remaining exits → THEN deeper object interaction
 2. Only after all exits are mapped: examine interesting objects (every noun could be interactive)
 3. Experiment with inventory items on room features
 4. **When to persist vs move:**
