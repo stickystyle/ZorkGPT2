@@ -43,11 +43,18 @@ def assemble_context(state: State) -> tuple[dict, State]:
     loc_id = state[S.LOCATION_ID]
     memories = state[S.MEMORIES_BY_LOCATION]
     loc_key = str(loc_id)
-    if loc_key in memories:
+    has_any_memories = loc_key in memories and memories[loc_key]
+    if has_any_memories:
         loc_mems = memories[loc_key]
-        if loc_mems:
-            mem_lines = [f"  - {m.get('text', str(m))}" for m in loc_mems[:10]]
-            sections.append("**Memories for this location:**\n" + "\n".join(mem_lines))
+        mem_lines = [f"  - {m.get('text', str(m))}" for m in loc_mems[:10]]
+        sections.append(
+            "**Memories for this location (from PREVIOUS episodes):**\n"
+            "NOTE: The game resets completely each episode — doors close, items return "
+            "to original positions, puzzles reset. Use these as guidance for WHAT TO DO, "
+            "not as current state. If a memory says \"opened trap door\", you must open "
+            "it again — it is NOT currently open.\n"
+            + "\n".join(mem_lines)
+        )
 
     # Adjacent room memories (1-hop neighbors from map)
     map_data = state[S.MAP_DATA]
@@ -74,7 +81,7 @@ def assemble_context(state: State) -> tuple[dict, State]:
                 cat = m.get("category", "")
                 text = m.get("text", m.get("title", str(m)))
                 adj_lines.append(f"  - [{cat}] ({direction} — {neighbor_name}): {text}")
-            sections.append("**Nearby memories (adjacent rooms):**\n" + "\n".join(adj_lines))
+            sections.append("**Nearby memories (adjacent rooms, from PREVIOUS episodes — state has reset):**\n" + "\n".join(adj_lines))
 
     objectives = state[S.DISCOVERED_OBJECTIVES]
     if objectives:

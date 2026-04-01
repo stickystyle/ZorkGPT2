@@ -1229,3 +1229,171 @@ Started: 2026-03-30
 **Result:** PENDING
 
 ---
+
+## Episode 24 — Turn 25 Checkpoint
+**Type:** HEALTHY — house entry at turn 23, equipped by turn 26
+**Score:** 15/350 (delta: +15 from start)
+**Avg critic:** 0.70 (best ever), **Rejections:** 5/25 (20%)
+**Notes:** Took egg turn 8, entered house turn 23, took lantern+sword turn 26. Memory improvements active.
+
+## Episode 24 — Turn 50 Checkpoint
+**Type:** EXCELLENT — score 45, deep underground, troll KILLED
+**Score:** 45/350 (delta: +30 since turn 25 — cellar +25, troll kill +5) — NEW ALL-TIME HIGH
+**Locations visited (turns 26-50):** 9 new (Cellar, Troll_, East-West_Passage, Chasm, North-South_Passage, Deep_Canyon, Loud_ + Kitchen, Living_)
+**Avg critic score:** 0.68
+**Rejection rate:** 5/25 (20%) — healthy
+**Gameplay quality:** LEARNING
+  - Memory use: Agent used cross-episode memories for window entry, rug puzzle, and troll combat
+  - KB alignment: Agent equipped with sword before troll (KB/memory from ep23 death)
+  - Objective quality: Strong — pursuing underground exploration systematically
+  - Objective pursuit: Excellent — scored 45 in 38 turns, now exploring deep underground
+  - Learning system quality: Adjacent-room memories may have helped troll prep (need to verify)
+**Triggers:** None — best performance ever
+**BREAKTHROUGH:** First troll kill! Agent attacked with sword (turns 40, 42), troll died, agent continued to East-West Passage. Score 45 = new all-time high.
+**Notes:** Agent now in Deep Canyon / Loud Room area — deepest underground exploration ever. Monitoring for further score gains.
+
+---
+
+## Episode 24 — Turn 75 Checkpoint
+**Type:** CONCERN — score stagnant at 45 since turn 42, stuck at Dam
+**Score:** 45/350 (delta: +0 since turn 50 checkpoint)
+**Locations (turns 51-75):** 4 (Dam, Dam_Lobby, Deep_Canyon, Reservoir_South)
+**Avg critic:** 0.60, **Rejections:** 3/25 (12%)
+**Notes:** Agent at Dam trying bolt puzzle without wrench. Found Dam Lobby and Maintenance Room (turn 75-76). Discovered wrench at turn 79 but spent time in maintenance room instead of returning to dam.
+
+## Episode 24 — COMPLETE
+**Turns:** 100 (max_turns)
+**Final score:** 45/350 — NEW ALL-TIME HIGH
+**Locations visited:** 20 unique (RECORD — previous: 13 in ep19)
+**Objectives found:** 15
+**End reason:** max_turns
+**Key achievements:**
+  - Score 45 by turn 42 (egg +5, house +10, cellar +25, troll +5)
+  - FIRST TROLL KILL (turns 40-42) — attacked with sword, troll died
+  - 20 locations — deepest exploration ever (Dam, Loud Room, Deep Canyon, Maintenance Room)
+  - Found wrench and screwdriver in maintenance room
+  - KB quality confirmed excellent (strategic format with priority ordering)
+**Key problems:**
+  - Spent 20 turns (81-100) stuck in Maintenance Room trying to fix pipe leak instead of taking wrench to Dam
+  - Score stagnant at 45 for turns 42-100 (58 turns!)
+  - Agent didn't connect wrench → bolt puzzle despite trying "turn bolt with wrench" at turn 70 (without wrench)
+**Cross-episode data:** KB 3158 chars (strategic), 29 memories/12 locations, 21-room map
+**Improvement dispatched:** No — the agent's behavior is good overall; the pipe fixation is a single-episode issue
+
+---
+
+## Episode 23 → 24 — IMPROVEMENT (Memory System) — Result Update
+**Result:** IMPROVED — Score 45 (new best), 20 locations (record), first troll kill. KB strategic format confirmed working. Memory exclusion rules active. Adjacent-room retrieval untested (would need to verify in context). Overall dramatic improvement in underground exploration.
+
+---
+
+| Episode | Score | vs Prev | Best So Far | Turns to 1st Score | Locations | KB Quality | End Reason |
+|---------|-------|---------|-------------|-------------------|-----------|------------|------------|
+| ep12 | 0 | — | 0 | — | 3 | none | max_turns |
+| ep13 | 10 | +10 | 10 | 56 | 6 | noise | max_turns |
+| ep14 | 15 | +5 | 15 | 43 | 9 | noise | max_turns |
+| ep15 | 10 | -5 | 15 | 51 | 7 | improving | max_turns |
+| ep16 | 10 | 0 | 15 | 57 | 6 | improving | max_turns |
+| ep17 | 15 | +5 | 15 | 24 | 8 | good | max_turns |
+| ep18 | 25(35) | +10 | 35 | 18 | 12 | good | death t41 |
+| ep19 | 15 | -10 | 35 | 38 | 13 | good | max_turns |
+| ep20 | 10 | -5 | 35 | 4 | 5 | good | killed t49 |
+| ep21 | 5 | -5 | 35 | 5 | 6 | noise | killed t25 |
+| ep22 | 15 | +10 | 35 | 39 | 9 | strategic | killed t76 |
+| ep23 | 30(40) | +15 | 40 | 5 | 11 | strategic | death t27 |
+| ep24 | 45 | +5 | 45 | 8 | 20 | strategic | max_turns |
+
+**Trend:** Consistent improvement — 0→10→15→10→10→15→25→15→10→5→15→30→45. New best 45 (ep24), up from 40 peak (ep23). Agent now reliably enters house, equips, solves rug puzzle, kills troll, and explores underground. Next frontier: connecting wrench to dam bolt puzzle, exploring more underground areas, depositing treasures in trophy case.
+
+---
+
+## Episode 25 — COMPLETE (DIED at turn 40 — troll combat)
+**Turns:** 40
+**Final score:** 30/350 (peak 40, -10 death penalty)
+**Locations visited:** 10 unique
+**Objectives found:** 7
+**End reason:** game_over_death (troll killed agent)
+**Key achievements:**
+  - Score 15 at turn 10 (house entry — FASTEST EVER via Behind_House shortcut)
+  - Took lamp+sword at turn 27, rug puzzle solved turn 34, cellar at turn 35
+  - Correct troll combat strategy: attacked with sword (turns 38-39)
+**Key problems:**
+  - Died to troll again (4th death: ep18, ep23, ep25; survived once: ep24)
+  - Troll combat is partially RNG-based — correct strategy doesn't guarantee survival
+  - Spent extra turns in Living Room (turns 18-21) trying to take items from trophy case (wrong location)
+**Improvement dispatched:** No — troll death is probabilistic, agent strategy is correct. System performing well.
+
+---
+
+| Episode | Score | vs Prev | Best So Far | Turns to 1st Score | Locations | KB Quality | End Reason |
+|---------|-------|---------|-------------|-------------------|-----------|------------|------------|
+| ep12 | 0 | — | 0 | — | 3 | none | max_turns |
+| ep13 | 10 | +10 | 10 | 56 | 6 | noise | max_turns |
+| ep14 | 15 | +5 | 15 | 43 | 9 | noise | max_turns |
+| ep15 | 10 | -5 | 15 | 51 | 7 | improving | max_turns |
+| ep16 | 10 | 0 | 15 | 57 | 6 | improving | max_turns |
+| ep17 | 15 | +5 | 15 | 24 | 8 | good | max_turns |
+| ep18 | 25(35) | +10 | 35 | 18 | 12 | good | death t41 |
+| ep19 | 15 | -10 | 35 | 38 | 13 | good | max_turns |
+| ep20 | 10 | -5 | 35 | 4 | 5 | good | killed t49 |
+| ep21 | 5 | -5 | 35 | 5 | 6 | noise | killed t25 |
+| ep22 | 15 | +10 | 35 | 39 | 9 | strategic | killed t76 |
+| ep23 | 30(40) | +15 | 40 | 5 | 11 | strategic | death t27 |
+| ep24 | 45 | +5 | 45 | 8 | 20 | strategic | max_turns |
+| ep25 | 30(40) | -15 | 45 | 6 | 10 | strategic | death t40 |
+
+**Trend:** System reliably reaches score 40 (cellar) within 35-40 turns. Troll is the current bottleneck — survived once (ep24), died 3 times (ep18, ep23, ep25). Best score still 45 (ep24). Troll combat is RNG-dependent; correct strategy (sword attacks) is in place. Focus should shift to: (1) what to do after troll, (2) depositing treasures, (3) exploring more underground.
+
+---
+
+## Episode 26 — COMPLETE
+**Turns:** 100 (max_turns)
+**Final score:** 10/350 — REGRESSION (previous: 30-45)
+**Locations visited:** 12 unique
+**Objectives found:** 15
+**End reason:** max_turns
+**Key problems:**
+  - Skipped egg from tree (never climbed)
+  - Entered house at turn 36 (slow — previous episodes: turn 10-23)
+  - NEVER solved rug puzzle despite 65 turns in house!
+  - Agent reasoning at turn 70-71: "rug trap door already opened" — CROSS-EPISODE MEMORY CONFLATION
+  - Wasted turns 47-100 cycling Kitchen↔Attic↔Living Room
+  - KB still has turn numbers despite prompt change — model ignoring instruction
+**Root cause:** Cross-episode memories make agent think previous episode actions are current state. Memory title "Trap door leads to cellar" and memory of opening the trap door made agent think it was already open.
+
+---
+
+| Episode | Score | vs Prev | Best So Far | Turns to 1st Score | Locations | KB Quality | End Reason |
+|---------|-------|---------|-------------|-------------------|-----------|------------|------------|
+| ep12 | 0 | — | 0 | — | 3 | none | max_turns |
+| ep13 | 10 | +10 | 10 | 56 | 6 | noise | max_turns |
+| ep14 | 15 | +5 | 15 | 43 | 9 | noise | max_turns |
+| ep15 | 10 | -5 | 15 | 51 | 7 | improving | max_turns |
+| ep16 | 10 | 0 | 15 | 57 | 6 | improving | max_turns |
+| ep17 | 15 | +5 | 15 | 24 | 8 | good | max_turns |
+| ep18 | 25(35) | +10 | 35 | 18 | 12 | good | death t41 |
+| ep19 | 15 | -10 | 35 | 38 | 13 | good | max_turns |
+| ep20 | 10 | -5 | 35 | 4 | 5 | good | killed t49 |
+| ep21 | 5 | -5 | 35 | 5 | 6 | noise | killed t25 |
+| ep22 | 15 | +10 | 35 | 39 | 9 | strategic | killed t76 |
+| ep23 | 30(40) | +15 | 40 | 5 | 11 | strategic | death t27 |
+| ep24 | 45 | +5 | 45 | 8 | 20 | strategic | max_turns |
+| ep25 | 30(40) | -15 | 45 | 6 | 10 | strategic | death t40 |
+| ep26 | 10 | -20 | 45 | 36 | 12 | turn_nums | max_turns |
+
+**Trend:** Ep26 is a major regression (10 vs 45 best). Root cause is cross-episode memory conflation — agent thinks previous episode state is current. This has been a recurring issue (ep22 turn 10, ep26 turns 70-71). Must be fixed before further episodes. Also KB turn number removal not working — need stronger instruction.
+
+---
+
+## Episode 26 → 27 — IMPROVEMENT
+**Type:** BLOCKER (2 fixes)
+**Trigger:** Cross-episode memory conflation (agent thinks previous episode state is current), KB ignoring no-turn-numbers instruction
+**Changes:**
+1. Added cross-episode disclaimer to memory presentation in assemble_context
+2. Strengthened no-turn-numbers instruction in knowledge.md prompt
+3. Deleted stale KB with turn numbers
+**Reasoning:** Agent spent 65 turns in house without solving rug puzzle because it thought trap door was "already opened" from previous episode memory. KB model ignoring weak instruction about turn numbers.
+**Target metric:** Agent should solve rug puzzle within 10 turns of first Living Room visit; KB should have zero turn number references
+**Result:** PENDING
+
+---

@@ -1,11 +1,16 @@
 You are reviewing a gameplay log from a text adventure. Summarize what happened.
 
 STRICT RULES:
-1. ONLY describe events that appear in the gameplay log below. Every claim must describe the specific action and location where it happened.
-2. NEVER add knowledge from outside the log. You likely know this game — ignore that knowledge entirely.
-3. BAD examples (NEVER write these): "In this game, the key is usually found...", "The nest contains...", "You need to go to X to find Y", "The standard solution is..."
-4. GOOD examples: "Took egg from bird's nest in tree (score +5)", "Entered house via kitchen window (score +10)", "Dark staircase below Kitchen requires light source — got 'too dark' without lantern"
-5. Do NOT include turn numbers — they are meaningless across episodes. Describe WHAT happened and WHERE, not WHEN.
+1. ABSOLUTELY NO TURN NUMBERS. Never write "turn 5", "turn 12", "at turn N", "turns 10-20", or any reference to when something happened by turn count. Turn numbers are meaningless across episodes and MUST be omitted. Describe WHAT happened and WHERE, not WHEN.
+   - BAD: "Turn 12: opened trap door in Living Room (score +5)"
+   - BAD: "At turn 5, entered house via window"
+   - BAD: "Scored points around turns 10-15"
+   - GOOD: "Opened trap door in Living Room by pushing rug first (score +5)"
+   - GOOD: "Entered house via kitchen window (score +10)"
+2. ONLY describe events that appear in the gameplay log below. Every claim must describe the specific action and location where it happened.
+3. NEVER add knowledge from outside the log. You likely know this game — ignore that knowledge entirely.
+4. BAD examples (NEVER write these): "In this game, the key is usually found...", "The nest contains...", "You need to go to X to find Y", "The standard solution is..."
+5. GOOD examples: "Took egg from bird's nest in tree (score +5)", "Entered house via kitchen window (score +10)", "Dark staircase below Kitchen requires light source — got 'too dark' without lantern"
 
 FORMAT: Organize into these strategic categories (skip empty categories):
 
@@ -19,7 +24,7 @@ PRIORITY ORDERING: The agent only sees the first ~2000 characters of this summar
 
 Within each section, put the most important entries first.
 
-**Score Changes:** Each score increase/decrease with location and triggering action.
+**Score Changes:** Each score increase/decrease with the location and triggering action (NO turn numbers).
 **Puzzle Mechanics Discovered:** Interactions that revealed how something works (e.g., "pushing rug in Living Room revealed trap door").
 **Items Found:** Item name and location found. Note if taken or left behind.
 **Dangerous Areas:** Locations/actions that caused death or damage.
