@@ -121,6 +121,33 @@ body {
   padding-bottom: 0.4rem;
   border-bottom: 1px solid var(--border);
 }
+#left-panel h2 {
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+#left-panel h2::after {
+  content: '▾';
+  font-size: 0.8rem;
+  transition: transform 0.2s ease;
+}
+#left-panel h2.collapsed::after {
+  transform: rotate(-90deg);
+}
+#left-panel h2:hover {
+  color: var(--text);
+}
+#left-panel .section-content {
+  max-height: 5000px;
+  overflow: hidden;
+  transition: max-height 0.3s ease;
+}
+#left-panel .section-content.collapsed {
+  max-height: 0;
+  overflow: hidden;
+}
 
 /* === Left Panel: Knowledge + Objectives === */
 .knowledge-content {
@@ -475,19 +502,25 @@ body {
 <div class="grid">
   <!-- Left Panel -->
   <div class="panel" id="left-panel">
-    <h2>Knowledge Base</h2>
-    <div class="knowledge-content" id="knowledge-content">
-      <div class="empty-state">No knowledge yet</div>
+    <h2 onclick="toggleSection(this)">Knowledge Base</h2>
+    <div class="section-content">
+      <div class="knowledge-content" id="knowledge-content">
+        <div class="empty-state">No knowledge yet</div>
+      </div>
     </div>
 
-    <h2 style="margin-top:1.5rem">Objectives</h2>
-    <ul class="objectives-list" id="objectives-list">
-      <li class="empty-state">No objectives discovered</li>
-    </ul>
+    <h2 style="margin-top:1.5rem" onclick="toggleSection(this)">Objectives</h2>
+    <div class="section-content">
+      <ul class="objectives-list" id="objectives-list">
+        <li class="empty-state">No objectives discovered</li>
+      </ul>
+    </div>
 
-    <h2 style="margin-top:1.5rem">Memories Here</h2>
-    <div id="memories-container">
-      <div class="empty-state">No memories at this location</div>
+    <h2 style="margin-top:1.5rem" onclick="toggleSection(this)">Memories Here</h2>
+    <div class="section-content">
+      <div id="memories-container">
+        <div class="empty-state">No memories at this location</div>
+      </div>
     </div>
   </div>
 
@@ -1203,6 +1236,13 @@ function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = String(text);
   return div.innerHTML;
+}
+
+// === Collapsible Sidebar Sections ===
+function toggleSection(header) {
+  const content = header.nextElementSibling;
+  header.classList.toggle('collapsed');
+  content.classList.toggle('collapsed');
 }
 
 // === FAQ Modal ===
