@@ -1359,10 +1359,12 @@ async function poll() {
   if (data) renderState(data);
 }
 
-// Initial load
-loadEpisodeIndex();
-poll();
-setInterval(poll, POLL_INTERVAL);
+// Initial load — episode index must resolve before first poll
+// so that getHighScore() and renderHighScoreProgression() have data
+loadEpisodeIndex().then(() => {
+  poll();
+  setInterval(poll, POLL_INTERVAL);
+});
 // Refresh episode list every 30s
 setInterval(loadEpisodeIndex, 30000);
 
