@@ -9,9 +9,18 @@ from burr.core import State
 from zorkburr.config import GameConfig
 from zorkburr.llm.client import effective_model, thinking_kwargs
 from zorkburr.llm.models import MemorySynthesisResponse
+from zorkburr.llm.prompts import load_prompt
 from zorkburr.state import S
 
 logger = logging.getLogger(__name__)
+
+_synthesis_prompt: str | None = None
+
+def _get_synthesis_prompt() -> str:
+    global _synthesis_prompt
+    if _synthesis_prompt is None:
+        _synthesis_prompt = load_prompt("memory_synthesis")
+    return _synthesis_prompt
 
 @dataclass
 class Memory:
@@ -32,17 +41,6 @@ class Memory:
 
 def should_synthesize(score_delta: int, location_changed: bool, died: bool) -> bool:
     return score_delta != 0 or location_changed or died
-
-_SYNTHESIS_PROMPT = """You are a memory synthesizer for an AI playing Zork I.
-Given an action and its outcome, decide if this is worth remembering.
-
-Rules:
-- DO remember: object interactions, dangers, puzzle mechanics, item discoveries, score-earning actions
-- DO NOT remember: simple movement between rooms, looking around, exits/directions (tracked by map)
-- Memories are stored at the SOURCE location (where the action was taken)
-
-If should_remember=true, provide category, memory_title (3-6 words), memory_text (1-2 sentences), persistence (core|permanent|ephemeral), status (ACTIVE|TENTATIVE).
-"""
 
 @action(
     reads=[S.PRE_LOCATION_ID, S.PRE_LOCATION_NAME, S.PRE_SCORE, S.PRE_INVENTORY,
@@ -78,7 +76,7 @@ def record_memory(state: State, client: instructor.Instructor, config: GameConfi
             model=effective_model(config, config.memory_model),
             response_model=MemorySynthesisResponse,
             messages=[
-                {"role": "system", "content": _SYNTHESIS_PROMPT},
+                {"role": "system", "content": _get_synthesis_prompt()},
                 {"role": "user", "content": context},
             ],
             temperature=0.5, max_tokens=512, max_retries=2,

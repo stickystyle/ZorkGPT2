@@ -7,18 +7,25 @@ from burr.core import State
 from zorkburr.config import GameConfig
 from zorkburr.llm.models import ObjectiveDiscoveryResponse, ObjectiveCompletionResponse
 from zorkburr.llm.client import effective_model, thinking_kwargs
+from zorkburr.llm.prompts import load_prompt
 from zorkburr.state import S
 
 logger = logging.getLogger(__name__)
 
-_DISCOVERY_PROMPT = """You are analyzing a Zork I game session to discover objectives.
-Based on the recent gameplay, identify 1-5 actionable objectives the player should pursue.
-Objectives should be specific and achievable (e.g., "Open the trapdoor" not "Win the game").
-"""
+_discovery_prompt: str | None = None
+_completion_prompt: str | None = None
 
-_COMPLETION_PROMPT = """Given the most recent action and response in Zork I, determine which objectives (if any) have been completed.
-Only mark objectives as completed if there is clear evidence in the game response.
-"""
+def _get_discovery_prompt() -> str:
+    global _discovery_prompt
+    if _discovery_prompt is None:
+        _discovery_prompt = load_prompt("objective_discovery")
+    return _discovery_prompt
+
+def _get_completion_prompt() -> str:
+    global _completion_prompt
+    if _completion_prompt is None:
+        _completion_prompt = load_prompt("objective_completion")
+    return _completion_prompt
 
 @action(
     reads=[S.DISCOVERED_OBJECTIVES, S.COMPLETED_OBJECTIVES, S.ACTION_HISTORY,
@@ -39,7 +46,7 @@ def update_objectives(state: State, client: instructor.Instructor, config: GameC
         response: ObjectiveDiscoveryResponse = client.create(
             model=effective_model(config, config.analysis_model),
             response_model=ObjectiveDiscoveryResponse,
-            messages=[{"role": "system", "content": _DISCOVERY_PROMPT}, {"role": "user", "content": user_msg}],
+            messages=[{"role": "system", "content": _get_discovery_prompt()}, {"role": "user", "content": user_msg}],
             temperature=0.7, max_tokens=256, max_retries=2,
             **thinking_kwargs(config, False),
         )
@@ -77,7 +84,7 @@ def check_objective_completion(state: State, client: instructor.Instructor, conf
     try:
         response: ObjectiveCompletionResponse = client.create(
             model=effective_model(config, config.analysis_model), response_model=ObjectiveCompletionResponse,
-            messages=[{"role": "system", "content": _COMPLETION_PROMPT}, {"role": "user", "content": user_msg}],
+            messages=[{"role": "system", "content": _get_completion_prompt()}, {"role": "user", "content": user_msg}],
             temperature=0.0, max_tokens=256, max_retries=2,
             **thinking_kwargs(config, False),
         )
