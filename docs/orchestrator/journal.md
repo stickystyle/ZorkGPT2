@@ -982,3 +982,115 @@ Started: 2026-03-30
 **Summary:** System went from 0 score / 72% rejection rate (ep12) to 35 score / 20% rejection rate (ep18) through 6 targeted improvements. The "Exits Before Objects" rule was the breakthrough — it cut exploration time dramatically. The agent now reliably enters the house by turn 25, equips itself, and in ep18 solved the rug→trap door→cellar puzzle organically for the first time. Next session priorities: (1) ensure agent exploits cross-episode memories to go underground consistently, (2) test trophy case deposit with parser fix, (3) survive troll combat.
 
 ---
+
+## New Session — 2026-04-01
+**Continuing from:** ep19 (completed, score 15/350, 13 locations, 100 turns).
+**Best ever:** ep18 (score 35/350 peak, died at turn 41 from troll combat).
+**Infrastructure:** llama-server with Qwen3.5-35B-A3B-Q4_K_M.gguf, Burr tracker on 7241.
+**Cross-episode data:** KB from ep19 (turn-cited, decontaminated), 10 locations with 20 memories.
+**Priorities:** (1) Underground access via rug puzzle — agent should use cross-episode memories, (2) Trophy case deposit with parser short name rule, (3) Troll survival.
+**Episode counter:** Starting at ep20.
+
+---
+
+## Episode 20 — Turn 25 Checkpoint
+**Type:** CONCERN — score 10 by turn 4 (fastest ever!), but stuck in Kitchen looking for light
+**Score:** 10/350 (delta: +10 — scored at turn 4, house entry via open window)
+**Locations visited:** 5 unique (South_House, Behind_House, Kitchen, Living_, Attic) — house-focused
+**Avg critic score:** 0.50 — borderline
+**Rejection rate:** 10/25 (40%) — above 30%. Two -1.0 rejection spirals (turns 19, 21: "take X from sack" blocked by object tree validator)
+**Gameplay quality:** DRIFTING
+  - Memory use: KB from ep19 loaded (cross-episode working). Agent references grue danger from Attic visit. BUT agent ignoring KB — KB doesn't mention Kitchen light sources, agent searching Kitchen for light anyway.
+  - KB alignment: KB is ep19 data (3447 chars), describes forest/clearing exploration. Not relevant to house interior — no guidance on lantern location (correctly, since project thesis = learn through experience).
+  - Objective quality: 3 well-formed / 5 total. "Light a source" is vague but actionable. "Examine staircase" and "examine trophy case" are good.
+  - Objective pursuit: Agent pursuing "find light" objective actively but in wrong location (Kitchen has no light — lantern is in Living Room). Agent visited Living Room at turns 5-6 and 15 but only examined trophy case.
+**Triggers:** Rejection rate 40% > 30%, avg critic 0.50 (borderline). Score NOT stagnant yet (first checkpoint).
+**Notable:** Agent went south from start → Behind_House → opened window → Kitchen in 4 turns. Best ever exploration start. Cross-episode memories working (grue awareness). But "Exits Before Objects" rule partially undermined — agent moved through Living Room quickly without examining objects, so missed lantern.
+**Notes:** Not dispatching improvement. Agent may find lantern naturally. Monitoring to turn 50.
+
+---
+
+## Episode 20 — Turn 49 Checkpoint (final — process killed)
+**Type:** CONCERN — score stagnant at 10 for 25 turns, but agent solving puzzles
+**Score:** 10/350 (delta: +0 since turn 25 checkpoint)
+**Locations visited:** 5 unique (4 in this block — Attic, Behind_House, Kitchen, Living_)
+**Avg critic score:** 0.61
+**Rejection rate:** 2/25 (8%) — excellent, down from 40% in first block
+**Gameplay quality:** LEARNING
+  - Memory use: STRONG — at turn 46, agent explicitly referenced cross-episode memory: "Memory shows I already opened trap door under rug for 25 points." This directly led to solving rug puzzle.
+  - KB alignment: KB from ep19 loaded (3447 chars). Not directly relevant to house puzzles but agent using it as context.
+  - Objective quality: 1 well-formed / 4 total. "Investigate nailed-shut door" led to 5 wasted turns (door is unsolvable). "Enter the trophy case" is nonsensical. "Examine staircase" already done.
+  - Objective pursuit: Agent pursued door objective (turns 41-45) then pivoted to rug exploration.
+  - Learning system quality: KB from ep19 is strategic (turn-cited). Memories actionable — rug/trap door memory directly triggered puzzle solution.
+**Triggers:** Score stagnant across 2 checkpoints (0 delta both times after initial +10)
+**Notes:** Agent wasted 5 turns trying to break the nailed-shut gothic door (unsolvable puzzle at this stage). Then brilliantly used cross-episode memory to solve rug → push rug → open trap door. Was about to descend underground ("light lamp, down" proposed at turn 49) when process was killed externally. Objective quality is a problem — vague/impossible objectives wasting turns.
+
+---
+
+## Episode 20 — COMPLETE (killed externally at turn 49)
+**Turns:** 49 (process killed)
+**Final score:** 10/350
+**Locations visited:** 5 unique
+**Objectives found:** 4
+**End reason:** early_stop (process killed by user)
+**Key achievements:**
+  - Score 10 by turn 4 (FASTEST EVER — house entry via south → behind_house → window)
+  - Cross-episode memory worked: agent referenced trap door memory at turn 46
+  - Solved rug puzzle organically: examine rug → lift rug → push rug → open trap door (turns 46-49)
+  - Was about to descend underground with lit lantern at turn 49
+  - Rejection rate dropped from 40% (turns 1-25) to 8% (turns 25-49)
+**Key problems:**
+  - Wasted 5 turns on unsolvable door puzzle (turns 41-45)
+  - Objective quality poor: vague/impossible objectives
+  - Score stagnant at 10 for 45 turns after initial house entry
+**Cross-episode data:** Recovered from Burr tracker (KB 3447 chars, 21 memories/10 locations, 19-room map)
+**Improvement dispatched:** No — agent was performing well, just killed before scoring
+
+---
+
+| Episode | Score | vs Prev | Best So Far | Turns to 1st Score | Locations | KB Quality | End Reason |
+|---------|-------|---------|-------------|-------------------|-----------|------------|------------|
+| ep12 | 0 | — | 0 | — | 3 | none | max_turns |
+| ep13 | 10 | +10 | 10 | 56 | 6 | noise | max_turns |
+| ep14 | 15 | +5 | 15 | 43 | 9 | noise | max_turns |
+| ep15 | 10 | -5 | 15 | 51 | 7 | improving | max_turns |
+| ep16 | 10 | 0 | 15 | 57 | 6 | improving | max_turns |
+| ep17 | 15 | +5 | 15 | 24 | 8 | good | max_turns |
+| ep18 | 25(35) | +10 | 35 | 18 | 12 | good | death t41 |
+| ep19 | 15 | -10 | 35 | 38 | 13 | good | max_turns |
+| ep20 | 10 | -5 | 35 | 4 | 5 | good | killed t49 |
+
+**Trend:** Best score hasn't improved since ep18 (35 pts). Ep20 showed fastest house entry ever (turn 4) and successful cross-episode memory use for rug puzzle, but was killed before going underground. Scores declining from ep18 peak — need to reach underground consistently. Next episode (ep21) should benefit from all ep20's learning if cross-episode data is intact.
+
+---
+
+## Episode 21 — Turn 25 Checkpoint (killed at turn 25 for improvement)
+**Type:** URGENT — agent stuck in forest loop, never entered house
+**Score:** 5/350 (delta: +5 from egg at turn 4, then 0 for 21 turns)
+**Locations visited:** 6 unique (North_House, Forest_Path, Up_a_Tree, Clearing, Forest, Behind_House)
+**Avg critic score:** 0.58
+**Rejection rate:** 8/25 (32%) — above 30%
+**Gameplay quality:** IGNORING
+  - Memory use: Agent at Behind_House (turn 11) has 4 memories about the window ("Behind House Window Found", "Entered White House via Window") but reasoning shows NO reference to them. Instead followed Exits Before Objects rule: "my first actions must be movement commands to try each available exit" — tried n, then east, left without entering window.
+  - KB alignment: KB is noise — 3447 chars of meta-commentary and movement logs ("Turn 1: Examined the area West of House; noted a small mailbox"). Zero strategic content. Agent cannot align with something useless.
+  - Objective quality: 0 well-formed / 5 total. All forest-focused ("explore forest east", "investigate song bird", "search for path south"). None reference house entry, underground, or scoring.
+  - Objective pursuit: Agent stuck pursuing forest objectives, cycling Forest↔Clearing for turns 8-25.
+  - Learning system quality: KB <5% strategic (entirely movement logs). Memories exist and are good but agent overridden by hard rule.
+**Triggers:**
+  1. KB noise (BLOCKER): KB >500 chars, <5% strategic. Prompt format ("List events by turn number") produces movement logs instead of insights.
+  2. Memory ignored: Agent visited Behind_House with 4 window memories but hard rule prevented window entry.
+  3. Score stagnant: 0 delta for 21 turns.
+  4. Objective quality: 0/5 well-formed.
+**Notes:** Two root causes: (1) knowledge.md prompt FORMAT instruction produces movement logs not strategic insights, (2) Exits Before Objects rule treats windows/doors/trap doors as objects, not exits — so agent tries all compass exits then leaves without entering through structural features. Both must be fixed.
+
+---
+
+## Episode 21 → 22 — IMPROVEMENT
+**Type:** BLOCKER + INCREMENTAL
+**Trigger:** KB noise (<5% strategic content — prompt format "List events by turn number" produces movement logs), Exits Before Objects rule excludes structural entry points (windows, doors, hatches treated as objects, not exits)
+**Change:** (1) Rewrote FORMAT section in prompts/knowledge.md: replaced chronological movement log format with strategic categories (Score Changes, Puzzle Mechanics, Items Found, Dangerous Areas, Failed Approaches, Unexplored Leads). Kept decontamination rules (turn citations required, no outside knowledge). (2) Amended Exits Before Objects rule in prompts/agent.md: added explicit sub-rule that structural entry points (windows, doors, hatches, trap doors, gates, holes) count as EXIT actions and must be tried during exit-mapping phase alongside compass exits. Updated thinking instruction to include structural passages in exit listing.
+**Reasoning:** KB was producing 3447 chars of movement logs ("Turn 1: Examined the area West of House") with zero strategic content. Strategic categories force the LLM to extract actionable insights (score triggers, puzzle mechanics, dangers) instead of chronological movement narration. The Exits Before Objects rule was the most impactful improvement ever (cut house discovery from 40 to 11 turns) but had a blind spot: structural passages like the Behind_House window were classified as "objects" and deferred, causing the agent to leave Behind_House without entering through the window despite having 4 cross-episode memories about it.
+**Target metric:** KB should produce >50% strategic content (score changes, puzzle mechanics, items, dangers). Agent should enter house via window within 15 turns of episode start.
+**Result:** PENDING
+
+---
