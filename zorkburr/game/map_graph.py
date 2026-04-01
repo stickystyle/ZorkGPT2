@@ -78,7 +78,7 @@ class MapGraph:
     def to_dict(self) -> dict:
         return {
             "rooms": {str(k): v for k, v in self.rooms.items()},
-            "connections": {str(k): v for k, v in self.connections.items()},
+            "connections": {str(k): {d: int(dest) for d, dest in v.items()} for k, v in self.connections.items()},
             "confidence": {f"{k[0]}:{k[1]}": v for k, v in self.connection_confidence.items()},
             "failures": {f"{k[0]}:{k[1]}": v for k, v in self.exit_failures.items()},
         }
@@ -89,7 +89,7 @@ class MapGraph:
         mg.rooms = {int(k): v for k, v in data.get("rooms", {}).items()}
         for room_str, exits in data.get("connections", {}).items():
             for direction, dest_id in exits.items():
-                mg.connections[int(room_str)][direction] = dest_id
+                mg.connections[int(room_str)][direction] = int(dest_id)
         for key, count in data.get("confidence", {}).items():
             room_str, direction = key.split(":", 1)
             mg.connection_confidence[(int(room_str), direction)] = count
