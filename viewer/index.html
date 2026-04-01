@@ -1108,7 +1108,7 @@ function renderScoreChart(scores, highScore) {
   const graphH = h - padding * 2;
 
   // High-water mark line (draw first so score line renders on top)
-  if (highScore && highScore > 0) {
+  if (highScore > 0) {
     const markY = h - padding - (highScore / max) * graphH;
     ctx.save();
     ctx.strokeStyle = 'rgba(212, 160, 23, 0.6)';
@@ -1119,11 +1119,12 @@ function renderScoreChart(scores, highScore) {
     ctx.lineTo(padding + graphW, markY);
     ctx.stroke();
     ctx.setLineDash([]);
-    // Label
+    // Label (left-aligned, clamped to avoid clipping above canvas)
     ctx.fillStyle = 'rgba(212, 160, 23, 0.8)';
     ctx.font = '16px monospace';
-    ctx.textAlign = 'right';
-    ctx.fillText(`Best: ${highScore}`, w - padding, markY - 4);
+    ctx.textAlign = 'left';
+    const labelY = Math.max(markY - 4, padding + 14);
+    ctx.fillText(`Best: ${highScore}`, padding, labelY);
     ctx.restore();
   }
 
