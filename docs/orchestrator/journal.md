@@ -1154,3 +1154,78 @@ Started: 2026-03-30
 **Result:** PENDING
 
 ---
+
+## Episode 23 — Turn 25 Checkpoint
+**Type:** HEALTHY — excellent progress, score 40 by turn 25
+**Score:** 40/350 (delta: +40 from start — egg +5, house +10, cellar +25)
+**Locations visited:** 8+ unique (West_House, North_House, Forest_Path, Up_a_Tree, Clearing, Forest, Behind_House, Kitchen, Living_, Cellar)
+**Avg critic score:** ~0.70
+**Rejection rate:** Low (~4/25)
+**Gameplay quality:** LEARNING
+  - Memory use: Agent used cross-episode memories for window entry and rug puzzle
+  - KB alignment: New KB format working (strategic categories, 2107 chars)
+  - Objective quality: Good — focused on house entry and underground access
+  - Objective pursuit: Excellent — scored 40 by turn 25
+  - Learning system quality: KB strategic format confirmed working
+**Triggers:** None — best checkpoint ever
+**Notes:** Softened exits rule confirmed working — agent took sword+lantern at turn 15 (first visit). Solved rug puzzle turns 17-23. Entered cellar turn 25.
+
+---
+
+## Episode 23 — COMPLETE (DIED at turn 27 — troll combat)
+**Turns:** 27
+**Final score:** 30/350 (peak 40, -10 death penalty)
+**Peak score:** 40/350 — NEW ALL-TIME HIGH (previous: 35 in ep18)
+**Locations visited:** 11 unique
+**Objectives found:** 4
+**End reason:** game_over_death (troll killed agent)
+**Key achievements:**
+  - Score 5 by turn 5 (egg), 15 by turn 13 (house), 40 by turn 25 (cellar) — fastest progression ever
+  - Took sword+lantern at turn 15 (FIRST VISIT to Living Room!) — softened rule working
+  - Solved rug puzzle by turn 23 (push rug → open trap door)
+  - Lit lantern at turn 24, descended cellar at turn 25
+  - 40 points in 25 turns = best efficiency ever (1.6 pts/turn)
+**Key problems:**
+  - Died from troll at turn 27 (same as ep18)
+  - Troll combat is consistently fatal — agent needs combat memories from cross-episode learning
+**Cross-episode data:** Saved — KB 2107 chars (new format), 27 memories/10 locations, 19-room map
+**Improvement dispatched:** Yes — implementing memory improvements plan (see next entry)
+
+---
+
+## Episode 22 → 23 — IMPROVEMENT (Soften Exits Before Objects) — Result Update
+**Result:** DRAMATICALLY IMPROVED — Peak score 40 (best ever), agent took sword+lantern on first Living Room visit. Exits-before-objects rule softening was the key change enabling item collection during exploration. Score 40 in 25 turns = best efficiency ever.
+
+---
+
+| Episode | Score | vs Prev | Best So Far | Turns to 1st Score | Locations | KB Quality | End Reason |
+|---------|-------|---------|-------------|-------------------|-----------|------------|------------|
+| ep12 | 0 | — | 0 | — | 3 | none | max_turns |
+| ep13 | 10 | +10 | 10 | 56 | 6 | noise | max_turns |
+| ep14 | 15 | +5 | 15 | 43 | 9 | noise | max_turns |
+| ep15 | 10 | -5 | 15 | 51 | 7 | improving | max_turns |
+| ep16 | 10 | 0 | 15 | 57 | 6 | improving | max_turns |
+| ep17 | 15 | +5 | 15 | 24 | 8 | good | max_turns |
+| ep18 | 25(35) | +10 | 35 | 18 | 12 | good | death t41 |
+| ep19 | 15 | -10 | 35 | 38 | 13 | good | max_turns |
+| ep20 | 10 | -5 | 35 | 4 | 5 | good | killed t49 |
+| ep21 | 5 | -5 | 35 | 5 | 6 | noise | killed t25 |
+| ep22 | 15 | +10 | 35 | 39 | 9 | strategic | killed t76 |
+| ep23 | 30(40) | +15 | 40 | 5 | 11 | strategic | death t27 |
+
+**Trend:** New best score 40 (ep23), up from 35 (ep18). Dramatic improvement from exits rule softening — agent now collects items during exploration. Score trajectory: 0→10→15→10→10→15→25→15→10→5→15→30. The ep21→23 KB format + structural entries + softened exits trifecta pushed score to new highs. Next frontier: surviving troll combat (killed in ep18 and ep23).
+
+---
+
+## Episode 23 → 24 — IMPROVEMENT
+**Type:** BLOCKER (memory system infrastructure)
+**Trigger:** User-requested memory improvements (3 changes)
+**Changes:**
+1. Memory synthesis exclusion rules — reduce low-value memories
+2. KB priority ordering — ensure highest-value insights reach agent first
+3. Adjacent-room memory retrieval — show nearby room memories in context
+**Reasoning:** Memory slots are limited (10 per location in context, 2000 chars KB). Current system wastes slots on trivial memories, doesn't prioritize KB content, and can't see adjacent room memories.
+**Target metric:** Fewer low-value memories, KB front-loads scoring insights, agent sees adjacent danger/success memories
+**Result:** PENDING
+
+---

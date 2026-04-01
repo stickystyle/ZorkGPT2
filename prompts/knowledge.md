@@ -8,6 +8,16 @@ STRICT RULES:
 
 FORMAT: Organize into these strategic categories (skip empty categories):
 
+PRIORITY ORDERING: The agent only sees the first ~2000 characters of this summary. Order sections by strategic value, not chronology:
+1. Score Changes (directly actionable — the agent needs to know what earns points)
+2. Puzzle Mechanics Discovered (unlocks progress)
+3. Dangerous Areas (prevents death/lost turns)
+4. Failed Approaches (prevents wasted turns)
+5. Items Found (supports puzzle solving)
+6. Unexplored Leads (lowest priority — exploration is the default behavior)
+
+Within each section, put the most important entries first.
+
 **Score Changes:** Each score increase/decrease with turn number, location, and triggering action.
 **Puzzle Mechanics Discovered:** Interactions that revealed how something works (e.g., "Turn 34: moving rug revealed trap door").
 **Items Found:** Item name, location found, turn number. Note if taken or left behind.
