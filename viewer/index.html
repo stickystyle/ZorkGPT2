@@ -1222,8 +1222,7 @@ function renderHighScoreProgression() {
   ctx.stroke();
 
   // Fill under the staircase
-  const lastX = padding + ((points.length - 1) / (points.length - 1)) * graphW;
-  ctx.lineTo(lastX, padding + graphH);
+  ctx.lineTo(padding + graphW, padding + graphH);
   ctx.lineTo(padding, padding + graphH);
   ctx.closePath();
   ctx.fillStyle = 'rgba(212, 160, 23, 0.08)';
