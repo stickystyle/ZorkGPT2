@@ -369,6 +369,13 @@ body {
   border-radius: 6px;
 }
 .score-chart canvas { width: 100%; height: 80px; }
+.highscore-chart {
+  padding: 0.5rem;
+  background: var(--bg-card);
+  border-radius: 6px;
+  margin-top: 0.5rem;
+}
+.highscore-chart canvas { width: 100%; height: 100px; }
 .map-stats {
   display: flex;
   gap: 1rem;
@@ -551,6 +558,11 @@ body {
       <canvas id="score-canvas" height="80"></canvas>
     </div>
 
+    <h2 style="margin-top:1rem">High Score Progression</h2>
+    <div class="highscore-chart">
+      <canvas id="highscore-canvas" height="100"></canvas>
+    </div>
+
     <h2 style="margin-top:1rem">Inventory</h2>
     <ul class="inventory-list" id="inventory-list">
       <li class="empty-state">Empty</li>
@@ -675,6 +687,7 @@ const mapContainer = document.getElementById('map-container');
 const roomCount = document.getElementById('room-count');
 const visitedCount = document.getElementById('visited-count');
 const scoreCanvas = document.getElementById('score-canvas');
+const highscoreCanvas = document.getElementById('highscore-canvas');
 const turnSliderContainer = document.getElementById('turn-slider-container');
 const turnSlider = document.getElementById('turn-slider');
 const turnSliderLabel = document.getElementById('turn-slider-label');
@@ -820,6 +833,7 @@ function renderState(data) {
   }
   const highScore = getHighScore(currentEpisodeId);
   renderScoreChart(scoreHistory, highScore);
+  renderHighScoreProgression();
 }
 
 function renderObjectives(discovered, completed) {
@@ -1155,6 +1169,89 @@ function renderScoreChart(scores, highScore) {
   ctx.fillText(scores[scores.length - 1], w - padding, padding + 22);
 }
 
+// === High Score Progression Chart ===
+function renderHighScoreProgression() {
+  const ctx = highscoreCanvas.getContext('2d');
+  const w = highscoreCanvas.width = highscoreCanvas.offsetWidth * 2;
+  const h = highscoreCanvas.height = 200;
+  ctx.clearRect(0, 0, w, h);
+
+  const episodes = cachedEpisodeIndex.episodes;
+  if (!episodes || episodes.length < 2) return;
+
+  // Sort chronologically (index may be reverse-chronological)
+  const sorted = [...episodes]
+    .filter(e => e.started_at)
+    .sort((a, b) => a.started_at.localeCompare(b.started_at));
+
+  if (sorted.length < 2) return;
+
+  // Compute running high score (staircase)
+  const points = [];
+  let runningMax = 0;
+  for (const ep of sorted) {
+    const s = ep.score || 0;
+    if (s > runningMax) runningMax = s;
+    points.push({ id: ep.episode_id, highScore: runningMax });
+  }
+
+  const max = Math.max(runningMax, 1);
+  const padding = 10;
+  const labelArea = 30;  // bottom space for episode labels
+  const graphW = w - padding * 2;
+  const graphH = h - padding - labelArea;
+
+  // Staircase line
+  ctx.strokeStyle = 'rgba(212, 160, 23, 0.9)';
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+
+  let prevY = null;
+  for (let i = 0; i < points.length; i++) {
+    const x = padding + (i / (points.length - 1)) * graphW;
+    const y = padding + graphH - (points[i].highScore / max) * graphH;
+    if (i === 0) {
+      ctx.moveTo(x, y);
+    } else {
+      // Staircase: horizontal to new X, then vertical to new Y
+      ctx.lineTo(x, prevY);
+      ctx.lineTo(x, y);
+    }
+    prevY = y;
+  }
+  ctx.stroke();
+
+  // Fill under the staircase
+  const lastX = padding + ((points.length - 1) / (points.length - 1)) * graphW;
+  ctx.lineTo(lastX, padding + graphH);
+  ctx.lineTo(padding, padding + graphH);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(212, 160, 23, 0.08)';
+  ctx.fill();
+
+  // Current high score label
+  ctx.fillStyle = '#ffd54f';
+  ctx.font = '22px monospace';
+  ctx.textAlign = 'right';
+  ctx.fillText(runningMax, w - padding, padding + 22);
+
+  // Episode ID labels on X-axis (show subset to avoid overlap)
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+  ctx.font = '14px monospace';
+  ctx.textAlign = 'center';
+  const maxLabels = Math.floor(graphW / 60);
+  const step = Math.max(1, Math.ceil(points.length / maxLabels));
+  for (let i = 0; i < points.length; i += step) {
+    const x = padding + (i / (points.length - 1)) * graphW;
+    ctx.fillText(points[i].id, x, h - 4);
+  }
+  // Always label the last one
+  if ((points.length - 1) % step !== 0) {
+    const x = padding + graphW;
+    ctx.fillText(points[points.length - 1].id, x, h - 4);
+  }
+}
+
 // === Episode Selector ===
 async function loadEpisodeIndex() {
   const index = await fetchEpisodeIndex();
@@ -1186,6 +1283,7 @@ async function loadEpisodeIndex() {
     episodeSelect.value = index.current_episode;
     currentEpisodeId = index.current_episode;
   }
+  renderHighScoreProgression();
 }
 
 episodeSelect.addEventListener('change', async () => {
