@@ -818,7 +818,8 @@ function renderState(data) {
     scoreHistory = recent_history.map(h => h.score || 0);
     scoreHistory.push(metadata.score);
   }
-  renderScoreChart(scoreHistory);
+  const highScore = getHighScore(currentEpisodeId);
+  renderScoreChart(scoreHistory, highScore);
 }
 
 function renderObjectives(discovered, completed) {
@@ -1093,7 +1094,7 @@ document.addEventListener('keydown', (e) => {
 });
 
 // === Score Chart ===
-function renderScoreChart(scores) {
+function renderScoreChart(scores, highScore) {
   const ctx = scoreCanvas.getContext('2d');
   const w = scoreCanvas.width = scoreCanvas.offsetWidth * 2;
   const h = scoreCanvas.height = 160;
@@ -1101,11 +1102,32 @@ function renderScoreChart(scores) {
 
   if (!scores || scores.length < 2) return;
 
-  const max = Math.max(...scores, 1);
+  const max = Math.max(...scores, highScore || 0, 1);
   const padding = 10;
   const graphW = w - padding * 2;
   const graphH = h - padding * 2;
 
+  // High-water mark line (draw first so score line renders on top)
+  if (highScore && highScore > 0) {
+    const markY = h - padding - (highScore / max) * graphH;
+    ctx.save();
+    ctx.strokeStyle = 'rgba(212, 160, 23, 0.6)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([6, 4]);
+    ctx.beginPath();
+    ctx.moveTo(padding, markY);
+    ctx.lineTo(padding + graphW, markY);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    // Label
+    ctx.fillStyle = 'rgba(212, 160, 23, 0.8)';
+    ctx.font = '16px monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText(`Best: ${highScore}`, w - padding, markY - 4);
+    ctx.restore();
+  }
+
+  // Score line
   ctx.strokeStyle = '#4fc3f7';
   ctx.lineWidth = 2;
   ctx.beginPath();
