@@ -55,14 +55,14 @@ def build_turn_app(
     })
 
     # Bind dependencies to actions
-    bound_agent = generate_action.bind(client=client, config=config, use_thinking=True)
+    bound_agent = generate_action.bind(client=client, config=config, use_thinking=False)
     bound_critic = evaluate_action.bind(llm=client, jericho=jericho, config=config)
     bound_execute = execute_action.bind(jericho=jericho)
     bound_extract = extract_info.bind(client=client, jericho=jericho, config=config)
     bound_memory = record_memory.bind(client=client, config=config)
     bound_completion = check_objective_completion.bind(client=client, config=config)
-    bound_objectives = update_objectives.bind(client=client, config=config, use_thinking=True)
-    bound_knowledge = update_knowledge.bind(client=client, config=config, use_thinking=True)
+    bound_objectives = update_objectives.bind(client=client, config=config, use_thinking=False)
+    bound_knowledge = update_knowledge.bind(client=client, config=config, use_thinking=False)
 
     threshold = config.critic_rejection_threshold
     max_rejections = config.max_rejections_per_turn

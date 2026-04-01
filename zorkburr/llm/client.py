@@ -23,11 +23,15 @@ class _TimedInstructor:
     httpx per-operation timeouts reset with each streamed chunk, so a server that
     streams one token every 30s will never trigger a 180s read timeout.  This wrapper
     runs the call in a thread and enforces a hard wall-clock limit.
+
+    On timeout, closes the underlying httpx connection pool so the next request
+    gets a fresh TCP connection (avoids the MLX server staying stuck on a stale one).
     """
 
-    def __init__(self, client: instructor.Instructor, timeout_seconds: int):
+    def __init__(self, client: instructor.Instructor, timeout_seconds: int, config: GameConfig):
         self._client = client
         self._timeout = timeout_seconds
+        self._config = config
 
     def create(self, **kwargs):
         with ThreadPoolExecutor(max_workers=1) as pool:
@@ -35,9 +39,34 @@ class _TimedInstructor:
             try:
                 return future.result(timeout=self._timeout)
             except FuturesTimeout:
+                self._reset_connection()
                 raise TimeoutError(
                     f"LLM request timed out after {self._timeout}s (total wall-clock)"
                 )
+
+    def _reset_connection(self):
+        """Close and recreate the underlying OpenAI client after a timeout."""
+        try:
+            self._client.client.close()
+            timeout = httpx.Timeout(60.0, connect=10.0)
+            if self._config.use_local_models:
+                http_client = httpx.Client(
+                    timeout=timeout,
+                    limits=httpx.Limits(max_keepalive_connections=0),
+                )
+                new_openai = OpenAI(
+                    base_url=self._config.local_base_url, api_key="local",
+                    http_client=http_client,
+                )
+            else:
+                new_openai = OpenAI(
+                    base_url=self._config.openrouter_base_url,
+                    api_key=self._config.openrouter_api_key, timeout=timeout,
+                )
+            self._client = instructor.from_openai(new_openai, mode=instructor.Mode.JSON)
+            logger.warning("Reset LLM client connection after timeout")
+        except Exception as e:
+            logger.error(f"Failed to reset LLM client: {e}")
 
     @property
     def client(self):
@@ -70,8 +99,14 @@ def effective_model(config: GameConfig, role_model: str) -> str:
 def create_llm_client(config: GameConfig) -> _TimedInstructor:
     timeout = httpx.Timeout(60.0, connect=10.0)
     if config.use_local_models:
+        # Disable keep-alive for local models — the MLX server can deadlock on
+        # reused connections.  Fresh TCP connection per request avoids this.
+        http_client = httpx.Client(
+            timeout=timeout,
+            limits=httpx.Limits(max_keepalive_connections=0),
+        )
         raw = instructor.from_openai(
-            OpenAI(base_url=config.local_base_url, api_key="local", timeout=timeout),
+            OpenAI(base_url=config.local_base_url, api_key="local", http_client=http_client),
             mode=instructor.Mode.JSON,
         )
     else:
@@ -79,4 +114,4 @@ def create_llm_client(config: GameConfig) -> _TimedInstructor:
             OpenAI(base_url=config.openrouter_base_url, api_key=config.openrouter_api_key, timeout=timeout),
             mode=instructor.Mode.JSON,
         )
-    return _TimedInstructor(raw, timeout_seconds=config.llm_request_timeout)
+    return _TimedInstructor(raw, timeout_seconds=config.llm_request_timeout, config=config)
