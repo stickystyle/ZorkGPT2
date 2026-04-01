@@ -7,15 +7,20 @@ from zorkburr.actions.episode import persist_knowledge
 from burr.core import State
 from zorkburr.config import GameConfig
 from zorkburr.state import S
-from zorkburr.llm.client import effective_model, nothink_prefix
+from zorkburr.llm.client import effective_model, thinking_kwargs
 
 logger = logging.getLogger(__name__)
 
-_KNOWLEDGE_PROMPT = """You are a strategic analyst for an AI playing Zork I.
-Analyze the recent gameplay and produce a concise strategic guide.
-Focus on: key discoveries, puzzle insights, dangerous areas, useful items, unexplored areas.
-Integrate with any existing knowledge — don't duplicate, update.
-Return the full updated strategic guide as markdown text (not JSON).
+_KNOWLEDGE_PROMPT = """You are reviewing a gameplay log from a text adventure. Summarize what happened.
+
+STRICT RULES:
+1. ONLY describe events that appear in the gameplay log below. Every claim must cite a turn number.
+2. NEVER add knowledge from outside the log. You likely know this game — ignore that knowledge entirely.
+3. BAD examples (NEVER write these): "In this game, the key is usually found...", "The nest contains...", "You need to go to X to find Y", "The standard solution is..."
+4. GOOD examples: "Turn 8: took egg from tree (score +5)", "Turns 40-43: entered house via window, score increased to 15", "Dark staircase at Kitchen requires light source (tried at turn 55, got 'too dark')"
+
+FORMAT: List events by turn number. Group by location. Note: score changes, items found, failed actions, areas not yet explored.
+Do NOT speculate about what the agent should do next or where items might be. Only record what happened.
 """
 
 @action(
@@ -39,8 +44,9 @@ def update_knowledge(state: State, client: instructor.Instructor, config: GameCo
         raw_client = client.client
         response = raw_client.chat.completions.create(
             model=effective_model(config, config.analysis_model),
-            messages=[{"role": "system", "content": nothink_prefix(config, False) + _KNOWLEDGE_PROMPT}, {"role": "user", "content": user_msg}],
+            messages=[{"role": "system", "content": _KNOWLEDGE_PROMPT}, {"role": "user", "content": user_msg}],
             temperature=0.7, max_tokens=1024,
+            **thinking_kwargs(config, False),
         )
         content = response.choices[0].message.content or ""
         persist_knowledge(content, config)

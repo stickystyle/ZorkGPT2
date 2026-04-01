@@ -6,7 +6,7 @@ from zorkburr.actions import action
 from burr.core import State
 from zorkburr.config import GameConfig
 from zorkburr.llm.models import ObjectiveDiscoveryResponse, ObjectiveCompletionResponse
-from zorkburr.llm.client import effective_model, nothink_prefix
+from zorkburr.llm.client import effective_model, thinking_kwargs
 from zorkburr.state import S
 
 logger = logging.getLogger(__name__)
@@ -39,8 +39,9 @@ def update_objectives(state: State, client: instructor.Instructor, config: GameC
         response: ObjectiveDiscoveryResponse = client.create(
             model=effective_model(config, config.analysis_model),
             response_model=ObjectiveDiscoveryResponse,
-            messages=[{"role": "system", "content": nothink_prefix(config, False) + _DISCOVERY_PROMPT}, {"role": "user", "content": user_msg}],
+            messages=[{"role": "system", "content": _DISCOVERY_PROMPT}, {"role": "user", "content": user_msg}],
             temperature=0.7, max_tokens=256, max_retries=2,
+            **thinking_kwargs(config, False),
         )
         new_objectives = response.objectives
         completed = set(response.completed)
@@ -76,8 +77,9 @@ def check_objective_completion(state: State, client: instructor.Instructor, conf
     try:
         response: ObjectiveCompletionResponse = client.create(
             model=effective_model(config, config.analysis_model), response_model=ObjectiveCompletionResponse,
-            messages=[{"role": "system", "content": nothink_prefix(config, False) + _COMPLETION_PROMPT}, {"role": "user", "content": user_msg}],
+            messages=[{"role": "system", "content": _COMPLETION_PROMPT}, {"role": "user", "content": user_msg}],
             temperature=0.0, max_tokens=256, max_retries=2,
+            **thinking_kwargs(config, False),
         )
         completed = set(response.completed_objectives)
         if completed:

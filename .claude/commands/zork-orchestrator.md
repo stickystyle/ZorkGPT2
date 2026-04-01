@@ -393,7 +393,10 @@ When an improvement is needed:
      objective_update_interval, knowledge_update_interval). Do NOT change model names or
      file paths.
 
-   DO NOT modify any Python files.
+   DO NOT modify any Python files UNLESS you are fixing a bug in the pipeline
+   (wrong logic, missing data, silent errors) that cannot be resolved through
+   prompt or config changes. If you do fix a Python bug, explain why prompt/config
+   changes cannot address it.
    DO NOT make more than one change.
 
    CRITICAL CONSTRAINT — NO GAME-SPECIFIC KNOWLEDGE IN PROMPTS:
@@ -407,33 +410,32 @@ When an improvement is needed:
 
    SUCCESS CRITERIA: <specific measurable target — e.g., "rejection rate should drop below 20%">
 
-   After making your change, return a 2-3 sentence summary: what file you changed, what you
-   changed, and what improvement you expect to see.
+   AFTER making your change, you MUST do these two things before returning:
+
+   1. Write an IMPROVEMENT entry to docs/orchestrator/journal.md (append, never overwrite):
+
+      ## Episode <N> → <N+1> — IMPROVEMENT
+      **Trigger:** <what condition fired>
+      **Change:** <what you modified — file and change description>
+      **Reasoning:** <your explanation>
+      **Target metric:** <what we expect to improve>
+      **Result:** PENDING
+
+      ---
+
+   2. Commit everything so the evolution is visible in git history:
+
+      git add prompts/ pyproject.toml docs/orchestrator/journal.md
+      git commit -m "feat(orchestrator): ep<N>→<N+1> — <short description of change>"
+
+      The commit message should follow conventional commits (e.g.,
+      "feat(orchestrator): ep08→09 — add cross-turn stuck pattern recognition to agent prompt").
+
+   Return a 2-3 sentence summary: what file you changed, what you changed, and what
+   improvement you expect to see.
    ```
 
-4. **Write an IMPROVEMENT entry to the journal:**
-
-   ```markdown
-   ## Episode <N> → <N+1> — IMPROVEMENT
-   **Trigger:** <what condition fired>
-   **Change:** <what the subagent modified — file and change description>
-   **Reasoning:** <subagent's explanation>
-   **Target metric:** <what we expect to improve>
-   **Result:** PENDING
-
-   ---
-   ```
-
-5. **Commit the change** so the evolution of prompts and config is visible in git history:
-
-   ```bash
-   git add prompts/ pyproject.toml docs/orchestrator/journal.md
-   git commit -m "feat(orchestrator): ep<N>→<N+1> — <short description of change>"
-   ```
-
-   The commit message should follow conventional commits and briefly describe the improvement (e.g., `feat(orchestrator): ep08→09 — add cross-turn stuck pattern recognition to agent prompt`).
-
-6. **Start the next episode** (increment episode counter, go to Phase 1).
+4. **Start the next episode** (increment episode counter, go to Phase 1).
 
 ---
 

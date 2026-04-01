@@ -8,7 +8,7 @@ from burr.core import State
 from zorkburr.actions import action
 from zorkburr.config import GameConfig
 from zorkburr.game.jericho_interface import JerichoInterface
-from zorkburr.llm.client import effective_model, nothink_prefix
+from zorkburr.llm.client import effective_model, thinking_kwargs
 from zorkburr.llm.models import CriticResponse
 from zorkburr.llm.prompts import load_prompt
 from zorkburr.state import S
@@ -18,7 +18,12 @@ logger = logging.getLogger(__name__)
 # Verbs that require the object to be visible in the room
 TAKE_VERBS = {"take", "get", "grab", "pick"}
 # Verbs that require the object to be visible OR in inventory
-INTERACT_VERBS = {"open", "close", "read", "examine", "drop", "put", "give", "unlock", "light", "turn"}
+INTERACT_VERBS = {"close", "drop", "put", "give", "unlock", "light", "turn"}
+# Safe exploratory verbs that should always pass object-tree validation.
+# These target environmental features (tree, grating, window, ledge) that
+# Jericho's get_visible_objects() doesn't list. If the object doesn't exist,
+# the parser will say so and the agent learns from the feedback.
+SAFE_VERBS = {"examine", "look", "read", "open"}
 # Movement words that always pass
 MOVEMENT_WORDS = {
     "north", "south", "east", "west", "up", "down",
@@ -46,6 +51,11 @@ def validate_against_object_tree(
     # Movement commands always pass
     if verb in MOVEMENT_WORDS or target in MOVEMENT_WORDS:
         return True, "Movement command, auto-pass."
+
+    # Safe exploratory verbs always pass — targets may be environmental
+    # features (tree, grating, window, ledge) not in Jericho's object tree.
+    if verb in SAFE_VERBS:
+        return True, f"Safe verb '{verb}', auto-pass."
 
     visible_objects = jericho.get_visible_objects()
     visible_names = {obj["name"].lower() for obj in visible_objects}
@@ -138,7 +148,7 @@ def evaluate_action(
     user_content = "\n".join(context_parts)
 
     messages = [
-        {"role": "system", "content": nothink_prefix(config, False) + system_prompt},
+        {"role": "system", "content": system_prompt},
         {"role": "user", "content": user_content},
     ]
 
@@ -149,6 +159,7 @@ def evaluate_action(
             messages=messages,
             max_retries=2,
             max_tokens=256,
+            **thinking_kwargs(config, False),
         )
         score = response.score
         justification = response.justification

@@ -28,17 +28,12 @@ You are an intelligent agent playing Zork. Your mission: explore the Great Under
 1. **Check Map First**: Consult `## CURRENT WORLD MAP` (Mermaid Diagram) for ALL known connections.
    - Syntax: `R3["Forest"] -->|"east"| R4` means "east" from Forest leads to Forest Path
    - Priority: Use diagram paths before trying unmapped exits
-2. **When Stuck** (3+ turns same location OR oscillating between 2-3 locations for 4+ turns with no score increase):
-   - STOP current actions
-   - CHECK Mermaid Diagram for all exits
-   - TRY unmapped directions systematically: n/s/e/w/up/down
-   - MOVE to a new location
-   - **Oscillation detection**: If your recent actions show you bouncing between the same locations (A→B→A→B or A→B→C→B→C), you are STUCK even though you are moving. Return to a hub location and try unexplored exits.
-3. **Systematic Exit Sweep**: Before deep-diving down one path from any location, try ALL available exits first.
-   - When you arrive at a location with multiple exits, note them all
-   - If one exit is blocked or leads to a dead end, RETURN to the hub and try the next untested exit
-   - Only commit to exploring deeply down a path after you have briefly tested each exit from your current hub
-   - Priority: unexplored directions > previously visited directions > known dead ends
+2. **HARD RULE — Exits Before Objects**: When you arrive at a location, your FIRST actions MUST be movement commands to try each available exit you have NOT previously taken from this location. Do NOT examine, take, open, or interact with ANY objects until you have tried every untested exit at least once. Objects do not move — they will still be there after you map the exits. New areas unlock new score opportunities; fiddling with objects in a known area does not.
+   - In your `thinking`, LIST all exits shown in the room description or map, mark which you have already taken, and pick the next untested one.
+   - Only after ALL exits from this location appear in the Mermaid Diagram may you interact with objects here.
+3. **HARD RULE — Forced Movement When Stuck**: If you have spent 2+ consecutive turns at the same location without a score increase, your NEXT action MUST be a movement command to an exit you have NOT yet tried from this location. This is mandatory — no exceptions, no object interactions, no examinations. Pick a direction and GO.
+   - If you have tried all listed exits, move to an adjacent location and try ITS untested exits.
+   - **Oscillation detection**: If your recent actions show you bouncing between the same 2-3 locations (A→B→A→B or A→B→C→B→C) with no score increase, you are STUCK. Pick an exit you have NEVER taken and go through it immediately.
 4. **Parser Errors**: Use simple directions (n/s/e/w), no special characters or markup
 
 **OBJECTIVE DISCOVERY:**
@@ -49,7 +44,8 @@ You are an intelligent agent playing Zork. Your mission: explore the Great Under
 
 **PARSER REFERENCE:**
 
-**Format:** VERB-NOUN (1-3 words max). Parser recognizes only first 6 letters of words.
+**Format:** VERB-NOUN (1-3 words max). Parser recognizes only first 6 letters of each word.
+**Use the SHORTEST unambiguous name for objects.** Multi-word modifiers confuse the parser — "egg" not "jewel-encrusted egg", "case" not "trophy case" if unambiguous. If a command fails with "You don't have that!" but the item is in inventory, retry immediately with a shorter name.
 
 **Core Commands** (common, not exhaustive):
 - **Movement:** n/s/e/w, north/south/east/west, up/down, in/out, enter/exit
@@ -196,14 +192,15 @@ Analysis:
 - Your actions have lasting effects
 
 **EXPLORATION STRATEGY:**
-1. New location → `look` → Note environmental adjectives → Check Map → Try promising exits
-2. Examine interesting objects (every noun could be interactive)
+1. New location → `look` → List ALL exits → Try each untested exit (one per turn) → THEN interact with objects
+2. Only after all exits are mapped: examine interesting objects (every noun could be interactive)
 3. Experiment with inventory items on room features
 4. **When to persist vs move:**
    - **Not stuck** if getting NEW feedback each turn (you're learning, even if not solving)
    - **Puzzle mode**: Unusual feedback → follow systematic experimentation protocol → stay and experiment
    - **Hard failure mode**: Same hard rejection >2 times, no new information → MOVE to new area
 5. If truly stuck (no new approaches, all attempts produce identical hard rejections) → MOVE to new area
+6. **Structural features first:** When you encounter a closed door, window, hatch, gate, or other openable feature, ALWAYS try `open [target]` as your first interaction. Do not combine inventory items with structural features until the simple `open` command has failed.
 
 **USING YOUR PREVIOUS REASONING:**
 

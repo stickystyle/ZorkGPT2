@@ -27,7 +27,7 @@ def test_local_model_from_toml():
     config = GameConfig()
     # pyproject.toml sets use_local_models = true
     assert config.use_local_models is True
-    assert config.local_model == "models/Qwen3-14B-Q5_K_M.gguf"
+    assert config.local_model == "models/Qwen3.5-35B-A3B-Q4_K_M.gguf"
     assert config.local_base_url == "http://localhost:8887/v1"
 
 

@@ -75,10 +75,19 @@ class _TimedInstructor:
 
 
 def nothink_prefix(config: GameConfig, use_thinking: bool) -> str:
-    """Prepend /nothink to system prompts for local Qwen3 when thinking is disabled."""
-    if config.use_local_models and not use_thinking:
-        return "/nothink\n\n"
+    """Deprecated: use thinking_kwargs() instead for llama-server compatibility."""
     return ""
+
+
+def thinking_kwargs(config: GameConfig, use_thinking: bool) -> dict:
+    """Return extra_body kwargs to control thinking for local llama-server.
+
+    For local models, passes chat_template_kwargs.enable_thinking via extra_body.
+    For remote models, returns empty dict (no-op).
+    """
+    if config.use_local_models:
+        return {"extra_body": {"chat_template_kwargs": {"enable_thinking": use_thinking}}}
+    return {}
 
 
 def effective_model(config: GameConfig, role_model: str) -> str:

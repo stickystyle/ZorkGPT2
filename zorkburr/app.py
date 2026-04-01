@@ -55,7 +55,7 @@ def build_turn_app(
     })
 
     # Bind dependencies to actions
-    bound_agent = generate_action.bind(client=client, config=config, use_thinking=False)
+    bound_agent = generate_action.bind(client=client, config=config, use_thinking=True)
     bound_critic = evaluate_action.bind(llm=client, jericho=jericho, config=config)
     bound_execute = execute_action.bind(jericho=jericho)
     bound_extract = extract_info.bind(client=client, jericho=jericho, config=config)
