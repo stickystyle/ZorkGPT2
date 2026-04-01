@@ -643,6 +643,17 @@ let maxTurn = 0;
 let lastTimestamp = null;
 let turnCache = {};
 let scoreHistory = [];
+let cachedEpisodeIndex = { episodes: [] };
+
+function getHighScore(excludeEpisodeId) {
+  let best = 0;
+  for (const ep of cachedEpisodeIndex.episodes) {
+    if (ep.episode_id !== excludeEpisodeId && (ep.score || 0) > best) {
+      best = ep.score;
+    }
+  }
+  return best;
+}
 
 // === Accumulated log state ===
 let accumulatedTurns = [];  // Array of {turn, action, response, reasoning, critic_score, critic_justification, was_overridden, rejection_count}
@@ -1123,6 +1134,7 @@ function renderScoreChart(scores) {
 // === Episode Selector ===
 async function loadEpisodeIndex() {
   const index = await fetchEpisodeIndex();
+  cachedEpisodeIndex = index;
   const previousSelection = currentEpisodeId;
   episodeSelect.innerHTML = '';
 
