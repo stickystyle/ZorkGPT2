@@ -97,6 +97,22 @@ def record_memory(state: State, client: instructor.Instructor, config: GameConfi
                 stats["dedup_rejected"] = stats.get("dedup_rejected", 0) + 1
                 return {"synthesized": False, "reason": "duplicate_title"}, state.update(**{S.MEMORY_STATS: stats})
 
+            # Process supersession: mark old memories as replaced
+            superseded_count = 0
+            if response.supersedes_titles:
+                for old_title in response.supersedes_titles:
+                    found = False
+                    for m in loc_list:
+                        if m.get("title") == old_title and m.get("status") != "SUPERSEDED":
+                            m["status"] = "SUPERSEDED"
+                            m["superseded_by"] = response.memory_title
+                            logger.info(f"Superseded memory '{old_title}' with '{response.memory_title}' at location {loc_key}")
+                            superseded_count += 1
+                            found = True
+                            break
+                    if not found:
+                        logger.debug(f"Supersede target not found: '{old_title}' at location {loc_key}")
+
             mem = Memory(
                 category=response.category, title=response.memory_title,
                 text=response.memory_text, episode=state[S.EPISODE_ID],
@@ -108,6 +124,7 @@ def record_memory(state: State, client: instructor.Instructor, config: GameConfi
             persist_memories(all_mems, config)
             stats = dict(state[S.MEMORY_STATS])
             stats["new"] = stats.get("new", 0) + 1
+            stats["superseded"] = stats.get("superseded", 0) + superseded_count
             return {"synthesized": True, "memory_title": mem.title}, state.update(
                 **{S.MEMORIES_BY_LOCATION: all_mems, S.MEMORY_STATS: stats}
             )

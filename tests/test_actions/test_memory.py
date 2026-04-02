@@ -219,3 +219,71 @@ def test_record_memory_context_includes_titles(monkeypatch):
     # Check the user message sent to the LLM includes the title in bracket format
     user_msg = captured_messages[0][1]["content"]
     assert "[Found Mailbox]:" in user_msg
+
+
+def test_record_memory_supersedes_old_memory():
+    """When LLM returns supersedes_titles, old memories should be marked SUPERSEDED."""
+    mock_client = MagicMock()
+    mock_client.create.return_value = MemorySynthesisResponse(
+        should_remember=True, category="DISCOVERY",
+        memory_title="Safe Descent with Lantern",
+        memory_text="Staircase is safe when carrying the lantern.",
+        persistence="permanent", status="ACTIVE", reasoning="corrects old info",
+        supersedes_titles=["Dark Staircase Deadly"],
+    )
+    state = State({
+        S.PRE_LOCATION_ID: 10, S.PRE_LOCATION_NAME: "Cellar",
+        S.PRE_SCORE: 0, S.PRE_INVENTORY: [],
+        S.LOCATION_ID: 10, S.SCORE: 10, S.INVENTORY: ["lantern"],
+        S.GAME_OVER: False, S.GAME_OVER_REASON: "",
+        S.GAME_RESPONSE: "You carefully descend the staircase.",
+        S.ACTION_TO_TAKE: "go down", S.AGENT_REASONING: "try with lantern",
+        S.ACTION_HISTORY: [],
+        S.MEMORIES_BY_LOCATION: {
+            "10": [{"category": "DANGER", "title": "Dark Staircase Deadly",
+                    "text": "Going down without light is fatal.",
+                    "episode": "ep-0", "turn": 5, "persistence": "permanent",
+                    "status": "ACTIVE"}]
+        },
+        S.EPISODE_ID: "ep-2", S.TURN_COUNT: 8,
+        S.MEMORY_STATS: {"new": 0, "dedup_rejected": 0, "superseded": 0},
+    })
+    result, new_state = record_memory.run(state, client=mock_client, config=MagicMock(memory_model="test"))
+    assert result["synthesized"] is True
+    mems = new_state[S.MEMORIES_BY_LOCATION]["10"]
+    # Old memory marked SUPERSEDED
+    old = next(m for m in mems if m["title"] == "Dark Staircase Deadly")
+    assert old["status"] == "SUPERSEDED"
+    assert old["superseded_by"] == "Safe Descent with Lantern"
+    # New memory added
+    new = next(m for m in mems if m["title"] == "Safe Descent with Lantern")
+    assert new["status"] == "ACTIVE"
+    # Stats updated
+    assert new_state[S.MEMORY_STATS]["superseded"] == 1
+    assert new_state[S.MEMORY_STATS]["new"] == 1
+
+
+def test_record_memory_ignores_nonexistent_supersede_title():
+    """If supersedes_titles names a title that doesn't exist, skip it gracefully."""
+    mock_client = MagicMock()
+    mock_client.create.return_value = MemorySynthesisResponse(
+        should_remember=True, category="NOTE",
+        memory_title="New Memory",
+        memory_text="Some insight.",
+        persistence="permanent", status="ACTIVE", reasoning="test",
+        supersedes_titles=["Nonexistent Title"],
+    )
+    state = State({
+        S.PRE_LOCATION_ID: 10, S.PRE_LOCATION_NAME: "West",
+        S.PRE_SCORE: 0, S.PRE_INVENTORY: [],
+        S.LOCATION_ID: 10, S.SCORE: 5, S.INVENTORY: [],
+        S.GAME_OVER: False, S.GAME_OVER_REASON: "",
+        S.GAME_RESPONSE: "Something happened.",
+        S.ACTION_TO_TAKE: "look", S.AGENT_REASONING: "check",
+        S.ACTION_HISTORY: [], S.MEMORIES_BY_LOCATION: {},
+        S.EPISODE_ID: "ep-1", S.TURN_COUNT: 3,
+        S.MEMORY_STATS: {"new": 0, "dedup_rejected": 0, "superseded": 0},
+    })
+    result, new_state = record_memory.run(state, client=mock_client, config=MagicMock(memory_model="test"))
+    assert result["synthesized"] is True
+    assert new_state[S.MEMORY_STATS]["superseded"] == 0
