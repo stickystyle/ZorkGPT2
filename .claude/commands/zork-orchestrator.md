@@ -500,7 +500,26 @@ When an improvement is needed:
      code in zorkburr/ that produces the broken behavior." Include the 3 failed hypotheses
      as evidence that the problem is upstream of prompts.
 
-5. **Start the next episode** (increment episode counter, go to Phase 1).
+5. **Review the change** before proceeding. After the subagent returns, read the full diff:
+
+   ```bash
+   git diff HEAD~1
+   ```
+
+   Check against this list:
+
+   | Check | What to look for |
+   |-------|-----------------|
+   | No game-specific knowledge | Prompt changes must teach reasoning strategies, not game solutions. Any mention of specific items, locations, puzzle steps, or walkthrough actions → **revert immediately**. |
+   | One logical change (INCREMENTAL) | If the improvement is INCREMENTAL, there should be exactly one conceptual change. Touching multiple lines/sections is fine if they serve a single hypothesis. Two unrelated tweaks → revert and re-dispatch with tighter scope. |
+   | All changes are infrastructure (BLOCKER) | If the improvement is BLOCKER, every change must genuinely fix broken infrastructure. Strategic prompt tweaks bundled into a BLOCKER fix → revert the strategic parts and re-dispatch them as a separate INCREMENTAL change next episode. |
+   | Authorized files only | Only `prompts/`, `pyproject.toml` config, and `docs/orchestrator/journal.md` should be modified — unless the brief explicitly authorized Python fixes (escalation rule). |
+   | Journal entry written | An IMPROVEMENT entry was appended with all required fields (Trigger, Hypothesis, Change, Reasoning, Target metric, Result: PENDING). |
+   | Commit message follows convention | `feat(orchestrator): ep<N>→<N+1> — <description>` |
+
+   **If any check fails:** `git revert HEAD --no-edit`, note the failure in the journal, and re-dispatch with a corrected brief that explicitly calls out what went wrong.
+
+6. **Start the next episode** (increment episode counter, go to Phase 1).
 
 ---
 
