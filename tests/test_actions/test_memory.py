@@ -184,3 +184,38 @@ def test_memory_dataclass_defaults_superseded_by_empty():
     m = Memory(category="SUCCESS", title="Good info", text="Still valid.",
                episode="ep-1", turn=5, persistence="permanent", status="ACTIVE")
     assert m.superseded_by == ""
+
+
+def test_record_memory_context_includes_titles(monkeypatch):
+    """Synthesis context should show memory titles so the LLM can reference them for supersession."""
+    captured_messages = []
+    def mock_create(**kwargs):
+        captured_messages.append(kwargs.get("messages", []))
+        return MemorySynthesisResponse(
+            should_remember=False, reasoning="test", category="NOTE",
+            memory_title="", memory_text="", persistence="ephemeral", status="ACTIVE",
+        )
+
+    mock_client = MagicMock()
+    mock_client.create.side_effect = mock_create
+    state = State({
+        S.PRE_LOCATION_ID: 10, S.PRE_LOCATION_NAME: "West of House",
+        S.PRE_SCORE: 0, S.PRE_INVENTORY: [],
+        S.LOCATION_ID: 10, S.SCORE: 5, S.INVENTORY: ["leaflet"],
+        S.GAME_OVER: False, S.GAME_OVER_REASON: "",
+        S.GAME_RESPONSE: "Opening the small mailbox reveals a leaflet.",
+        S.ACTION_TO_TAKE: "open mailbox", S.AGENT_REASONING: "check the mailbox",
+        S.ACTION_HISTORY: [],
+        S.MEMORIES_BY_LOCATION: {
+            "10": [{"category": "DISCOVERY", "title": "Found Mailbox",
+                    "text": "Mailbox is near the house.", "episode": "ep-0",
+                    "turn": 3, "persistence": "permanent", "status": "ACTIVE"}]
+        },
+        S.EPISODE_ID: "ep-1", S.TURN_COUNT: 5,
+        S.MEMORY_STATS: {"new": 0, "dedup_rejected": 0, "superseded": 0},
+    })
+    record_memory.run(state, client=mock_client, config=MagicMock(memory_model="test"))
+
+    # Check the user message sent to the LLM includes the title in bracket format
+    user_msg = captured_messages[0][1]["content"]
+    assert "[Found Mailbox]:" in user_msg

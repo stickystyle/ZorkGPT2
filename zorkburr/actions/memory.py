@@ -71,7 +71,7 @@ def record_memory(state: State, client: instructor.Instructor, config: GameConfi
     loc_key = str(state[S.PRE_LOCATION_ID])
     existing = state[S.MEMORIES_BY_LOCATION].get(loc_key, [])
     if existing:
-        mem_lines = [f"  - [{m['category']}] {m['title']}: {m['text']}" for m in existing if m.get("status") != "SUPERSEDED"]
+        mem_lines = [f"  - [{m['title']}]: {m['text']}" for m in existing if m.get("status") != "SUPERSEDED"]
         context += f"\nExisting memories at this location:\n" + "\n".join(mem_lines)
 
     try:
