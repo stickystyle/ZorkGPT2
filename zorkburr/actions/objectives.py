@@ -44,9 +44,12 @@ def update_objectives(state: State, client: instructor.Instructor, config: GameC
     )
     current_objectives = state[S.DISCOVERED_OBJECTIVES]
     current_texts = [_obj_text(o) for o in current_objectives]
+    kb_content = state[S.KNOWLEDGE_BASE] or ""
+    kb_section = f"\n\nStrategic Knowledge (accumulated from prior episodes):\n{kb_content}" if kb_content else ""
     user_msg = (
         f"Current location: {state[S.LOCATION_NAME]} (ID: {state[S.LOCATION_ID]})\nScore: {state[S.SCORE]}\n"
         f"Current objectives: {current_texts}\n\nRecent gameplay:\n{action_summary}"
+        f"{kb_section}"
     )
     try:
         response: ObjectiveDiscoveryResponse = client.create(

@@ -2339,3 +2339,33 @@ Started: 2026-03-30
 **Result:** PENDING
 
 ---
+
+## Episode 40 — Turn 25 Checkpoint
+**Type:** URGENT — BLOCKER bugs identified
+**Score:** 5/350 (delta: +5 from start — egg only)
+**Locations visited:** 6 unique (West_House, North_House, Forest_Path, Clearing, Forest, Up_a_Tree)
+**Avg critic score:** 0.63 — above 0.5
+**Rejection rate:** 3/25 (12%) — healthy
+**Gameplay quality:** IGNORING
+  - Memory use: N/A — agent never reached memorized locations (house area)
+  - KB alignment: KB has excellent house path info but agent stuck in forest for 25 turns. Agent reasoning references KB shovel entry ("digging requires a shovel") but ignores KB house entry
+  - Objective quality: 0/3 well-formed — "examine tree" (done, no result), "investigate song bird" (dead end), "explore sunlight" (vague)
+  - Objective pursuit: Agent following dead-end objectives instead of navigating to KB-documented scoring areas
+  - Learning system quality: KB contaminated with shovel hallucination from prior session. BLOCKER: objectives.py reads S.KNOWLEDGE_BASE but never passes it to the LLM — objective discovery prompt's "Prioritize Strategic Knowledge" rule is dead code
+**Triggers:**
+  - BLOCKER: Objective discovery LLM never receives KB (code bug in objectives.py line 48-50)
+  - BLOCKER: KB file on disk still contains shovel contamination from prior session
+  - Stale/vague objectives: 3/3 objectives are vague or dead-end
+**Notes:** Same forest-loop regression as ep39 (35 turns wasted). Root cause identified: objectives generated blind to KB because the KB is never passed to the objective discovery LLM. Killed episode at turn 25 to fix.
+
+---
+
+## Episode 40 → 40 (restart) — IMPROVEMENT (BLOCKER)
+**Trigger:** Two BLOCKER bugs: (1) KB file contaminated with shovel hallucination, (2) objectives.py never passes KB to objective discovery LLM
+**Hypothesis:** Agent generates blind objectives because objective LLM can't see KB; KB contains hallucinated shovel references that mislead agent
+**Change:** (1) Removed shovel lines from data/knowledge.md, (2) Added KB injection to user_msg in update_objectives()
+**Reasoning:** Objective discovery prompt says "Prioritize Strategic Knowledge" but KB was never sent — dead code. Fixing the pipeline ensures objectives align with accumulated knowledge.
+**Target metric:** Agent should generate objectives aligned with KB-documented scoring paths (house entry, equipment collection) instead of dead-end forest interactions. Early game efficiency should return (score 40+ by turn 25).
+**Result:** PENDING
+
+---
