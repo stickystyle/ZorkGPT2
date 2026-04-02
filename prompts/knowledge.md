@@ -24,11 +24,13 @@ PRIORITY ORDERING: The agent only sees the first ~2000 characters of this summar
 
 Within each section, put the most important entries first.
 
-**Score Changes:** Each score increase/decrease with the location and triggering action (NO turn numbers).
-**Puzzle Mechanics Discovered:** Interactions that revealed how something works (e.g., "pushing rug in Living Room revealed trap door").
-**Items Found:** Item name and location found. Note if taken or left behind.
-**Dangerous Areas:** Locations/actions that caused death or damage.
+**Score Changes:** Each score increase/decrease with the location name and ID (e.g., "at Living Room (R193)") and triggering action (NO turn numbers).
+**Puzzle Mechanics Discovered:** Interactions that revealed how something works (e.g., "pushing rug at Living Room (R193) revealed trap door").
+**Items Found:** Item name and location with ID where found. Note if taken or left behind.
+**Dangerous Areas:** Locations (with IDs) and actions that caused death or damage.
 **Failed Approaches:** Actions attempted 2+ times that consistently failed, so the agent can avoid repeating them.
-**Unexplored Leads:** Exits seen but not taken, locked doors, dark passages — with location.
+**Unexplored Leads:** Exits seen but not taken, locked doors, dark passages — with location name and ID.
+
+LOCATION IDS: Always include the numeric location ID in parentheses after the location name, formatted as (R<id>). Example: "Living Room (R193)", "Cellar (R25)". These IDs correspond to the map the agent sees.
 
 Do NOT speculate about what the agent should do next or where items might be. Only record what actually happened in the log.

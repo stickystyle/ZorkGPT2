@@ -33,8 +33,13 @@ class MemorySynthesisResponse(BaseModel):
     persistence: str = Field(default="ephemeral", description="core|permanent|ephemeral")
     status: str = Field(default="ACTIVE", description="ACTIVE|TENTATIVE")
 
+class Objective(BaseModel):
+    text: str = Field(description="The objective description")
+    location_id: int = Field(default=0, description="Location ID where this objective applies (0 if general)")
+    location_name: str = Field(default="", description="Name of the location (empty if general)")
+
 class ObjectiveDiscoveryResponse(BaseModel):
-    objectives: list[str] = Field(default_factory=list)
+    objectives: list[Objective] = Field(default_factory=list)
     completed: list[str] = Field(default_factory=list)
 
 class ObjectiveCompletionResponse(BaseModel):

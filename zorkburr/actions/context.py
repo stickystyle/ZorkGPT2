@@ -27,6 +27,19 @@ def assemble_context(state: State) -> tuple[dict, State]:
     if exits:
         sections.append(f"**Available Exits:** {', '.join(exits)}")
 
+    loc_id = state[S.LOCATION_ID]
+    memories = state[S.MEMORIES_BY_LOCATION]
+
+    # Build MapGraph once for map diagram + adjacent memories
+    map_data = state[S.MAP_DATA]
+    mg = None
+    if map_data:
+        from zorkburr.game.map_graph import MapGraph
+        mg = MapGraph.from_dict(map_data) if isinstance(map_data, dict) else map_data
+        mermaid = mg.to_mermaid(loc_id)
+        if mermaid:
+            sections.append(f"## CURRENT WORLD MAP\n```mermaid\n{mermaid}\n```")
+
     if state[S.IN_COMBAT]:
         sections.append("**COMBAT ACTIVE — prioritize combat actions**")
 
@@ -40,8 +53,6 @@ def assemble_context(state: State) -> tuple[dict, State]:
             )
         sections.append("**Recent Actions:**\n" + "\n".join(history_lines))
 
-    loc_id = state[S.LOCATION_ID]
-    memories = state[S.MEMORIES_BY_LOCATION]
     loc_key = str(loc_id)
     has_any_memories = loc_key in memories and memories[loc_key]
     if has_any_memories:
@@ -57,10 +68,7 @@ def assemble_context(state: State) -> tuple[dict, State]:
         )
 
     # Adjacent room memories (1-hop neighbors from map)
-    map_data = state[S.MAP_DATA]
-    if map_data:
-        from zorkburr.game.map_graph import MapGraph
-        mg = MapGraph.from_dict(map_data) if isinstance(map_data, dict) else map_data
+    if mg:
         adjacent_mems = []
         exits_map = mg.get_exits(loc_id)
         for direction, neighbor_id in exits_map.items():
@@ -85,7 +93,13 @@ def assemble_context(state: State) -> tuple[dict, State]:
 
     objectives = state[S.DISCOVERED_OBJECTIVES]
     if objectives:
-        obj_lines = [f"  - {o}" for o in objectives]
+        obj_lines = []
+        for o in objectives:
+            if isinstance(o, dict):
+                loc_tag = f" [R{o['location_id']} — {o['location_name']}]" if o.get("location_id") else ""
+                obj_lines.append(f"  -{loc_tag} {o['text']}")
+            else:
+                obj_lines.append(f"  - {o}")
         sections.append("**Active Objectives:**\n" + "\n".join(obj_lines))
 
     knowledge = state[S.KNOWLEDGE_BASE]

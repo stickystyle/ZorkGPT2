@@ -75,6 +75,27 @@ class MapGraph:
             lines.append("**No mapped exits from here yet.**")
         return "\n".join(lines)
 
+    def to_mermaid(self, current_room_id: int | None = None) -> str:
+        """Generate a Mermaid flowchart of the known map."""
+        if not self.rooms:
+            return ""
+        lines = ["graph LR"]
+        for room_id, name in sorted(self.rooms.items()):
+            if room_id == current_room_id:
+                lines.append(f'    R{room_id}[["**{name}** ★"]]')
+            else:
+                lines.append(f'    R{room_id}["{name}"]')
+        seen: set[tuple[int, int, str]] = set()
+        for from_id, exits in sorted(self.connections.items()):
+            for direction, to_id in sorted(exits.items()):
+                edge_key = (min(from_id, to_id), max(from_id, to_id), direction)
+                reverse_dir = _OPPOSITE_DIRS.get(direction, "")
+                reverse_key = (min(from_id, to_id), max(from_id, to_id), reverse_dir)
+                if edge_key not in seen and reverse_key not in seen:
+                    lines.append(f'    R{from_id} -->|"{direction}"| R{to_id}')
+                    seen.add(edge_key)
+        return "\n".join(lines)
+
     def to_dict(self) -> dict:
         return {
             "rooms": {str(k): v for k, v in self.rooms.items()},
