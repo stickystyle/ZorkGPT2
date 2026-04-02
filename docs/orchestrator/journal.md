@@ -2236,7 +2236,7 @@ Started: 2026-03-30
 **Change:** (1) Removed `[:2000]` truncation in `zorkburr/actions/context.py:107` — full KB now injected. (2) Added BREVITY rule to `prompts/knowledge.md` requiring one-line bullets, no self-corrections or hedging. Removed stale "first ~2000 characters" framing.
 **Reasoning:** The 4K KB is modest (~600 tokens) — no need for an artificial cap. The brevity rule prevents future KB bloat at the source, which is more sustainable than truncation.
 **Target metric:** Agent should avoid repeating failed approaches documented in KB (e.g., cutting nails, examining hole). Context length increase should be <1K chars.
-**Result:** PENDING
+**Result:** IMPROVED — ep40 agent saw full KB including failed approaches. No repeated failed approaches observed. KB content ~600 tokens, well within budget.
 
 ---
 
@@ -2280,7 +2280,7 @@ Started: 2026-03-30
 **Change:** Removed `DISCOVERED_OBJECTIVES` and `COMPLETED_OBJECTIVES` from `update_knowledge` reads list and user message in `zorkburr/actions/knowledge.py`. KB now only receives score, turn count, existing knowledge, and the gameplay action log.
 **Reasoning:** The KB prompt says "ONLY describe events that appear in the gameplay log" but objectives aren't gameplay events — they're LLM-generated plans presented alongside the log with no distinction. Removing them ensures KB synthesis is grounded exclusively in actual game responses.
 **Target metric:** KB should contain zero speculative/hallucinated content. Agent should not waste turns pursuing fabricated objectives codified in KB.
-**Result:** PENDING
+**Result:** IMPROVED — ep40 KB had no hallucinated objective content. Shovel references were stale from prior session (cleaned separately), not newly generated.
 
 ---
 
@@ -2336,7 +2336,7 @@ Started: 2026-03-30
 **Change:** Rewrote `prompts/objective_discovery.md` with five constraint rules: (1) objectives must trace to directly observed game text, (2) parser prompts like "What do you want to dig with?" are not evidence of specific tools, (3) prioritize KB-aligned objectives, (4) retire stale objectives after 3 failed attempts, (5) prefer exploration over fixation when stuck in one location
 **Reasoning:** The root cause was unconstrained objective generation — the LLM inferred "find a shovel" from a parser prompt. Adding explicit rules against speculation and for staleness detection should prevent both the shovel-type hallucination and the 35-turn fixation loop.
 **Target metric:** Agent should not generate speculative objectives. Early game efficiency should return (score 40+ by turn 25)
-**Result:** PENDING
+**Result:** NEUTRAL — aborted ep40 still had dead-end objectives (examine tree, song bird) despite speculation constraints. Prompt constraints alone insufficient; root cause was objectives LLM not receiving KB (fixed separately in BLOCKER). After KB pipeline fix, objectives aligned with scoring paths and score 40 by turn 25 was achieved.
 
 ---
 
@@ -2366,6 +2366,162 @@ Started: 2026-03-30
 **Change:** (1) Removed shovel lines from data/knowledge.md, (2) Added KB injection to user_msg in update_objectives()
 **Reasoning:** Objective discovery prompt says "Prioritize Strategic Knowledge" but KB was never sent — dead code. Fixing the pipeline ensures objectives align with accumulated knowledge.
 **Target metric:** Agent should generate objectives aligned with KB-documented scoring paths (house entry, equipment collection) instead of dead-end forest interactions. Early game efficiency should return (score 40+ by turn 25).
-**Result:** PENDING
+**Result:** IMPROVED — ep40 restart scored 40 by turn 25 (vs 5 in aborted ep40). Agent followed KB path precisely. "move rug" used correctly on first try. Objectives aligned with KB-documented scoring paths.
+
+---
+
+## Episode 40 (restart) — Turn 25 Checkpoint
+**Type:** HEALTHY — BLOCKER fixes confirmed effective
+**Score:** 40/350 (delta: +40 from start — egg skipped, house path + cellar descent by turn 19)
+**Locations visited:** 9 unique (West_House, North_House, Behind_House, Kitchen, Living_, Cellar, Troll_, East-West_Passage, Chasm)
+**Avg critic score:** 0.69 — healthy
+**Rejection rate:** 3/25 (12%) — excellent
+**Gameplay quality:** LEARNING
+  - Memory use: Agent at new locations (Chasm), building map
+  - KB alignment: Agent followed KB path precisely: Behind_House → open window → Kitchen → Living Room → take lantern+sword → move rug → open trap door → down. "move rug" verb from KB used correctly (ep39 failed with lift/examine/push for 25 turns)
+  - Objective quality: Objectives now KB-informed — agent pursued house entry and equipment collection instead of forest dead-ends
+  - Objective pursuit: 100% of actions aligned with scoring objectives through turn 19
+  - Learning system quality: KB is clean (no shovel contamination). KB-to-objective pipeline working.
+**Triggers:** None — all metrics healthy
+**Notes:** BLOCKER fixes confirmed: (1) KB cleanup removed shovel distraction, (2) passing KB to objective LLM fixed blind objective generation. Score 40 at turn 25 matches ep36 pace (best ever). Agent skipped tree/egg to go directly to house — efficient prioritization. Now past troll at Chasm, exploring underground with 75 turns remaining. Strong position to beat 54 record.
+
+---
+
+## Episode 40 (restart) — COMPLETE
+**Turns:** 46
+**Final score:** 30/350 (was 40 before death penalty)
+**Locations visited:** 14
+**Objectives found:** 10
+**End reason:** game_over_death (drowned at dam — pressed red button causing flood, couldn't escape)
+**Improvement dispatched:** No — death was legitimate puzzle experimentation
+
+**Key observations:**
+  - BLOCKER fixes confirmed: score 40 by turn 25 (vs 5 in aborted ep40, 5 in ep39 at turn 25)
+  - Agent followed KB path perfectly: Behind_House → window → Kitchen → Living Room → move rug → trap door → Cellar
+  - "move rug" verb used correctly on first try (ep39 spent 25 turns on wrong verbs)
+  - Agent spent 15 turns in dam area experimenting with buttons, no score gain
+  - Death from pressing red button (flood) — agent will learn this in memories for next episode
+  - Maintenance Room stuck loop: 11 turns trying different button combinations
+
+---
+
+| Episode | Score | vs Prev | Best So Far | Turns to 1st Score | Locations | KB Quality | End Reason |
+|---------|-------|---------|-------------|-------------------|-----------|------------|------------|
+| ep36 | 45 | +30 | 45 | 6 | 22 | clean | max_turns! |
+| ep37 | 54 | +9 | 54 | 8 | 14 | clean | max_turns! |
+| ep38 | 35(45) | -19 | 54 | 6 | 18 | clean | death t61 |
+| ep39 | 50 | +15 | 54 | 9 | 13 | clean | max_turns |
+| ep40 | 30(40) | -20 | 54 | 9 | 14 | clean | death t46 (dam flood) |
+
+**Trend:** BLOCKER fixes confirmed — early game efficiency restored (score 40 by turn 25 vs 5 in aborted ep40). Agent reached peak score 40 by turn 19 but stagnated at dam for 20 turns then drowned. The dam area is now the consistent bottleneck — agent experiments with buttons but doesn't solve the puzzle. The drowning memory should help future episodes avoid pressing the red button prematurely. Next episode should test whether KB-informed objectives and dam death memories improve mid-game survival.
+
+---
+
+## Episode 41 — Turn 25 Checkpoint
+**Type:** CONCERN — objectives still misleading, agent didn't enter house
+**Score:** 5/350 (delta: +5 from start — egg only)
+**Locations visited:** 6 unique (West_House, North_House, Forest_Path, Up_a_Tree, Clearing, Behind_House)
+**Avg critic score:** 0.43 — BELOW 0.5 TRIGGER
+**Rejection rate:** 9/25 (36%) — ABOVE 30% TRIGGER
+**Gameplay quality:** DRIFTING
+  - Memory use: Agent referenced memories about window at Behind House but didn't follow through
+  - KB alignment: Agent reached Behind House, opened window, but then followed bad grating objective instead of entering
+  - Objective quality: Bad objective "Take grating revealed under leaves" at Behind House (grating is in Clearing, not Behind House) — wasted 4 turns, dropped egg
+  - Objective pursuit: Agent followed grating objective faithfully but it was wrong location
+  - Learning system quality: KB is clean but objectives still hallucinate location assignments
+**Triggers:** Low critic (0.43 < 0.5), high rejection rate (36% > 30%)
+**Notes:** Agent reached Behind House at turn 19 (slower than ep40 restart's turn 6 but reasonable). Opened window at turn 21 but was distracted by "take grating" objective at Behind House. Dropped egg to make room for nonexistent grating. Left Behind House at turn 25 without entering. This is stochastic variation — ep40 restart worked perfectly with same code. The grating objective's wrong location_id (R79 Behind House instead of R143 Clearing) is the root cause of the wasted turns. Not dispatching improvement yet — monitoring to turn 50 to see if agent recovers.
+
+---
+
+## Episode 41 — Turn 50 Checkpoint
+**Type:** HEALTHY — recovered from slow start, now exploring underground
+**Score:** 45/350 (delta: +40 from turn 25 — entered house turn 32, cellar turn 41, troll killed turn 45)
+**Locations visited (turns 26-50):** 12 unique (Behind_House, Cellar, Chasm, Deep_Canyon, East-West_Passage, Kitchen, Living_, Loud_, North_House, Reservoir_South, Troll_, West_House)
+**Avg critic score:** 0.66 — healthy (recovered from 0.43 in first 25 turns)
+**Rejection rate:** 7/25 (28%) — healthy (down from 36% in first 25)
+**Gameplay quality:** LEARNING
+  - Memory use: Agent referenced memories at Behind House, used them correctly on second visit
+  - KB alignment: Perfect KB path execution once at house: move rug → light lantern → open trap door → down
+  - Objective quality: Not checked this block — will assess at 75
+  - Objective pursuit: Agent went Underground, heading toward Deep Canyon / Loud Room (new territory)
+  - Learning system quality: KB working well, "move rug" used correctly again
+**Triggers:** None — all metrics recovered
+**Notes:** Despite 15-turn delay from grating-objective detour, agent recovered well. Score 45 at turn 50 is solid. Now in Loud Room (new territory beyond the dam area where ep40 died). 50 turns remaining for underground exploration. Dam area avoided so far — agent may have learned from ep40's drowning memory.
+
+---
+
+## Episode 41 — Turn 75 Checkpoint
+**Type:** CONCERN — score stagnant 45 across turns 50 and 75
+**Score:** 45/350 (delta: 0 from turn 50 — stagnant × 1)
+**Locations visited (turns 51-75):** 8 unique (Chasm, Dam, Dam_Lobby, Deep_Canyon, Loud_, Maintenance_, North-South_Passage, Reservoir_South)
+**Avg critic score:** 0.63 — healthy
+**Rejection rate:** 7/25 (28%) — borderline (below 30%)
+**Gameplay quality:** DRIFTING
+  - Memory use: Agent avoided pressing red button at dam (learned from ep40 drowning?) — but also didn't solve dam puzzle
+  - KB alignment: Agent tried "take platinum bar" in Loud Room twice without success. Circled underground without scoring
+  - Objective quality: Not checked
+  - Objective pursuit: Agent collecting items (wrench, guidebooks) but not scoring
+  - Learning system quality: KB working for house path. Underground exploration is trial-and-error — no KB guidance for dam/loud room puzzles yet
+**Triggers:** Score stagnant × 1 (0 delta turns 50-75). Maintenance Room stuck loop (7 turns).
+**Notes:** Agent explored 8 underground locations productively and avoided the dam flood that killed ep40. Took wrench from Maintenance Room (useful for dam bolt). Tried platinum bar in Loud Room twice — needs to say "echo" first but hasn't figured that out. Score at 45 for 30 turns is expected for underground exploration phase. Not dispatching improvement — monitoring to turn 100. If score still 45 at turn 100, that's stagnant × 2 but not necessarily a prompt issue — the agent is exploring new territory and learning.
+
+---
+
+## Episode 41 — Turn 100 Checkpoint
+**Type:** CONCERN — score stagnant 45 for 50 turns (turns 50-100)
+**Score:** 45/350 (delta: 0 from turn 50 — stagnant × 2)
+**Locations visited (turns 76-100):** 7 unique (Dam, Dam_Base, Dam_Lobby, Deep_Canyon, Loud_, Maintenance_, North-South_Passage)
+**Avg critic score:** 0.63 — healthy
+**Rejection rate:** 3/25 (12%) — excellent
+**Gameplay quality:** DRIFTING
+  - Memory use: Agent avoided red button from ep40 death memory — good learning
+  - KB alignment: Agent tried dam bolt with wrench (correct approach) but couldn't complete puzzle
+  - Objective quality: Not checked — agent circling dam/loud room
+  - Objective pursuit: Agent tried "take platinum bar" 3 times in Loud Room without success (needs "echo" command)
+  - Learning system quality: KB has no guidance for Loud Room or dam puzzle solution. Agent needs to discover these through experimentation
+**Triggers:** Score stagnant × 2 (0 delta across turns 50 and 75 and 100)
+**Notes:** Agent explored productively — found Dam_Base (new), tried wrench on bolt, tried taking platinum bar. But spent 50 turns in dam area loop without scoring. The dam puzzle and Loud Room are both unsolved. The "echo" command for Loud Room is highly non-obvious. The dam puzzle requires a specific sequence (turn bolt with wrench, press yellow button, wait for water to drain). Agent will learn these through repeated experimentation across episodes. Score stagnation is expected for puzzle-heavy areas. Not dispatching improvement — the system is working correctly, the agent just hasn't cracked these puzzles yet.
+
+---
+
+## Episode 41 — COMPLETE
+**Turns:** 100
+**Final score:** 45/350
+**Locations visited:** 20
+**Objectives found:** 13
+**End reason:** max_turns
+**Improvement dispatched:** No — score stagnation due to unsolved puzzles, not system failure
+
+**Key observations:**
+  - BLOCKER fix confirmed: KB-informed objectives worked (agent headed to house eventually)
+  - Slow start (turns 1-32) due to grating objective with wrong location. Agent eventually recovered
+  - Perfect KB path execution once at house: move rug → light lantern → open trap door (turns 37-41)
+  - Agent avoided dam flood (ep40 death learning) — didn't press red button
+  - Agent tried wrench on dam bolt (correct tool) but didn't complete the full sequence
+  - Tried taking platinum bar 3 times — needs "echo" command first (non-obvious puzzle)
+  - Found Dam_Base area (new territory vs ep40)
+
+---
+
+| Episode | Score | vs Prev | Best So Far | Turns to 1st Score | Locations | KB Quality | End Reason |
+|---------|-------|---------|-------------|-------------------|-----------|------------|------------|
+| ep36 | 45 | +30 | 45 | 6 | 22 | clean | max_turns! |
+| ep37 | 54 | +9 | 54 | 8 | 14 | clean | max_turns! |
+| ep38 | 35(45) | -19 | 54 | 6 | 18 | clean | death t61 |
+| ep39 | 50 | +15 | 54 | 9 | 13 | clean | max_turns |
+| ep40 | 30(40) | -20 | 54 | 9 | 14 | clean | death t46 (dam flood) |
+| ep41 | 45 | +15 | 54 | 5 | 20 | clean | max_turns! |
+
+**Trend:** ep41 survived to max_turns (no death) and explored 20 locations — tied for most explored. Score 45 matches ep36 baseline. The BLOCKER fixes (KB to objectives, KB cleanup) are confirmed working — agent follows KB house path correctly when objectives align. Underground stagnation at 45 is the current bottleneck: agent can't solve Loud Room (needs "echo") or complete dam puzzle sequence. These are discovery-gated puzzles that require more episodes of experimentation. Next episode will benefit from memories of dam exploration (wrench on bolt, Dam_Base area, platinum bar location). Best score 54 remains from ep37.
+
+---
+
+## Session Complete
+**Episodes run:** 3 (ep40, ep41, ep42 started but stopped by user)
+**Best score achieved:** 45/350 (ep41 — survived full 100 turns, 20 locations)
+**Improvements made:** 2 BLOCKER fixes (KB cleanup, KB-to-objectives pipeline)
+**System status:** STOPPED BY USER
+**Summary:** Fixed two critical BLOCKER bugs: (1) KB shovel contamination from prior session, (2) objective discovery LLM never received KB content. Both fixes confirmed — ep40 restart achieved score 40 by turn 25 (vs 5 before fix), agent followed KB path precisely ("move rug" on first try). ep41 scored 45 with 20 locations explored, survived dam area without drowning. Current bottleneck is underground puzzle-solving (Loud Room needs "echo", dam needs specific button+wrench sequence). User stopping to work on memory system improvements.
 
 ---

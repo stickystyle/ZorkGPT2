@@ -24,12 +24,14 @@ DEDUPLICATION — do NOT create memories that duplicate existing ones:
 
 SUPERSESSION — replacing outdated memories:
 - If your new memory CONTRADICTS or IMPROVES on an existing memory, list that memory's exact title in supersedes_titles
-- You MUST copy the exact title from the "Existing memories" list — character-for-character
+- You MUST copy the exact title text from the "Existing memories" list — character-for-character
+- Do NOT include the display brackets [] — just the title text inside them
+  - Existing shows: "[Dark Staircase Leads to Death]: ..." -> supersedes_titles entry: "Dark Staircase Leads to Death"
 - Do NOT paraphrase, rephrase, or invent titles that look similar
 - Examples:
   - Existing: "[Dark Staircase Leads to Death]: Going down without light is fatal"
     -> You discover it's safe with lantern
-    -> supersede with "Safe Descent with Lantern"
+    -> supersede with "Safe Descent with Lantern", supersedes_titles=["Dark Staircase Leads to Death"]
   - Existing: "[Troll Blocks Passage]: Troll blocks passage — attack with sword to defeat it"
     -> You kill the troll
     -> DO NOT supersede (the troll resets each episode, the original memory is still valid guidance)

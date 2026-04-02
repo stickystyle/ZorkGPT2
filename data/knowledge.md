@@ -1,33 +1,44 @@
 **Score Changes**
-*   Retrieved the brass lantern and sword from the trophy case in the Living Room (R193) (score +10).
-*   Took the jewel-encrusted egg from a bird's nest in a tree on the Forest Path (score +5).
+*   No score changes recorded in the provided gameplay log segment (Turns 51-100).
 
 **Puzzle Mechanics Discovered**
-*   Opening the small window in the Kitchen (R205) allows entry into the house.
-*   Moving or examining the heavy oriental rug in the Living Room (R193) is required to reveal the hidden trap door.
-*   Descending the trap door in the Living Room (R193) requires a lit lantern to prevent the door from crashing shut and barring the exit.
-*   The command "use" is not recognized for interacting with objects like the leaflet and leaves.
+*   Attempted to turn the bolt on the Dam with a wrench but failed; the bolt requires a different method or tool.
+*   Attempted to open or manipulate a pile of plastic in Dam Base but the command syntax was unrecognized.
+*   Attempted to enter a crack in the Chasm but the player cannot fit through it.
+*   Attempted to interact with a green bubble in Dam Lobby but pushing it has no effect.
+*   The "turn" command requires a specific tool specification to interact with the bolt on the Dam.
 
 **Items Found**
-*   **Brass lantern:** Taken from the trophy case in the Living Room (R193).
-*   **Sword:** Taken from the trophy case in the Living Room (R193).
-*   **Jewel-encrusted egg:** Taken from a bird's nest in a tree on the Forest Path.
-*   **Leaflet:** Taken from the small mailbox west of the house.
-*   **Sack:** Taken from the Kitchen (R205).
+*   **Wrench:** Taken from Maintenance Room (R208) after dropping other items to reduce load.
+*   **Screwdriver:** Attempted to take from Maintenance Room (R208) but inventory was too heavy.
+*   **Platinum bar:** Attempted to take from Loud Room (R206) but the action failed or was unrecognized.
+*   **Guidebooks:** Taken from Dam Lobby (R207) after dropping leaves and a glass bottle.
+*   **Matchbook:** Taken from Dam Lobby (R207) after dropping leaves and a glass bottle.
+*   **Leaflet:** Dropped in Dam Lobby (R207) to free up inventory space.
+*   **Glass bottle:** Dropped in Dam Lobby (R207) to free up inventory space.
+*   **Brown sack:** Dropped in Dam Lobby (R207) to free up inventory space.
 
 **Dangerous Areas**
-*   **Living Room Trap Door:** Descending into the dark cellar without a light source causes the door to crash shut and bar, trapping the player.
-*   **Troll Room:** Contains a hostile troll that attacks the player.
-*   **Maze:** A disorienting area where the player risks running out of inventory space or hitting dead ends.
+*   **Loud Room:** The ceiling height is undetectable from the ground, presenting a potential hazard.
+*   **Deep Canyon:** Features a stairway leading down to a Loud Room, suggesting a vertical drop risk.
+*   **Dam Base:** Located at the bottom of Flood Control Dam #3 with a flowing river nearby.
 
 **Failed Approaches**
-*   Attempting to enter the house through the Kitchen window without opening it first.
-*   Attempting to examine or climb the tree to reach the nest when the nest was already empty.
-*   Attempting to use the command "use" on the leaflet and pile of leaves.
-*   Attempting to open the gothic door in the Living Room by cutting nails or prying.
+*   Attempted to turn the bolt on the Dam using a brass lantern; the tool is ineffective.
+*   Attempted to turn the bolt on the Dam using a wrench; the bolt does not move.
+*   Attempted to push the bolt on the Dam; it is not notably helpful.
+*   Attempted to push the green bubble in Dam Lobby; it has no effect.
+*   Attempted to enter a crack in the Chasm; the player cannot fit through.
+*   Attempted to take the platinum bar from the Loud Room; the action failed.
+*   Attempted to take guidebooks and matchbooks simultaneously while at maximum load; the action failed.
+*   Attempted to use commands like "unfold," "open," or "spread" on a pile of plastic in Dam Base; the parser rejected the syntax.
+*   Attempted to take a screwdriver from Maintenance Room while inventory was too heavy; the action failed.
+*   Attempted to take a toothpaste item from Maintenance Room; the parser does not recognize the word.
 
 **Unexplored Leads**
-*   The dark staircase in the Kitchen (R205) leading to the upper floor.
-*   The gothic door with strange lettering in the Living Room (R193) to the west.
-*   The hole in the Troll Room requiring the "go west" command to enter.
-*   The forbidden hole in the Living Room trap door area if the light source is insufficient.
+*   The crack in the Chasm that the player cannot fit through.
+*   The green bubble in the Dam Lobby that has no interactive effect.
+*   The pile of plastic in Dam Base that cannot be manipulated with standard commands.
+*   The bolt on the Dam that cannot be turned with a wrench or lantern.
+*   The private doorways marked "Private" in Dam Lobby (R207) that were not entered.
+*   The stairway leading down from the Deep Canyon to the Loud Room.

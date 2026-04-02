@@ -130,7 +130,7 @@ def apply_consolidation_actions(
                 logger.warning(f"Consolidation rejected drop: title '{act.memory_title}' matched {len(matches)} active memories, expected 1")
                 stats["rejected"] += 1
                 continue
-            result = [m for m in result if m.get("title") != act.memory_title]
+            result.remove(matches[0])
             logger.warning(f"Consolidation dropped memory: {act.memory_title} — {act.reason}")
             stats["dropped"] += 1
             processed_titles.add(act.memory_title)
@@ -151,6 +151,10 @@ def apply_consolidation_actions(
                     f"Consolidation rejected merge: '{act.memory_title}' matched {len(primary_matches)}, "
                     f"'{act.merge_with}' matched {len(secondary_matches)} active memories, expected 1 each"
                 )
+                stats["rejected"] += 1
+                continue
+            if _find_active(act.new_title):
+                logger.warning(f"Consolidation rejected merge: new_title '{act.new_title}' already exists as active memory")
                 stats["rejected"] += 1
                 continue
             # Mark both source memories as SUPERSEDED

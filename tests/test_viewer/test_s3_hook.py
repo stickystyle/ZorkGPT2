@@ -94,8 +94,9 @@ class TestHookOnlyUploadsAfterRecordResults:
 class TestS3Keys:
     """Verify correct S3 key paths and cache control headers."""
 
-    def test_uploads_three_objects_on_middle_turn(self):
+    def test_uploads_four_objects_on_middle_turn(self):
         mock_s3 = MagicMock()
+        mock_s3.get_object.side_effect = Exception("NoSuchKey")
         with patch("zorkburr.viewer.s3_hook.boto3") as mock_boto:
             mock_boto.client.return_value = mock_s3
             hook = S3ViewerHook(bucket="my-bucket")
@@ -109,8 +110,8 @@ class TestS3Keys:
                 partition_key="default",
                 sequence_id=1,
             )
-        # 3 uploads: live state, turn snapshot, episode meta (no index on middle turns)
-        assert mock_s3.put_object.call_count == 3
+        # 4 uploads: live state, turn snapshot, episode meta, index (updated every turn)
+        assert mock_s3.put_object.call_count == 4
 
     def test_uploads_four_objects_on_first_turn(self):
         mock_s3 = MagicMock()
@@ -258,8 +259,9 @@ class TestEpisodeIndex:
         keys = [c.kwargs["Key"] for c in mock_s3.put_object.call_args_list]
         assert "episodes/index.json" in keys
 
-    def test_index_not_updated_on_middle_turns(self):
+    def test_index_updated_on_middle_turns(self):
         mock_s3 = MagicMock()
+        mock_s3.get_object.side_effect = Exception("NoSuchKey")
         with patch("zorkburr.viewer.s3_hook.boto3") as mock_boto:
             mock_boto.client.return_value = mock_s3
             hook = S3ViewerHook(bucket="my-bucket")
@@ -274,7 +276,7 @@ class TestEpisodeIndex:
                 sequence_id=1,
             )
         keys = [c.kwargs["Key"] for c in mock_s3.put_object.call_args_list]
-        assert "episodes/index.json" not in keys
+        assert "episodes/index.json" in keys
 
 
 class TestErrorHandling:
