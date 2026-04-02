@@ -12,6 +12,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 
+from langfuse import observe, get_client, propagate_attributes
+
 from zorkburr.actions.episode import finalize_episode, initialize_episode
 from zorkburr.app import build_turn_app
 from zorkburr.config import GameConfig
@@ -61,6 +63,7 @@ def format_episode_end(
     )
 
 
+@observe()
 def _run(config: GameConfig, max_turns: int, episode_id: str) -> None:
     jericho = JerichoInterface(config.game_file)
     jericho.start()
@@ -86,40 +89,51 @@ def _run(config: GameConfig, max_turns: int, episode_id: str) -> None:
     end_reason = "max_turns"
 
     try:
-        for action_obj, result, state in app.iterate(
-            halt_after=["turn_complete"]
+        with propagate_attributes(
+            trace_name=f"zorkburr-episode-{episode_id}",
+            session_id=episode_id,
+            user_id="zorkburr",
+            metadata={
+                "agent_model": config.agent_model,
+                "critic_model": config.critic_model,
+                "max_turns": str(max_turns),
+            },
+            tags=["zorkburr", "episode"],
         ):
-            if action_obj.name == "turn_complete":
-                end_reason = _resolve_end_reason(state[S.GAME_OVER_REASON])
-                objectives_found = len(state[S.DISCOVERED_OBJECTIVES])
-                break
-
-            if action_obj.name == "execute_action":
-                turn_num = state[S.TURN_COUNT]
-                loc = state[S.LOCATION_NAME]
-                locations_visited.add(loc)
-
-                print(
-                    format_turn_line(
-                        turn_num=turn_num,
-                        loc=loc,
-                        score=state[S.SCORE],
-                        max_score=state[S.MAX_SCORE],
-                        critic=state[S.CRITIC_SCORE],
-                        rejections=state[S.REJECTION_COUNT],
-                        action=state[S.ACTION_TO_TAKE],
-                    ),
-                    flush=True,
-                )
-
-                if state[S.GAME_OVER]:
+            for action_obj, result, state in app.iterate(
+                halt_after=["turn_complete"]
+            ):
+                if action_obj.name == "turn_complete":
                     end_reason = _resolve_end_reason(state[S.GAME_OVER_REASON])
                     objectives_found = len(state[S.DISCOVERED_OBJECTIVES])
                     break
 
-                if turn_num >= max_turns:
-                    objectives_found = len(state[S.DISCOVERED_OBJECTIVES])
-                    break
+                if action_obj.name == "execute_action":
+                    turn_num = state[S.TURN_COUNT]
+                    loc = state[S.LOCATION_NAME]
+                    locations_visited.add(loc)
+
+                    print(
+                        format_turn_line(
+                            turn_num=turn_num,
+                            loc=loc,
+                            score=state[S.SCORE],
+                            max_score=state[S.MAX_SCORE],
+                            critic=state[S.CRITIC_SCORE],
+                            rejections=state[S.REJECTION_COUNT],
+                            action=state[S.ACTION_TO_TAKE],
+                        ),
+                        flush=True,
+                    )
+
+                    if state[S.GAME_OVER]:
+                        end_reason = _resolve_end_reason(state[S.GAME_OVER_REASON])
+                        objectives_found = len(state[S.DISCOVERED_OBJECTIVES])
+                        break
+
+                    if turn_num >= max_turns:
+                        objectives_found = len(state[S.DISCOVERED_OBJECTIVES])
+                        break
     finally:
         try:
             final_state = app.state
@@ -138,6 +152,7 @@ def _run(config: GameConfig, max_turns: int, episode_id: str) -> None:
             )
         finally:
             jericho.close()
+            get_client().flush()
 
 
 def run_episode(max_turns: int, episode_id: str) -> None:

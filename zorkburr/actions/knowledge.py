@@ -2,6 +2,7 @@
 from __future__ import annotations
 import logging
 import instructor
+from langfuse import observe
 from zorkburr.actions import action
 from zorkburr.actions.episode import persist_knowledge
 from burr.core import State
@@ -25,6 +26,7 @@ def _get_knowledge_prompt() -> str:
            S.MEMORIES_BY_LOCATION],
     writes=[S.KNOWLEDGE_BASE],
 )
+@observe(capture_input=False)
 def update_knowledge(state: State, client: instructor.Instructor, config: GameConfig, use_thinking: bool = False) -> tuple[dict, State]:
     recent = state[S.ACTION_HISTORY][-50:]
     action_summary = "\n".join(

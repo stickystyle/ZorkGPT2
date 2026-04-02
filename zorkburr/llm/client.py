@@ -6,9 +6,15 @@ from __future__ import annotations
 import logging
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeout
 
+import os
+
 import httpx
 import instructor
-from openai import OpenAI
+
+if os.environ.get("LANGFUSE_PUBLIC_KEY"):
+    from langfuse.openai import OpenAI
+else:
+    from openai import OpenAI
 
 from zorkburr.config import GameConfig
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import instructor
 from burr.core import action, State
+from langfuse import observe
 from zorkburr.config import GameConfig
 from zorkburr.llm.client import effective_model, thinking_kwargs
 from zorkburr.llm.models import AgentResponse
@@ -33,6 +34,7 @@ def _get_system_prompt(knowledge_base: str = "") -> str:
     reads=[S.FORMATTED_CONTEXT, S.REJECTION_COUNT, S.CRITIC_JUSTIFICATION, S.KNOWLEDGE_BASE, S.TURN_COUNT],
     writes=[S.PROPOSED_ACTION, S.AGENT_REASONING, S.NEW_OBJECTIVE, S.ACTION_TO_TAKE],
 )
+@observe(capture_input=False)
 def generate_action(state: State, client: instructor.Instructor, config: GameConfig, use_thinking: bool = False) -> tuple[dict, State]:
     """Ask the agent LLM for the next action. Returns validated AgentResponse."""
     system = _get_system_prompt(state[S.KNOWLEDGE_BASE])

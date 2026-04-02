@@ -2,6 +2,7 @@
 from __future__ import annotations
 import logging
 import instructor
+from langfuse import observe
 from zorkburr.actions import action
 from burr.core import State
 from zorkburr.config import GameConfig
@@ -37,6 +38,7 @@ def _obj_text(o: object) -> str:
            S.GAME_RESPONSE, S.SCORE, S.LOCATION_NAME, S.LOCATION_ID, S.TURN_COUNT, S.KNOWLEDGE_BASE],
     writes=[S.DISCOVERED_OBJECTIVES, S.COMPLETED_OBJECTIVES],
 )
+@observe(capture_input=False)
 def update_objectives(state: State, client: instructor.Instructor, config: GameConfig, use_thinking: bool = False) -> tuple[dict, State]:
     recent_actions = state[S.ACTION_HISTORY][-10:]
     action_summary = "\n".join(
@@ -83,6 +85,7 @@ def update_objectives(state: State, client: instructor.Instructor, config: GameC
            S.ACTION_TO_TAKE, S.TURN_COUNT, S.SCORE, S.PRE_SCORE],
     writes=[S.DISCOVERED_OBJECTIVES, S.COMPLETED_OBJECTIVES],
 )
+@observe(capture_input=False)
 def check_objective_completion(state: State, client: instructor.Instructor, config: GameConfig) -> tuple[dict, State]:
     objectives = state[S.DISCOVERED_OBJECTIVES]
     if not objectives:

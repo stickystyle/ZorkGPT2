@@ -4,6 +4,7 @@ import logging
 
 import instructor
 from burr.core import State
+from langfuse import observe
 
 from zorkburr.actions import action
 from zorkburr.config import GameConfig
@@ -89,6 +90,7 @@ def validate_against_object_tree(
         S.ACTION_TO_TAKE, S.REJECTION_COUNT,
     ],
 )
+@observe(capture_input=False)
 def evaluate_action(
     state: State,
     llm: instructor.Instructor,

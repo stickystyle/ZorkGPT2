@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, asdict
 import instructor
+from langfuse import observe
 from zorkburr.actions import action
 from zorkburr.actions.episode import persist_memories
 from burr.core import State
@@ -49,6 +50,7 @@ def should_synthesize(score_delta: int, location_changed: bool, died: bool) -> b
            S.MEMORIES_BY_LOCATION, S.EPISODE_ID, S.TURN_COUNT],
     writes=[S.MEMORIES_BY_LOCATION],
 )
+@observe(capture_input=False)
 def record_memory(state: State, client: instructor.Instructor, config: GameConfig) -> tuple[dict, State]:
     score_delta = state[S.SCORE] - state[S.PRE_SCORE]
     location_changed = state[S.LOCATION_ID] != state[S.PRE_LOCATION_ID]

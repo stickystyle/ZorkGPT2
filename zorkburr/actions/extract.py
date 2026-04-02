@@ -2,6 +2,7 @@
 from __future__ import annotations
 import logging
 import instructor
+from langfuse import observe
 from zorkburr.actions import action
 from burr.core import State
 from zorkburr.config import GameConfig
@@ -24,6 +25,7 @@ def _get_extractor_prompt() -> str:
     reads=[S.GAME_RESPONSE, S.LOCATION_NAME, S.LOCATION_ID, S.IN_COMBAT],
     writes=[S.EXITS, S.IN_COMBAT, S.IS_ROOM_DESCRIPTION, S.VISIBLE_OBJECTS],
 )
+@observe(capture_input=False)
 def extract_info(state: State, client: instructor.Instructor, jericho: JerichoInterface, config: GameConfig) -> tuple[dict, State]:
     """Extract structured game state using hybrid approach.
 
