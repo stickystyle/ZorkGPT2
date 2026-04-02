@@ -238,6 +238,7 @@ def finalize_episode(state: State, config: GameConfig, client=None) -> dict:
 
     # Run memory consolidation if client is available
     all_mems = dict(state[S.MEMORIES_BY_LOCATION])
+    consolidated_total = 0
     if client is not None and all_mems:
         # Backup before consolidation
         mem_path = Path(config.memory_file)
@@ -258,6 +259,7 @@ def finalize_episode(state: State, config: GameConfig, client=None) -> dict:
                 all_mems[loc_key] = updated
                 before = len(loc_mems)
                 after = sum(1 for m in updated if m.get("status") != "SUPERSEDED")
+                consolidated_total += stats["dropped"] + stats["merged"] + stats["superseded"]
                 logger.info(
                     f"CONSOLIDATION | location={loc_key} | before={before} | after={after}"
                     f" | kept={stats['kept']} | merged={stats['merged']}"
@@ -274,4 +276,5 @@ def finalize_episode(state: State, config: GameConfig, client=None) -> dict:
         "score": state[S.SCORE],
         "max_score": state[S.MAX_SCORE],
         "reason": state[S.GAME_OVER_REASON],
+        "mem_consolidated": consolidated_total,
     }

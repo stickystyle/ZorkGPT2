@@ -68,10 +68,11 @@ def format_episode_end(
         mem_dedup = memory_stats.get("dedup_rejected", 0)
         mem_superseded = memory_stats.get("superseded", 0)
         mem_pruned = memory_stats.get("ephemeral_pruned", 0)
+        mem_consolidated = memory_stats.get("mem_consolidated", 0)
         line += (
             f" | mem_total={mem_total} | mem_new={mem_new}"
             f" | mem_dedup_rejected={mem_dedup} | mem_superseded={mem_superseded}"
-            f" | mem_ephemeral_pruned={mem_pruned}"
+            f" | mem_ephemeral_pruned={mem_pruned} | mem_consolidated={mem_consolidated}"
         )
     return line
 
@@ -151,13 +152,14 @@ def _run(config: GameConfig, max_turns: int, episode_id: str) -> None:
         try:
             final_state = app.state
             # Save cross-episode learning (knowledge base, map) for future episodes
-            finalize_episode(final_state, config, client=client)
+            summary = finalize_episode(final_state, config, client=client)
 
             # Compute memory stats for EPISODE_END
             mem_stats = dict(final_state.get(S.MEMORY_STATS, {}))
             all_mems = final_state.get(S.MEMORIES_BY_LOCATION, {})
             mem_stats["total"] = sum(len(v) for v in all_mems.values())
             mem_stats["ephemeral_pruned"] = overrides.get("ephemeral_pruned", 0)
+            mem_stats["mem_consolidated"] = summary.get("mem_consolidated", 0)
 
             print(
                 format_episode_end(
