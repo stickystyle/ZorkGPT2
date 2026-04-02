@@ -979,7 +979,7 @@ function buildTurnEntryFromAccumulated(entry) {
 
   // Thinking/reasoning
   if (entry.reasoning) {
-    html += `<div class="log-thinking collapsed" onclick="this.classList.toggle('collapsed')" title="Click to expand">Thinking: ${escapeHtml(entry.reasoning)}</div>`;
+    html += `<div class="log-thinking" onclick="this.classList.toggle('collapsed')" title="Click to collapse">Thinking: ${escapeHtml(entry.reasoning)}</div>`;
   }
 
   // Proposed action
