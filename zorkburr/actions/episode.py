@@ -62,6 +62,7 @@ def initialize_episode(
             overrides["memories_by_location"] = cleaned
             if dropped:
                 logger.info(f"Pruned {dropped} ephemeral memories from previous episodes")
+                overrides["ephemeral_pruned"] = dropped
         except Exception as e:
             logger.warning(f"Failed to load memories: {e}")
 

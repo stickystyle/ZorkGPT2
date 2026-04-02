@@ -47,8 +47,8 @@ def should_synthesize(score_delta: int, location_changed: bool, died: bool) -> b
     reads=[S.PRE_LOCATION_ID, S.PRE_LOCATION_NAME, S.PRE_SCORE, S.PRE_INVENTORY,
            S.LOCATION_ID, S.SCORE, S.INVENTORY, S.GAME_OVER, S.GAME_OVER_REASON,
            S.GAME_RESPONSE, S.ACTION_TO_TAKE, S.AGENT_REASONING, S.ACTION_HISTORY,
-           S.MEMORIES_BY_LOCATION, S.EPISODE_ID, S.TURN_COUNT],
-    writes=[S.MEMORIES_BY_LOCATION],
+           S.MEMORIES_BY_LOCATION, S.EPISODE_ID, S.TURN_COUNT, S.MEMORY_STATS],
+    writes=[S.MEMORIES_BY_LOCATION, S.MEMORY_STATS],
 )
 @observe(capture_input=False)
 def record_memory(state: State, client: instructor.Instructor, config: GameConfig) -> tuple[dict, State]:
@@ -92,7 +92,9 @@ def record_memory(state: State, client: instructor.Instructor, config: GameConfi
             existing_titles = {m.get("title") for m in loc_list if m.get("status") != "SUPERSEDED"}
             if response.memory_title in existing_titles:
                 logger.info(f"Rejected duplicate memory title: '{response.memory_title}' at location {loc_key}")
-                return {"synthesized": False, "reason": "duplicate_title"}, state
+                stats = dict(state[S.MEMORY_STATS])
+                stats["dedup_rejected"] = stats.get("dedup_rejected", 0) + 1
+                return {"synthesized": False, "reason": "duplicate_title"}, state.update(**{S.MEMORY_STATS: stats})
 
             mem = Memory(
                 category=response.category, title=response.memory_title,
@@ -103,7 +105,11 @@ def record_memory(state: State, client: instructor.Instructor, config: GameConfi
             loc_list.append(mem.to_dict())
             all_mems[loc_key] = loc_list
             persist_memories(all_mems, config)
-            return {"synthesized": True, "memory_title": mem.title}, state.update(**{S.MEMORIES_BY_LOCATION: all_mems})
+            stats = dict(state[S.MEMORY_STATS])
+            stats["new"] = stats.get("new", 0) + 1
+            return {"synthesized": True, "memory_title": mem.title}, state.update(
+                **{S.MEMORIES_BY_LOCATION: all_mems, S.MEMORY_STATS: stats}
+            )
     except Exception as e:
         logger.warning(f"Memory synthesis failed: {e}")
 

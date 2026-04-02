@@ -35,6 +35,7 @@ def test_record_memory_with_synthesis():
         S.ACTION_TO_TAKE: "open mailbox", S.AGENT_REASONING: "check the mailbox",
         S.ACTION_HISTORY: [], S.MEMORIES_BY_LOCATION: {},
         S.EPISODE_ID: "ep-1", S.TURN_COUNT: 5,
+        S.MEMORY_STATS: {"new": 0, "dedup_rejected": 0, "superseded": 0},
     })
     result, new_state = record_memory.run(state, client=mock_client, config=MagicMock(memory_model="test"))
     mems = new_state[S.MEMORIES_BY_LOCATION]
@@ -78,6 +79,7 @@ def test_record_memory_rejects_duplicate_title():
                     "turn": 3, "persistence": "permanent", "status": "ACTIVE"}]
         },
         S.EPISODE_ID: "ep-1", S.TURN_COUNT: 5,
+        S.MEMORY_STATS: {"new": 0, "dedup_rejected": 0, "superseded": 0},
     })
     result, new_state = record_memory.run(state, client=mock_client, config=MagicMock(memory_model="test"))
     assert result["synthesized"] is False
@@ -109,7 +111,61 @@ def test_record_memory_allows_duplicate_title_if_superseded():
                     "superseded_by": "Something else"}]
         },
         S.EPISODE_ID: "ep-1", S.TURN_COUNT: 5,
+        S.MEMORY_STATS: {"new": 0, "dedup_rejected": 0, "superseded": 0},
     })
     result, new_state = record_memory.run(state, client=mock_client, config=MagicMock(memory_model="test"))
     assert result["synthesized"] is True
     assert len(new_state[S.MEMORIES_BY_LOCATION]["10"]) == 2
+
+
+def test_record_memory_increments_new_counter():
+    """Memory stats 'new' counter should increment on successful synthesis."""
+    mock_client = MagicMock()
+    mock_client.create.return_value = MemorySynthesisResponse(
+        should_remember=True, category="DISCOVERY", memory_title="Found leaflet",
+        memory_text="Mailbox contains a leaflet.", persistence="permanent",
+        status="ACTIVE", reasoning="new info",
+    )
+    state = State({
+        S.PRE_LOCATION_ID: 10, S.PRE_LOCATION_NAME: "West of House",
+        S.PRE_SCORE: 0, S.PRE_INVENTORY: [],
+        S.LOCATION_ID: 10, S.SCORE: 5, S.INVENTORY: ["leaflet"],
+        S.GAME_OVER: False, S.GAME_OVER_REASON: "",
+        S.GAME_RESPONSE: "Opening the small mailbox reveals a leaflet.",
+        S.ACTION_TO_TAKE: "open mailbox", S.AGENT_REASONING: "check the mailbox",
+        S.ACTION_HISTORY: [], S.MEMORIES_BY_LOCATION: {},
+        S.EPISODE_ID: "ep-1", S.TURN_COUNT: 5,
+        S.MEMORY_STATS: {"new": 0, "dedup_rejected": 0, "superseded": 0},
+    })
+    result, new_state = record_memory.run(state, client=mock_client, config=MagicMock(memory_model="test"))
+    assert result["synthesized"] is True
+    assert new_state[S.MEMORY_STATS]["new"] == 1
+
+
+def test_record_memory_increments_dedup_counter():
+    """Memory stats 'dedup_rejected' counter should increment on duplicate title."""
+    mock_client = MagicMock()
+    mock_client.create.return_value = MemorySynthesisResponse(
+        should_remember=True, category="DISCOVERY", memory_title="Found leaflet",
+        memory_text="Different text.", persistence="permanent",
+        status="ACTIVE", reasoning="new info",
+    )
+    state = State({
+        S.PRE_LOCATION_ID: 10, S.PRE_LOCATION_NAME: "West of House",
+        S.PRE_SCORE: 0, S.PRE_INVENTORY: [],
+        S.LOCATION_ID: 10, S.SCORE: 5, S.INVENTORY: ["leaflet"],
+        S.GAME_OVER: False, S.GAME_OVER_REASON: "",
+        S.GAME_RESPONSE: "Opening the small mailbox reveals a leaflet.",
+        S.ACTION_TO_TAKE: "open mailbox", S.AGENT_REASONING: "check the mailbox",
+        S.ACTION_HISTORY: [],
+        S.MEMORIES_BY_LOCATION: {
+            "10": [{"category": "DISCOVERY", "title": "Found leaflet",
+                    "text": "Mailbox contains a leaflet.", "episode": "ep-0",
+                    "turn": 3, "persistence": "permanent", "status": "ACTIVE"}]
+        },
+        S.EPISODE_ID: "ep-1", S.TURN_COUNT: 5,
+        S.MEMORY_STATS: {"new": 0, "dedup_rejected": 0, "superseded": 0},
+    })
+    result, new_state = record_memory.run(state, client=mock_client, config=MagicMock(memory_model="test"))
+    assert result["synthesized"] is False
+    assert new_state[S.MEMORY_STATS]["dedup_rejected"] == 1
