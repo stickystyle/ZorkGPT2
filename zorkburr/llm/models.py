@@ -37,6 +37,17 @@ class MemorySynthesisResponse(BaseModel):
         description="Exact titles of existing memories this replaces. Copy titles verbatim from the existing memories list."
     )
 
+class ConsolidationAction(BaseModel):
+    action: str = Field(description="keep|drop|merge|supersede")
+    memory_title: str = Field(description="Exact title of existing memory being acted on")
+    merge_with: str = Field(default="", description="Title of the other memory (for 'merge' and 'supersede')")
+    new_text: str = Field(default="", description="Rewritten text (for 'merge' only)")
+    new_title: str = Field(default="", description="Title for merged memory (for 'merge' only)")
+    reason: str = Field(description="Why this action was chosen")
+
+class ConsolidationResponse(BaseModel):
+    actions: list[ConsolidationAction]
+
 class Objective(BaseModel):
     text: str = Field(description="The objective description")
     location_id: int = Field(default=0, description="Location ID where this objective applies (0 if general)")
