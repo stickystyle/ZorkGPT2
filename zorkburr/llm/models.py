@@ -32,6 +32,10 @@ class MemorySynthesisResponse(BaseModel):
     memory_text: str = Field(default="", description="1-2 sentence insight")
     persistence: str = Field(default="ephemeral", description="core|permanent|ephemeral")
     status: str = Field(default="ACTIVE", description="ACTIVE|TENTATIVE")
+    supersedes_titles: list[str] = Field(
+        default_factory=list,
+        description="Exact titles of existing memories this replaces. Copy titles verbatim from the existing memories list."
+    )
 
 class Objective(BaseModel):
     text: str = Field(description="The objective description")

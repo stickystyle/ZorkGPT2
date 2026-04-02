@@ -169,3 +169,18 @@ def test_record_memory_increments_dedup_counter():
     result, new_state = record_memory.run(state, client=mock_client, config=MagicMock(memory_model="test"))
     assert result["synthesized"] is False
     assert new_state[S.MEMORY_STATS]["dedup_rejected"] == 1
+
+
+def test_memory_dataclass_has_superseded_by():
+    m = Memory(category="SUCCESS", title="Old info", text="Was wrong.",
+               episode="ep-1", turn=5, persistence="permanent", status="SUPERSEDED",
+               superseded_by="New info")
+    d = m.to_dict()
+    assert d["superseded_by"] == "New info"
+    assert not m.is_active  # SUPERSEDED is not active
+
+
+def test_memory_dataclass_defaults_superseded_by_empty():
+    m = Memory(category="SUCCESS", title="Good info", text="Still valid.",
+               episode="ep-1", turn=5, persistence="permanent", status="ACTIVE")
+    assert m.superseded_by == ""

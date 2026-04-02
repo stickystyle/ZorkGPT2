@@ -32,6 +32,7 @@ class Memory:
     turn: int
     persistence: str
     status: str
+    superseded_by: str = ""
 
     @property
     def is_active(self) -> bool:
