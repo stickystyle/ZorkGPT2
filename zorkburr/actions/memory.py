@@ -85,14 +85,21 @@ def record_memory(state: State, client: instructor.Instructor, config: GameConfi
             **thinking_kwargs(config, False),
         )
         if response.should_remember:
+            all_mems = dict(state[S.MEMORIES_BY_LOCATION])
+            loc_list = list(all_mems.get(loc_key, []))
+
+            # Dedup guard: reject exact title matches against non-superseded memories
+            existing_titles = {m.get("title") for m in loc_list if m.get("status") != "SUPERSEDED"}
+            if response.memory_title in existing_titles:
+                logger.info(f"Rejected duplicate memory title: '{response.memory_title}' at location {loc_key}")
+                return {"synthesized": False, "reason": "duplicate_title"}, state
+
             mem = Memory(
                 category=response.category, title=response.memory_title,
                 text=response.memory_text, episode=state[S.EPISODE_ID],
                 turn=state[S.TURN_COUNT], persistence=response.persistence,
                 status=response.status,
             )
-            all_mems = dict(state[S.MEMORIES_BY_LOCATION])
-            loc_list = list(all_mems.get(loc_key, []))
             loc_list.append(mem.to_dict())
             all_mems[loc_key] = loc_list
             persist_memories(all_mems, config)
