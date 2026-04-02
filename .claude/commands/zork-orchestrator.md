@@ -66,7 +66,7 @@ uv run run_episode.py --max-turns 100 --episode-id ep01 \
 echo "PID=$!"
 ```
 
-Note the PID. Poll for progress every 30 seconds using:
+Note the PID. Poll for progress every 60 seconds using (NEVER increase this interval — always 60s):
 
 ```bash
 grep -c "^TURN" docs/orchestrator/run_log_ep01.txt
@@ -424,8 +424,17 @@ When an improvement is needed:
    <paste relevant evaluate_action steps showing proposed_action, critic_score,
     critic_justification, and agent_reasoning>
 
-   RECENT JOURNAL (paste last 2-3 entries from docs/orchestrator/journal.md):
+   RECENT JOURNAL (paste last 2-3 checkpoint/complete entries from docs/orchestrator/journal.md):
    <paste entries>
+
+   PREVIOUSLY ATTEMPTED FIXES FOR THIS PROBLEM (grep the journal for all IMPROVEMENT
+   entries whose Trigger or Hypothesis relates to this same root cause — include their
+   Hypothesis, Change, and Result fields. If none exist, write "None — first attempt."):
+   <paste matching IMPROVEMENT entries>
+
+   You MUST NOT re-test a hypothesis that was already falsified. If a prior attempt
+   targeted the same root cause and failed, you must propose a DIFFERENT hypothesis
+   about why the problem occurs, not just a different prompt tweak for the same theory.
 
    YOUR TASK:
    Make ONE focused change to address this problem. You may ONLY modify:
@@ -459,8 +468,9 @@ When an improvement is needed:
 
       ## Episode <N> → <N+1> — IMPROVEMENT
       **Trigger:** <what condition fired>
+      **Hypothesis:** <your theory about WHY the problem occurs — what mechanism is broken>
       **Change:** <what you modified — file and change description>
-      **Reasoning:** <your explanation>
+      **Reasoning:** <why this change tests the hypothesis>
       **Target metric:** <what we expect to improve>
       **Result:** PENDING
 
@@ -478,7 +488,19 @@ When an improvement is needed:
    improvement you expect to see.
    ```
 
-4. **Start the next episode** (increment episode counter, go to Phase 1).
+4. **Escalation rule — 3 strikes on the same root cause:**
+   Before dispatching, count how many prior IMPROVEMENT entries target the same root cause
+   (grep journal for similar Trigger/Hypothesis). If 3+ prior attempts all failed (NEUTRAL,
+   DEGRADED, or REVERTED):
+   - **Stop making prompt changes** for this root cause.
+   - Investigate whether the problem is in the Python pipeline — how data flows into the
+     agent's `formatted_context`. Read the relevant code. Check what the agent actually
+     receives vs. what you expect it to receive.
+   - The subagent brief should shift from "modify prompts/" to "investigate and fix the
+     code in zorkburr/ that produces the broken behavior." Include the 3 failed hypotheses
+     as evidence that the problem is upstream of prompts.
+
+5. **Start the next episode** (increment episode counter, go to Phase 1).
 
 ---
 
@@ -498,11 +520,20 @@ When `EPISODE_END` appears in the log, write an episode summary:
 ---
 ```
 
-If the previous episode had a PENDING improvement entry, update it:
-- Read the relevant metric from this episode
-- Change `**Result:** PENDING` to `**Result:** IMPROVED / NEUTRAL / DEGRADED — <metric before> → <metric after>`
+**Resolve ALL pending improvements** — not just the most recent one. Grep the journal
+for every `**Result:** PENDING` entry. For each one:
+- Can this episode's data provide a verdict? (The target metric may take multiple
+  episodes to evaluate — that's OK, skip it for now.)
+- If yes: change `**Result:** PENDING` to `**Result:** IMPROVED / NEUTRAL / DEGRADED — <metric before> → <metric after>`.
+- If the hypothesis was falsified (NEUTRAL or DEGRADED), note what was learned:
+  `**Hypothesis verdict:** FALSIFIED — <why the hypothesis was wrong>`
+- If a change degraded the metric: dispatch a subagent to revert it, then note
+  `REVERTED` in the journal.
 
-If a change degraded the metric: dispatch a subagent to revert it, then note `REVERTED` in the journal.
+```bash
+# Find all PENDING entries
+grep -n "Result:.*PENDING" docs/orchestrator/journal.md
+```
 
 ### Score Trend Table (mandatory at episode end)
 
@@ -514,6 +545,40 @@ Maintain a running table in the journal. Update it after every episode:
 ```
 
 **Trend analysis (mandatory):** After updating the table, write 1-2 sentences interpreting the trajectory. If best score hasn't increased in 3+ episodes despite targeted changes, the current improvement strategy is exhausted — consider focusing on a different subsystem (e.g., shift from agent prompt to KB quality, or from critic tuning to memory system).
+
+### Key Learnings (update every 5 episodes)
+
+Every 5 episodes (ep5, ep10, ep15, ...), rewrite the `## Key Learnings` section at the
+**top** of the journal (immediately after the header). This is a distilled summary that
+lets new sessions understand the project state without reading 1000+ lines of history.
+
+Structure:
+
+```markdown
+## Key Learnings (updated after episode <N>)
+
+**Current best score:** <score> (episode <N>)
+**Current bottleneck:** <1-sentence description of what's blocking higher scores>
+
+### What works
+- <bullet per confirmed-effective change, with episode citation>
+
+### Falsified hypotheses
+- <hypothesis> — FAILED in ep<N> because <why>
+
+### Open problems
+- <problem> — <N> attempts so far, last tried ep<N>
+
+### Subsystems investigated
+- Agent prompt: <N> changes, last ep<N>
+- Critic prompt: <N> changes, last ep<N>
+- KB/memory system: <N> changes, last ep<N>
+- Python pipeline: <N> changes, last ep<N>
+```
+
+Keep this section under 40 lines. It is a summary, not a log. Old entries in the main
+journal body can be considered archival — the Key Learnings section is what new sessions
+should read first.
 
 ---
 
