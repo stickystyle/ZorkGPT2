@@ -88,9 +88,10 @@ class S3ViewerHook(PostRunStepHook):
             CacheControl="no-cache, max-age=0",
         )
 
-        # 4. Update episode index on first turn or game over
-        if turn == 1 or game_over:
-            self._update_episode_index(meta, now)
+        # 4. Update episode index every turn so scores stay current
+        # (episodes that hit max_turns never set game_over, so we
+        #  can't rely on only updating at turn 1 and game_over)
+        self._update_episode_index(meta, now)
 
     def _update_episode_index(self, episode_meta: dict, now: str) -> None:
         index_key = f"{self.prefix}episodes/index.json"

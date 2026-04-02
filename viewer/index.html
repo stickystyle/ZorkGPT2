@@ -748,7 +748,21 @@ async function fetchLiveState() {
 
 async function fetchEpisodeIndex() {
   try {
-    return await fetchJSON(`${BASE_URL}/episodes/index.json`);
+    const index = await fetchJSON(`${BASE_URL}/episodes/index.json`);
+    // Enrich scores from per-episode meta.json (index.json may have stale score=0)
+    if (index.episodes) {
+      const metas = await Promise.all(
+        index.episodes.map(ep => fetchEpisodeMeta(ep.episode_id))
+      );
+      for (let i = 0; i < index.episodes.length; i++) {
+        if (metas[i] && typeof metas[i].score === 'number') {
+          index.episodes[i].score = metas[i].score;
+          index.episodes[i].turn_count = metas[i].turn_count ?? index.episodes[i].turn_count;
+          index.episodes[i].status = metas[i].status ?? index.episodes[i].status;
+        }
+      }
+    }
+    return index;
   } catch {
     return { episodes: [], current_episode: null };
   }
