@@ -28,7 +28,7 @@ Started: 2026-03-30
 ### Subsystems investigated
 - Agent prompt: ~17 changes, last ep35→36
 - Critic prompt: ~3 changes, last ep7
-- KB/memory system: ~3 changes, last ep25
+- KB/memory system: ~5 changes, last ep39→40
 - Python pipeline: ~5 changes, last ep19
 
 ---
@@ -2188,5 +2188,154 @@ Started: 2026-03-30
 - `prompts/knowledge.md`: Updated to include R<id> location IDs in all KB entries (e.g., "Living Room (R193)")
 
 **Expected impact:** Agent can now see the full map topology and correlate objectives with map nodes. KB entries reference location IDs matching the map. This should improve navigation planning and objective pursuit — the agent can trace paths on the map to reach objective locations.
+
+---
+
+## Infrastructure: Local Map Diagram Fix
+**Type:** BLOCKER (context overflow)
+**Date:** 2026-04-02
+
+**Problem:** Full Mermaid map diagram (43 rooms) consumed ~5000 chars of context. Combined with KB/memories/objectives, prompt reached 22.7K tokens out of 24K context window, leaving only ~1.8K tokens for completion. Model hit `finish_reason='length'` errors — reasoning exhausted budget before completing JSON output.
+
+**Fix:** Added `to_mermaid_local(current_room_id, depth=2)` to `MapGraph`. Uses BFS to render only rooms within 2 hops of current location. Updated `context.py` to call `to_mermaid_local` instead of `to_mermaid`.
+
+**Result:** Context dropped from ~6500 chars to ~4680 chars. No more length errors.
+
+---
+
+## Infrastructure: Viewer Objective Rendering Fix
+**Type:** BLOCKER (viewer bug)
+**Date:** 2026-04-02
+
+**Problem:** Viewer showed `[object Object]` for objectives after objectives changed from plain strings to structured `{text, location_id, location_name}` objects.
+
+**Fix:** Updated `renderObjectives()` in `viewer/index.html` to extract `.text` from object objectives and display location tags when available.
+
+---
+
+## Episode 39 — Turn 25 Checkpoint
+**Type:** CONCERN — score regression from ep36-38 baseline
+**Score:** 5/350 (delta: +5 from start — egg at turn 9)
+**Locations visited:** 5 unique (West_House, North_House, Forest_Path, Up_a_Tree, Clearing) — vs 8+ in ep36-38
+**Avg critic score:** 0.60 — above 0.5
+**Rejection rate:** 5/25 (20%) — healthy
+**Gameplay quality:** DRIFTING
+  - Memory use: Agent sees nearby memories but doesn't act on KB guidance about house entrance
+  - KB alignment: KB has excellent content (rug puzzle, trap door, equipment) but agent pursues nonexistent shovel instead
+  - Objective quality: 0/3 well-formed — "find shovel" (no shovel in Zork), "explore north" (already explored), "return to house" (no location tag, vague)
+  - Objective pursuit: Agent chasing shovel objective for 6+ turns, wasting time on leaves
+  - Learning system quality: KB is high quality (strategic content, puzzle mechanics, score changes). Objectives are noise — generated from current episode without cross-referencing KB knowledge
+**Triggers:** Score stagnant if no change by turn 50. Objective quality trigger: 0/3 objectives are well-formed.
+**Notes:** The new infrastructure changes (map + location-tagged objectives) are working technically. But the objectives generated this episode are poor quality — the agent generates objectives from its current observations without consulting the KB. KB says "go to Behind House → open window → Kitchen" but the objectives say "find a shovel." Not dispatching improvement yet — monitoring to turn 50 to see if agent recovers. The agent went east at turn 25 which may lead toward Behind_House via the forest route.
+
+---
+
+## Episode 39 → 40 — IMPROVEMENT
+**Trigger:** KB truncation at 2000 chars strips Items Found, Dangerous Areas, and Failed Approaches — agent repeats mistakes and misses death-avoidance info. KB verbosity wastes char budget on self-corrections.
+**Hypothesis:** Agent underperforms because it never sees the bottom half of the KB (dangerous areas, failed approaches). Removing the cap and tightening the KB prompt will give the agent access to all learned knowledge while keeping context size manageable.
+**Change:** (1) Removed `[:2000]` truncation in `zorkburr/actions/context.py:107` — full KB now injected. (2) Added BREVITY rule to `prompts/knowledge.md` requiring one-line bullets, no self-corrections or hedging. Removed stale "first ~2000 characters" framing.
+**Reasoning:** The 4K KB is modest (~600 tokens) — no need for an artificial cap. The brevity rule prevents future KB bloat at the source, which is more sustainable than truncation.
+**Target metric:** Agent should avoid repeating failed approaches documented in KB (e.g., cutting nails, examining hole). Context length increase should be <1K chars.
+**Result:** PENDING
+
+---
+
+## Episode 39 — Turn 50 Checkpoint
+**Type:** CONCERN — score regression but recovering
+**Score:** 15/350 (delta: +10 from turn 25 — entered Kitchen at turn 47)
+**Locations visited (turns 26-50):** 7 unique (Behind_House, Clearing, Forest, Forest_Path, Kitchen, Living_, Up_a_Tree)
+**Avg critic score:** 0.67 — HEALTHY
+**Rejection rate:** 7/25 (28%) — below 30%
+**Gameplay quality:** DRIFTING
+  - Memory use: Agent eventually followed memories to Behind_House but took 43 turns (vs 11 in ep17, 6 in ep36)
+  - KB alignment: Agent finally reached house area; KB guidance is correct but agent was slow to follow it
+  - Objective quality: Initial objectives were terrible (nonexistent shovel). New objectives TBD after reaching house
+  - Objective pursuit: Agent spent 20+ turns on leaves/forest loop before breaking out
+  - Learning system quality: KB high quality. Objective system needs improvement — generates speculative objectives that mislead
+**Triggers:** Score stagnant × 2 at turn 25 (now resolved with +10). No current triggers.
+**Notes:** Agent eventually recovered and found Behind_House → Kitchen → Living Room. Now has score 15 and is taking sword+lantern at turn 50. This is where ep36-38 were at turn 14-15. The 35-turn delay is due to poor initial objectives distracting the agent. Not killing episode — monitoring to see if agent can reach underground and score further. The late start means it likely won't match ep37's 54 record.
+
+---
+
+## Episode 39 — Turn 75 Checkpoint
+**Type:** CONCERN — score stagnant 15→15, rug puzzle verb mismatch
+**Score:** 15/350 (delta: 0 from turn 50 — stagnant × 1)
+**Locations visited (turns 51-75):** 4 unique (Attic, Behind_House, Kitchen, Living_)
+**Avg critic score:** 0.67 — HEALTHY
+**Rejection rate:** 4/25 (16%) — excellent
+**Gameplay quality:** DRIFTING
+  - Memory use: Agent in house area, taking equipment correctly
+  - KB alignment: KB says "move rug" is the required verb — agent tried "lift rug" (t53,73), "examine rug" (t54,72), "push rug" (t75), "open trap door" (t74). Never tried "move rug"
+  - Objective quality: Not re-checked
+  - Objective pursuit: Agent cycling Kitchen↔Attic↔Living without clear progress
+  - Learning system quality: KB is precise ("The command 'move' is required to shift the rug") but agent doesn't follow it
+**Triggers:** Score stagnant × 1. Not yet × 2. Agent actively trying rug puzzle but wrong verbs.
+**Notes:** Agent collected all equipment (lantern, sword, knife, rope, egg, sack, bottle). Successfully lit lantern. Trying rug puzzle but hasn't found correct verb "move rug". If it doesn't get it in next 25 turns, will be stagnant × 2 and need improvement. This may be a prompt issue — the agent doesn't seem to consult KB for specific verb guidance when stuck on a puzzle.
+
+---
+
+## Episode 39 → 40 — IMPROVEMENT (BLOCKER)
+**Trigger:** KB audit revealed hallucinated objectives leaking into knowledge base. The `update_knowledge` function passed `DISCOVERED_OBJECTIVES` and `COMPLETED_OBJECTIVES` into the KB LLM's user message as trusted context. Since objectives are LLM-generated and frequently hallucinate (e.g., "use the knife and rope to retrieve the sword from the window", nonexistent "library"), these fabrications get codified as strategic knowledge. Turn 25 checkpoint confirmed: initial objectives referenced a nonexistent shovel, misleading the agent for 20+ turns.
+**Hypothesis:** Hallucinated objectives contaminate the KB, which then reinforces bad strategies. The KB's job is to synthesize gameplay events — objectives are a separate concern and shouldn't be an input.
+**Change:** Removed `DISCOVERED_OBJECTIVES` and `COMPLETED_OBJECTIVES` from `update_knowledge` reads list and user message in `zorkburr/actions/knowledge.py`. KB now only receives score, turn count, existing knowledge, and the gameplay action log.
+**Reasoning:** The KB prompt says "ONLY describe events that appear in the gameplay log" but objectives aren't gameplay events — they're LLM-generated plans presented alongside the log with no distinction. Removing them ensures KB synthesis is grounded exclusively in actual game responses.
+**Target metric:** KB should contain zero speculative/hallucinated content. Agent should not waste turns pursuing fabricated objectives codified in KB.
+**Result:** PENDING
+
+---
+
+## Episode 39 — Turn 100 Checkpoint
+**Type:** CONCERN — maze trapped, high rejection rate
+**Score:** 50/350 (delta: +35 from turn 50 — entered cellar turn 78, coins turn 96)
+**Locations visited (turns 76-100):** 4 unique (Cellar, Living_, Maze, Troll_)
+**Avg critic score:** 0.22 — VERY LOW (maze movement rejections driving this down)
+**Rejection rate:** 13/25 (52%) — HIGH (almost all from maze navigation rejections)
+**Gameplay quality:** DRIFTING
+  - Memory use: Agent in maze, no relevant memories to consult
+  - KB alignment: Agent went underground following KB guidance. Maze is uncharted territory
+  - Objective quality: Not checked
+  - Objective pursuit: Agent collecting items (coins, skeleton key) in maze — productive
+  - Learning system quality: KB guidance worked for getting underground, but maze navigation is pure trial-and-error
+**Triggers:** Low critic score (0.22), high rejection rate (52%) — both due to maze navigation being inherently rejected by critic
+**Notes:** Despite slow start (35 turns wasted in forest), agent recovered well. Score 40 at turn 78 (cellar), 50 at turn 96 (coins). Found skeleton key and bag of coins in maze. Spent 20 turns lost in maze. Critic keeps rejecting maze movements because they look unproductive — this is expected behavior in the maze but it wastes turns on force-accepts.
+
+---
+
+## Episode 39 — COMPLETE
+**Turns:** 100 (max_turns)
+**Final score:** 50/350
+**Locations visited:** 13 unique
+**Objectives found:** 9
+**End reason:** max_turns
+**Improvement dispatched:** Yes — pending (see below)
+
+**Key observations:**
+  - Infrastructure changes (local map, location-tagged objectives) working technically
+  - Early game regression: 35 turns wasted chasing nonexistent shovel objective
+  - Once agent reached house (turn 44), it followed KB pattern correctly
+  - Score 40 by turn 78, 50 by turn 96 — consistent with ep36-38 underground progression
+  - Maze consumed last 20 turns with high rejection rate from critic
+  - Agent found coins and skeleton key in maze (productive exploration)
+
+---
+
+| Episode | Score | vs Prev | Best So Far | Turns to 1st Score | Locations | KB Quality | End Reason |
+|---------|-------|---------|-------------|-------------------|-----------|------------|------------|
+| ep36 | 45 | +30 | 45 | 6 | 22 | clean | max_turns! |
+| ep37 | 54 | +9 | 54 | 8 | 14 | clean | max_turns! |
+| ep38 | 35(45) | -19 | 54 | 6 | 18 | clean | death t61 |
+| ep39 | 50 | +15 | 54 | 9 | 13 | clean | max_turns |
+
+**Trend:** ep39 scored 50 despite losing 35 turns to poor initial objectives. Infrastructure changes (map diagram, location-tagged objectives) are working but exposed a new problem: the objective discovery system generates speculative objectives that mislead the agent. If the early game had been as efficient as ep36-38 (score 40 by turn 22), the agent could have spent 78 turns underground instead of 22, potentially beating the 54 record. Next focus: fix objective quality to eliminate speculative/impossible objectives.
+
+---
+
+## Episode 39 → 40 — IMPROVEMENT
+**Trigger:** Objective quality — 0/3 objectives well-formed, speculative "find shovel" wasted 35 turns
+**Hypothesis:** Objective discovery prompt lacks constraints against speculation, causing LLM to hallucinate items
+**Change:** Rewrote `prompts/objective_discovery.md` with five constraint rules: (1) objectives must trace to directly observed game text, (2) parser prompts like "What do you want to dig with?" are not evidence of specific tools, (3) prioritize KB-aligned objectives, (4) retire stale objectives after 3 failed attempts, (5) prefer exploration over fixation when stuck in one location
+**Reasoning:** The root cause was unconstrained objective generation — the LLM inferred "find a shovel" from a parser prompt. Adding explicit rules against speculation and for staleness detection should prevent both the shovel-type hallucination and the 35-turn fixation loop.
+**Target metric:** Agent should not generate speculative objectives. Early game efficiency should return (score 40+ by turn 25)
+**Result:** PENDING
 
 ---
