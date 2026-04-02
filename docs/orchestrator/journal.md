@@ -1672,3 +1672,92 @@ Started: 2026-03-30
 **Result:** PENDING
 
 ---
+
+## Episode 33 — Turn 25 Checkpoint
+**Type:** CONCERN
+**Score:** 5/350 (delta: +5 since start)
+**Locations visited:** 7 total (7 new)
+**Avg critic score:** 0.65
+**Rejection rate:** 4/25 turns (16%)
+**Gameplay quality:** DRIFTING
+  - Memory use: Agent references memories but doesn't act on equipment needs
+  - KB alignment: KB mentions lantern/sword but agent doesn't prioritize taking them
+  - Objective quality: Not fully evaluated
+  - Objective pursuit: Agent wanders forest extensively instead of progressing
+  - Learning system quality: KB clean, but cross-episode learning creating false beliefs
+**Triggers:** Score stagnant (only 5 points in 25 turns)
+**Notes:** Agent spent 15+ turns wandering forest (turns 10-27) before finding house. Lots of exploration, no progression.
+
+---
+
+## Episode 33 — Turn 50 Checkpoint
+**Type:** URGENT
+**Score:** 15/350 (delta: +10 since turn 25)
+**Locations visited:** 12 total
+**Avg critic score:** 0.67
+**Rejection rate:** 6/25 (24%)
+**Gameplay quality:** IGNORING
+  - Memory use: Agent references memories but acts against them (knows it needs lantern but doesn't take it)
+  - KB alignment: KB says "took lantern and sword" — agent reads this as having ALREADY taken them
+  - Objective quality: 11 objectives found but many stale
+  - Objective pursuit: Agent passed through Living Room (turn 48) without taking ANY items
+  - Learning system quality: KB creating dangerous false associations — agent believes it has items it doesn't
+**Triggers:** Score stagnant (15/350 for 20+ turns), equipment failure (3rd episode)
+**Notes:** Agent entered Living Room at turn 48, noted "trophy case with sword and lantern still in place" but went east immediately. Root cause is PRIORITIZATION — agent favors puzzles over equipment gathering.
+
+---
+
+## Episode 33 — COMPLETE (DIED at turn 69 — grue in dark cellar)
+**Turns:** 69
+**Final score:** 30/350 (peak 40, -10 death penalty)
+**Locations visited:** 13 unique
+**Objectives found:** 11
+**End reason:** game_over_death (grue in dark cellar — no lantern, 3rd consecutive episode)
+**Key achievements:**
+  - Explored Canyon View, Rocky Ledge, South House (new areas)
+  - Found and took bird's nest
+  - Rug puzzle solved (turn 62-63)
+**Key problems (CRITICAL — 3 episode pattern):**
+  - THIRD consecutive episode without sword/lantern
+  - Agent reasoning at turn 61: "trophy case has a lantern and sword I can see but haven't taken yet. I should move the rug first" — WRONG PRIORITY
+  - Agent tried combined command at turn 62: "open trophy case, take lamp, light lamp" — rejected, gave up
+  - Agent reasoning at turn 63: "I have a sword for defense" — FALSE, inventory shows no sword
+  - Agent entered cellar with: bottle, sack, bird's nest, egg, leaflet — NO equipment
+  - Egg NOT deposited in trophy case (treasure management NOT triggered this time)
+**Root cause analysis:** The surface acquisition prompt (ep32→33) is insufficient. The real problem is:
+  1. Agent prioritizes puzzle progression over equipment gathering
+  2. Agent falsely believes it has items from KB memories ("took lantern and sword")
+  3. Agent tries multi-action commands that fail as a unit, then moves on
+**Improvement dispatched:** Yes — agent prompt: mandatory equipment check before entering dangerous areas
+
+---
+
+## Episode 32 → 33 — IMPROVEMENT (Surface Acquisition) — Result Update  
+**Result:** NEUTRAL/FAILED — Agent never attempted to use "take [item]" syntax. The problem was prioritization and false inventory beliefs, not syntax. Agent saw items but chose to do rug puzzle first, then went underground without equipment.
+
+---
+
+| Episode | Score | vs Prev | Best So Far | Turns to 1st Score | Locations | KB Quality | End Reason |
+|---------|-------|---------|-------------|-------------------|-----------|------------|------------|
+| ep26 | 10 | -20 | 45 | 36 | 12 | turn_nums | max_turns |
+| ep27 | 30(40) | +20 | 45 | 7 | 11 | none | death t46 |
+| ep28 | 35(45) | +5 | 45 | 11 | 22 | clean! | death t92 |
+| ep29 | 35(45) | 0 | 45 | 8 | 17 | clean | death t54 |
+| ep30 | 30(40) | -5 | 45 | 6 | 12 | clean | death t36 |
+| ep31 | 25(35) | -5 | 45 | 8 | 7 | n/a | death t22 |
+| ep32 | 35(45) | +10 | 45 | 8 | 11 | clean | death t39 |
+| ep33 | 30(40) | -5 | 45 | 8 | 13 | clean | death t69 |
+
+**Trend:** CRITICAL REGRESSION. 3 consecutive episodes (ep31-33) agent fails to equip sword/lantern. Pre-ep31, equipment was reliable. The issue is not the treasure prompt — it's that the agent's reasoning falsely believes it has items. Equipment gathering was reliable in ep28-30. Something changed or the KB is misleading the agent into skipping equipment steps. Best score still 45 (ep24). Need to fix equipment prioritization urgently.
+
+---
+
+## Episode 33 → 34 — IMPROVEMENT
+**Type:** BLOCKER
+**Trigger:** Agent enters dark/dangerous areas without equipment for 3 consecutive episodes (ep31-33)
+**Change:** Added CRITICAL RULE #5 "EQUIPMENT BEFORE DESCENT" to prompts/agent.md — mandatory equipment check before entering dark/dangerous areas. Rule states: if room description mentions a light source or weapon not yet in inventory, TAKE it immediately before any puzzle actions (moving furniture, opening passages, etc.). Placed in CRITICAL RULES section for maximum priority.
+**Reasoning:** Agent sees equipment but defers taking it to solve puzzles first (move rug, open trap door), then enters danger without it. In ep33, agent explicitly reasoned "I should move the rug first" while lantern and sword were visible. Later falsely believed it had the sword. The existing navigation protocol's "collect along the way" was too soft — it allowed puzzle actions to interleave before collection.
+**Target metric:** Agent should have light source and weapon in inventory before entering cellar
+**Result:** PENDING
+
+---
