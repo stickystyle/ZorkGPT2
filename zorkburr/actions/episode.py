@@ -50,6 +50,18 @@ def initialize_episode(
             overrides["memories_by_location"] = json.loads(mem_path.read_text())
             total = sum(len(v) for v in overrides["memories_by_location"].values())
             logger.info(f"Loaded {total} memories across {len(overrides['memories_by_location'])} locations")
+            # Prune ephemeral memories from prior episodes
+            raw_mems = overrides["memories_by_location"]
+            cleaned = {}
+            dropped = 0
+            for loc_key, mems in raw_mems.items():
+                kept = [m for m in mems if m.get("persistence") != "ephemeral"]
+                dropped += len(mems) - len(kept)
+                if kept:
+                    cleaned[loc_key] = kept
+            overrides["memories_by_location"] = cleaned
+            if dropped:
+                logger.info(f"Pruned {dropped} ephemeral memories from previous episodes")
         except Exception as e:
             logger.warning(f"Failed to load memories: {e}")
 

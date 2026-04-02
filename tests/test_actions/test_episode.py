@@ -99,6 +99,44 @@ class TestInitializeEpisode:
         assert overrides == {}
 
 
+class TestEphemeralPruning:
+    def test_prunes_ephemeral_memories_on_load(self, tmp_path):
+        cfg = _config(tmp_path)
+        mems = {
+            "10": [
+                {"category": "NOTE", "title": "temp", "text": "x",
+                 "episode": "ep-1", "turn": 1, "persistence": "ephemeral", "status": "ACTIVE"},
+                {"category": "DISCOVERY", "title": "keep", "text": "y",
+                 "episode": "ep-1", "turn": 2, "persistence": "permanent", "status": "ACTIVE"},
+            ],
+            "20": [
+                {"category": "NOTE", "title": "also temp", "text": "z",
+                 "episode": "ep-1", "turn": 3, "persistence": "ephemeral", "status": "ACTIVE"},
+            ],
+        }
+        Path(cfg.memory_file).write_text(json.dumps(mems))
+        from unittest.mock import MagicMock
+        overrides = initialize_episode(MagicMock(), cfg)
+        # Ephemeral memories pruned
+        assert len(overrides["memories_by_location"]["10"]) == 1
+        assert overrides["memories_by_location"]["10"][0]["title"] == "keep"
+        # Location 20 had only ephemeral memories — should be removed entirely
+        assert "20" not in overrides["memories_by_location"]
+
+    def test_no_pruning_when_all_permanent(self, tmp_path):
+        cfg = _config(tmp_path)
+        mems = {
+            "10": [
+                {"category": "DISCOVERY", "title": "keep", "text": "y",
+                 "persistence": "permanent", "status": "ACTIVE"},
+            ],
+        }
+        Path(cfg.memory_file).write_text(json.dumps(mems))
+        from unittest.mock import MagicMock
+        overrides = initialize_episode(MagicMock(), cfg)
+        assert len(overrides["memories_by_location"]["10"]) == 1
+
+
 class TestFinalizeEpisode:
     def test_writes_all_data(self, tmp_path):
         cfg = _config(tmp_path)
