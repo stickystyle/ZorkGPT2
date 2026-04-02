@@ -3,13 +3,16 @@ from __future__ import annotations
 
 import json
 import logging
+import shutil
 from pathlib import Path
+from typing import Any
 
 from burr.core import State
 
 from zorkburr.config import GameConfig
 from zorkburr.game.jericho_interface import JerichoInterface
 from zorkburr.game.map_graph import MapGraph
+from zorkburr.llm.models import ConsolidationAction, ConsolidationResponse
 from zorkburr.state import S
 
 logger = logging.getLogger(__name__)
@@ -50,6 +53,19 @@ def initialize_episode(
             overrides["memories_by_location"] = json.loads(mem_path.read_text())
             total = sum(len(v) for v in overrides["memories_by_location"].values())
             logger.info(f"Loaded {total} memories across {len(overrides['memories_by_location'])} locations")
+            # Prune ephemeral memories from prior episodes
+            raw_mems = overrides["memories_by_location"]
+            cleaned = {}
+            dropped = 0
+            for loc_key, mems in raw_mems.items():
+                kept = [m for m in mems if m.get("persistence") != "ephemeral"]
+                dropped += len(mems) - len(kept)
+                if kept:
+                    cleaned[loc_key] = kept
+            overrides["memories_by_location"] = cleaned
+            if dropped:
+                logger.info(f"Pruned {dropped} ephemeral memories from previous episodes")
+                overrides["ephemeral_pruned"] = dropped
         except Exception as e:
             logger.warning(f"Failed to load memories: {e}")
 
@@ -87,12 +103,168 @@ def persist_knowledge(knowledge: str, config: GameConfig) -> None:
     logger.debug(f"Persisted knowledge to {path}")
 
 
+def apply_consolidation_actions(
+    memories: list[dict],
+    actions: list[ConsolidationAction],
+) -> tuple[list[dict], dict]:
+    """Apply consolidation actions to a location's memory list.
+
+    Returns (updated_memories, stats_dict).
+    """
+    stats = {"kept": 0, "dropped": 0, "merged": 0, "superseded": 0, "rejected": 0}
+    # Track which memories have been processed
+    processed_titles: set[str] = set()
+    result = list(memories)  # shallow copy
+
+    def _find_active(title: str) -> list[dict]:
+        return [m for m in result if m.get("title") == title and m.get("status") != "SUPERSEDED"]
+
+    for act in actions:
+        if act.action == "keep":
+            stats["kept"] += 1
+            processed_titles.add(act.memory_title)
+
+        elif act.action == "drop":
+            matches = _find_active(act.memory_title)
+            if len(matches) != 1:
+                logger.warning(f"Consolidation rejected drop: title '{act.memory_title}' matched {len(matches)} active memories, expected 1")
+                stats["rejected"] += 1
+                continue
+            result.remove(matches[0])
+            logger.warning(f"Consolidation dropped memory: {act.memory_title} — {act.reason}")
+            stats["dropped"] += 1
+            processed_titles.add(act.memory_title)
+
+        elif act.action == "merge":
+            if act.memory_title.strip() == act.merge_with.strip():
+                logger.warning(f"Consolidation rejected merge: self-reference '{act.memory_title}'")
+                stats["rejected"] += 1
+                continue
+            if not act.new_title.strip() or not act.new_text.strip():
+                logger.warning(f"Consolidation rejected merge: empty new_title or new_text for '{act.memory_title}'")
+                stats["rejected"] += 1
+                continue
+            primary_matches = _find_active(act.memory_title)
+            secondary_matches = _find_active(act.merge_with)
+            if len(primary_matches) != 1 or len(secondary_matches) != 1:
+                logger.warning(
+                    f"Consolidation rejected merge: '{act.memory_title}' matched {len(primary_matches)}, "
+                    f"'{act.merge_with}' matched {len(secondary_matches)} active memories, expected 1 each"
+                )
+                stats["rejected"] += 1
+                continue
+            if _find_active(act.new_title):
+                logger.warning(f"Consolidation rejected merge: new_title '{act.new_title}' already exists as active memory")
+                stats["rejected"] += 1
+                continue
+            # Mark both source memories as SUPERSEDED
+            for m in result:
+                if m.get("title") in (act.memory_title, act.merge_with) and m.get("status") != "SUPERSEDED":
+                    m["status"] = "SUPERSEDED"
+                    m["superseded_by"] = act.new_title
+            # Create merged memory — category from the primary memory
+            primary = primary_matches[0]
+            merged = {
+                "category": primary.get("category", "NOTE"),
+                "title": act.new_title,
+                "text": act.new_text,
+                "episode": "consolidated",
+                "turn": 0,
+                "persistence": "permanent",
+                "status": "ACTIVE",
+                "superseded_by": "",
+            }
+            result.append(merged)
+            logger.warning(
+                f"Consolidation merged '{act.memory_title}' + '{act.merge_with}' -> '{act.new_title}' — {act.reason}"
+            )
+            stats["merged"] += 1
+            processed_titles.add(act.memory_title)
+            processed_titles.add(act.merge_with)
+
+        elif act.action == "supersede":
+            if act.memory_title.strip() == act.merge_with.strip():
+                logger.warning(f"Consolidation rejected supersede: self-reference '{act.memory_title}'")
+                stats["rejected"] += 1
+                continue
+            wrong_matches = _find_active(act.memory_title)
+            correct_matches = _find_active(act.merge_with)
+            if len(wrong_matches) != 1 or len(correct_matches) != 1:
+                logger.warning(
+                    f"Consolidation rejected supersede: wrong='{act.memory_title}' matched {len(wrong_matches)}, "
+                    f"correct='{act.merge_with}' matched {len(correct_matches)} active memories, expected 1 each"
+                )
+                stats["rejected"] += 1
+                continue
+            for m in result:
+                if m.get("title") == act.memory_title and m.get("status") != "SUPERSEDED":
+                    m["status"] = "SUPERSEDED"
+                    m["superseded_by"] = act.merge_with
+                    logger.info(f"Consolidation superseded '{act.memory_title}' by '{act.merge_with}' — {act.reason}")
+            stats["superseded"] += 1
+            processed_titles.add(act.memory_title)
+
+    # Default-keep any non-superseded memories not mentioned in actions
+    for m in result:
+        if m.get("title") not in processed_titles and m.get("status") != "SUPERSEDED":
+            stats["kept"] += 1
+
+    return result, stats
+
+
+_consolidation_prompt: str | None = None
+
+
+def _get_consolidation_prompt() -> str:
+    global _consolidation_prompt
+    if _consolidation_prompt is None:
+        from zorkburr.llm.prompts import load_prompt
+        _consolidation_prompt = load_prompt("memory_consolidation")
+    return _consolidation_prompt
+
+
+def consolidate_location(
+    location_id: str,
+    memories: list[dict],
+    knowledge_base: str,
+    client: Any,
+    config: GameConfig,
+) -> tuple[list[dict], dict]:
+    """Run consolidation LLM on one location's memories. Returns (updated_memories, stats)."""
+    from zorkburr.llm.client import effective_model, thinking_kwargs
+
+    # Build context: all memories with status markers
+    mem_lines = []
+    for m in memories:
+        status_tag = " [SUPERSEDED]" if m.get("status") == "SUPERSEDED" else ""
+        mem_lines.append(f"- [{m.get('title', '?')}]{status_tag}: {m.get('text', '')}")
+
+    context = (
+        f"Location ID: {location_id}\n\n"
+        f"Memories:\n" + "\n".join(mem_lines) + "\n\n"
+        f"Current Knowledge Base:\n{knowledge_base or '(empty)'}"
+    )
+
+    response: ConsolidationResponse = client.create(
+        model=effective_model(config, config.analysis_model),
+        response_model=ConsolidationResponse,
+        messages=[
+            {"role": "system", "content": _get_consolidation_prompt()},
+            {"role": "user", "content": context},
+        ],
+        temperature=0.3, max_tokens=2048, max_retries=2,
+        **thinking_kwargs(config, False),
+    )
+
+    return apply_consolidation_actions(memories, response.actions)
+
+
 def finalize_episode(state: State, config: GameConfig, client=None) -> dict:
     """Save map and knowledge to disk for cross-episode persistence.
 
     If *client* is provided, regenerates the KB with full episode data
-    before persisting so that gameplay after the last periodic update
-    is captured.
+    before persisting, then runs memory consolidation on locations
+    with 5+ active memories.
 
     Returns an episode summary dict.
     """
@@ -105,7 +277,41 @@ def finalize_episode(state: State, config: GameConfig, client=None) -> dict:
 
     persist_map(state[S.MAP_DATA], config)
     persist_knowledge(state[S.KNOWLEDGE_BASE], config)
-    persist_memories(state[S.MEMORIES_BY_LOCATION], config)
+
+    # Run memory consolidation if client is available
+    all_mems = dict(state[S.MEMORIES_BY_LOCATION])
+    consolidated_total = 0
+    if client is not None and all_mems:
+        # Backup before consolidation
+        mem_path = Path(config.memory_file)
+        if mem_path.exists():
+            shutil.copy2(mem_path, str(mem_path) + ".bak")
+            logger.info(f"Created pre-consolidation backup: {mem_path}.bak")
+
+        kb = state[S.KNOWLEDGE_BASE]
+        for loc_key, loc_mems in list(all_mems.items()):
+            active_count = sum(1 for m in loc_mems if m.get("status") != "SUPERSEDED")
+            if active_count < 5:
+                continue
+            try:
+                updated, stats = consolidate_location(
+                    location_id=loc_key, memories=loc_mems,
+                    knowledge_base=kb, client=client, config=config,
+                )
+                all_mems[loc_key] = updated
+                before = len(loc_mems)
+                after = sum(1 for m in updated if m.get("status") != "SUPERSEDED")
+                consolidated_total += stats["dropped"] + stats["merged"] + stats["superseded"]
+                logger.info(
+                    f"CONSOLIDATION | location={loc_key} | before={before} | after={after}"
+                    f" | kept={stats['kept']} | merged={stats['merged']}"
+                    f" | dropped={stats['dropped']} | superseded={stats['superseded']}"
+                    f" | rejected={stats['rejected']}"
+                )
+            except Exception as e:
+                logger.warning(f"Consolidation failed for location {loc_key}: {e}")
+
+    persist_memories(all_mems, config)
 
     return {
         "episode_id": state[S.EPISODE_ID],
@@ -113,4 +319,5 @@ def finalize_episode(state: State, config: GameConfig, client=None) -> dict:
         "score": state[S.SCORE],
         "max_score": state[S.MAX_SCORE],
         "reason": state[S.GAME_OVER_REASON],
+        "mem_consolidated": consolidated_total,
     }

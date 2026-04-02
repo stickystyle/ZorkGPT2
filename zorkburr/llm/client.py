@@ -11,14 +11,19 @@ import os
 import httpx
 import instructor
 
-if os.environ.get("LANGFUSE_PUBLIC_KEY"):
-    from langfuse.openai import OpenAI
-else:
-    from openai import OpenAI
-
 from zorkburr.config import GameConfig
 
 logger = logging.getLogger(__name__)
+
+
+def _openai_cls():
+    """Return the OpenAI class at runtime so .env/config is already loaded."""
+    if os.environ.get("LANGFUSE_PUBLIC_KEY"):
+        from langfuse.openai import OpenAI
+    else:
+        from openai import OpenAI
+    return OpenAI
+
 
 class _TimedInstructor:
     """Proxy that adds a total wall-clock timeout to instructor's create() calls.
@@ -57,12 +62,12 @@ class _TimedInstructor:
                     timeout=timeout,
                     limits=httpx.Limits(max_keepalive_connections=0),
                 )
-                new_openai = OpenAI(
+                new_openai = _openai_cls()(
                     base_url=self._config.local_base_url, api_key="local",
                     http_client=http_client,
                 )
             else:
-                new_openai = OpenAI(
+                new_openai = _openai_cls()(
                     base_url=self._config.openrouter_base_url,
                     api_key=self._config.openrouter_api_key, timeout=timeout,
                 )
@@ -111,12 +116,12 @@ def create_llm_client(config: GameConfig) -> _TimedInstructor:
             limits=httpx.Limits(max_keepalive_connections=0),
         )
         raw = instructor.from_openai(
-            OpenAI(base_url=config.local_base_url, api_key="local", http_client=http_client),
+            _openai_cls()(base_url=config.local_base_url, api_key="local", http_client=http_client),
             mode=instructor.Mode.JSON,
         )
     else:
         raw = instructor.from_openai(
-            OpenAI(base_url=config.openrouter_base_url, api_key=config.openrouter_api_key, timeout=timeout),
+            _openai_cls()(base_url=config.openrouter_base_url, api_key=config.openrouter_api_key, timeout=timeout),
             mode=instructor.Mode.JSON,
         )
     return _TimedInstructor(raw, timeout_seconds=config.llm_request_timeout, config=config)

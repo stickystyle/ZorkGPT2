@@ -99,6 +99,44 @@ class TestInitializeEpisode:
         assert overrides == {}
 
 
+class TestEphemeralPruning:
+    def test_prunes_ephemeral_memories_on_load(self, tmp_path):
+        cfg = _config(tmp_path)
+        mems = {
+            "10": [
+                {"category": "NOTE", "title": "temp", "text": "x",
+                 "episode": "ep-1", "turn": 1, "persistence": "ephemeral", "status": "ACTIVE"},
+                {"category": "DISCOVERY", "title": "keep", "text": "y",
+                 "episode": "ep-1", "turn": 2, "persistence": "permanent", "status": "ACTIVE"},
+            ],
+            "20": [
+                {"category": "NOTE", "title": "also temp", "text": "z",
+                 "episode": "ep-1", "turn": 3, "persistence": "ephemeral", "status": "ACTIVE"},
+            ],
+        }
+        Path(cfg.memory_file).write_text(json.dumps(mems))
+        from unittest.mock import MagicMock
+        overrides = initialize_episode(MagicMock(), cfg)
+        # Ephemeral memories pruned
+        assert len(overrides["memories_by_location"]["10"]) == 1
+        assert overrides["memories_by_location"]["10"][0]["title"] == "keep"
+        # Location 20 had only ephemeral memories — should be removed entirely
+        assert "20" not in overrides["memories_by_location"]
+
+    def test_no_pruning_when_all_permanent(self, tmp_path):
+        cfg = _config(tmp_path)
+        mems = {
+            "10": [
+                {"category": "DISCOVERY", "title": "keep", "text": "y",
+                 "persistence": "permanent", "status": "ACTIVE"},
+            ],
+        }
+        Path(cfg.memory_file).write_text(json.dumps(mems))
+        from unittest.mock import MagicMock
+        overrides = initialize_episode(MagicMock(), cfg)
+        assert len(overrides["memories_by_location"]["10"]) == 1
+
+
 class TestFinalizeEpisode:
     def test_writes_all_data(self, tmp_path):
         cfg = _config(tmp_path)
@@ -112,3 +150,66 @@ class TestFinalizeEpisode:
         assert Path(cfg.knowledge_file).exists()
         assert Path(cfg.memory_file).exists()
         assert summary["episode_id"] == "ep-test"
+
+
+class TestConsolidationInFinalize:
+    def test_creates_backup_before_consolidation(self, tmp_path):
+        """finalize_episode should create memories.json.bak before consolidating."""
+        from unittest.mock import MagicMock
+        from zorkburr.llm.models import ConsolidationAction, ConsolidationResponse
+
+        cfg = _config(tmp_path)
+        # Write initial memories (6 at one location to trigger consolidation)
+        mems = {"10": [
+            {"title": f"Mem {i}", "text": f"Text {i}", "status": "ACTIVE",
+             "category": "NOTE", "persistence": "permanent", "episode": "ep-1", "turn": i}
+            for i in range(6)
+        ]}
+        Path(cfg.memory_file).write_text(json.dumps(mems))
+
+        state = create_initial_state("ep-test").update(**{
+            S.MAP_DATA: {},
+            S.KNOWLEDGE_BASE: "# KB",
+            S.MEMORIES_BY_LOCATION: mems,
+        })
+
+        # Mock the LLM client to return all-keep actions
+        mock_client = MagicMock()
+        mock_client.create.return_value = ConsolidationResponse(
+            actions=[ConsolidationAction(action="keep", memory_title=f"Mem {i}", reason="good") for i in range(6)]
+        )
+
+        finalize_episode(state, cfg, client=mock_client)
+
+        # Backup should exist
+        bak_path = Path(cfg.memory_file + ".bak")
+        assert bak_path.exists()
+        # Backup content should match original
+        assert json.loads(bak_path.read_text()) == mems
+
+    def test_skips_consolidation_for_small_locations(self, tmp_path):
+        """Locations with fewer than 5 non-SUPERSEDED memories should not be consolidated."""
+        from unittest.mock import MagicMock
+        from zorkburr.llm.models import ConsolidationResponse
+
+        cfg = _config(tmp_path)
+        mems = {"10": [
+            {"title": f"Mem {i}", "text": f"Text {i}", "status": "ACTIVE",
+             "category": "NOTE", "persistence": "permanent", "episode": "ep-1", "turn": i}
+            for i in range(3)
+        ]}
+        Path(cfg.memory_file).write_text(json.dumps(mems))
+
+        state = create_initial_state("ep-test").update(**{
+            S.MAP_DATA: {},
+            S.KNOWLEDGE_BASE: "# KB",
+            S.MEMORIES_BY_LOCATION: mems,
+        })
+
+        mock_client = MagicMock()
+        finalize_episode(state, cfg, client=mock_client)
+
+        # LLM should NOT have been called for consolidation
+        for call in mock_client.create.call_args_list:
+            if call.kwargs.get("response_model") == ConsolidationResponse:
+                raise AssertionError("Should not call consolidation for <5 memories")

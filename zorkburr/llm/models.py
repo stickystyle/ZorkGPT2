@@ -1,6 +1,7 @@
 """Pydantic response models for LLM structured output via Instructor."""
 
 from __future__ import annotations
+from typing import Literal
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -32,6 +33,21 @@ class MemorySynthesisResponse(BaseModel):
     memory_text: str = Field(default="", description="1-2 sentence insight")
     persistence: str = Field(default="ephemeral", description="core|permanent|ephemeral")
     status: str = Field(default="ACTIVE", description="ACTIVE|TENTATIVE")
+    supersedes_titles: list[str] = Field(
+        default_factory=list,
+        description="Exact titles of existing memories this replaces. Copy titles verbatim from the existing memories list."
+    )
+
+class ConsolidationAction(BaseModel):
+    action: Literal["keep", "drop", "merge", "supersede"] = Field(description="keep|drop|merge|supersede")
+    memory_title: str = Field(description="Exact title of existing memory being acted on")
+    merge_with: str = Field(default="", description="Title of the other memory (for 'merge' and 'supersede')")
+    new_text: str = Field(default="", description="Rewritten text (for 'merge' only)")
+    new_title: str = Field(default="", description="Title for merged memory (for 'merge' only)")
+    reason: str = Field(description="Why this action was chosen")
+
+class ConsolidationResponse(BaseModel):
+    actions: list[ConsolidationAction]
 
 class Objective(BaseModel):
     text: str = Field(description="The objective description")

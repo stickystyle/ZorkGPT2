@@ -56,7 +56,7 @@ def assemble_context(state: State) -> tuple[dict, State]:
     loc_key = str(loc_id)
     has_any_memories = loc_key in memories and memories[loc_key]
     if has_any_memories:
-        loc_mems = memories[loc_key]
+        loc_mems = [m for m in memories[loc_key] if m.get("status") != "SUPERSEDED"]
         mem_lines = [f"  - {m.get('text', str(m))}" for m in loc_mems[:10]]
         sections.append(
             "**Memories for this location (from PREVIOUS episodes):**\n"
@@ -75,7 +75,8 @@ def assemble_context(state: State) -> tuple[dict, State]:
             neighbor_key = str(neighbor_id)
             if neighbor_key in memories and neighbor_key != loc_key:
                 neighbor_name = mg.get_room_name(neighbor_id)
-                for m in memories[neighbor_key][:5]:  # max 5 per neighbor
+                neighbor_mems = [m for m in memories[neighbor_key] if m.get("status") != "SUPERSEDED"]
+                for m in neighbor_mems[:5]:  # max 5 per neighbor
                     adjacent_mems.append((direction, neighbor_name, m))
 
         if adjacent_mems:

@@ -113,3 +113,71 @@ def test_assemble_context_legacy_string_objectives():
     _, new_state = assemble_context.run(state)
     ctx = new_state[S.FORMATTED_CONTEXT]
     assert "Legacy string objective" in ctx
+
+
+def test_assemble_context_filters_superseded_memories():
+    """SUPERSEDED memories should not appear in agent context."""
+    state = State({
+        S.GAME_RESPONSE: "You are west of a white house.",
+        S.LOCATION_NAME: "West of House",
+        S.INVENTORY: [],
+        S.SCORE: 0,
+        S.ACTION_HISTORY: [],
+        S.EXITS: [],
+        S.DISCOVERED_OBJECTIVES: [],
+        S.KNOWLEDGE_BASE: "",
+        S.MEMORIES_BY_LOCATION: {
+            "10": [
+                {"category": "DISCOVERY", "title": "Old info", "text": "This is outdated.",
+                 "status": "SUPERSEDED", "superseded_by": "New info"},
+                {"category": "DISCOVERY", "title": "New info", "text": "This is current.",
+                 "status": "ACTIVE"},
+            ]
+        },
+        S.LOCATION_ID: 10,
+        S.MAP_DATA: {},
+        S.IN_COMBAT: False,
+        S.TURN_COUNT: 5,
+        S.TURNS_SINCE_PROGRESS: 0,
+    })
+    _, new_state = assemble_context.run(state)
+    ctx = new_state[S.FORMATTED_CONTEXT]
+    assert "This is current." in ctx
+    assert "This is outdated." not in ctx
+
+
+def test_assemble_context_filters_superseded_adjacent_memories():
+    """SUPERSEDED memories in adjacent rooms should not appear."""
+    map_data = {
+        "rooms": {"10": "Kitchen", "42": "Forest"},
+        "connections": {"10": {"north": 42}, "42": {"south": 10}},
+        "confidence": {"10:north": 2, "42:south": 2},
+        "failures": {},
+    }
+    state = State({
+        S.GAME_RESPONSE: "You are in a kitchen.",
+        S.LOCATION_NAME: "Kitchen",
+        S.INVENTORY: [],
+        S.SCORE: 5,
+        S.ACTION_HISTORY: [],
+        S.EXITS: ["north"],
+        S.DISCOVERED_OBJECTIVES: [],
+        S.KNOWLEDGE_BASE: "",
+        S.MEMORIES_BY_LOCATION: {
+            "42": [
+                {"category": "DANGER", "title": "Old danger", "text": "Outdated warning.",
+                 "status": "SUPERSEDED", "superseded_by": "Safe now"},
+                {"category": "SUCCESS", "title": "Safe now", "text": "Forest is safe.",
+                 "status": "ACTIVE"},
+            ]
+        },
+        S.LOCATION_ID: 10,
+        S.MAP_DATA: map_data,
+        S.IN_COMBAT: False,
+        S.TURN_COUNT: 3,
+        S.TURNS_SINCE_PROGRESS: 0,
+    })
+    _, new_state = assemble_context.run(state)
+    ctx = new_state[S.FORMATTED_CONTEXT]
+    assert "Forest is safe." in ctx
+    assert "Outdated warning." not in ctx
