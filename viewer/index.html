@@ -851,16 +851,22 @@ function renderState(data) {
 }
 
 function renderObjectives(discovered, completed) {
-  const completedNames = new Set((completed || []).map(c => c.objective || c));
+  const objText = o => (typeof o === 'object' && o !== null) ? (o.text || o.objective || JSON.stringify(o)) : String(o);
+  const objLabel = o => {
+    if (typeof o === 'object' && o !== null && o.location_name) {
+      return `[R${o.location_id} — ${o.location_name}] ${objText(o)}`;
+    }
+    return objText(o);
+  };
+  const completedNames = new Set((completed || []).map(c => objText(c)));
   const items = [];
 
   for (const obj of (completed || [])) {
-    const name = obj.objective || obj;
-    items.push(`<li><span class="obj-check">&#10003;</span> <s>${escapeHtml(name)}</s></li>`);
+    items.push(`<li><span class="obj-check">&#10003;</span> <s>${escapeHtml(objLabel(obj))}</s></li>`);
   }
   for (const obj of (discovered || [])) {
-    if (!completedNames.has(obj)) {
-      items.push(`<li><span class="obj-open">&#9675;</span> ${escapeHtml(obj)}</li>`);
+    if (!completedNames.has(objText(obj))) {
+      items.push(`<li><span class="obj-open">&#9675;</span> ${escapeHtml(objLabel(obj))}</li>`);
     }
   }
 
