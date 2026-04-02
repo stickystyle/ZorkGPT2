@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+
+language: en-US
+
+reviews:
+  profile: chill
+  request_changes_workflow: false
+  high_level_summary: true
+  poem: false
+  collapse_walkthrough: false
+  auto_review:
+    enabled: true
+    drafts: false
+  path_instructions:
+    - path: "zorkburr/**"
+      instructions: |
+        This is the core game-playing engine built on Apache Burr.
+        The state machine is immutable — every action returns a new state.
+        Game-specific knowledge must never be hard-coded in prompts;
+        the agent learns through gameplay via memories and knowledge base.
+    - path: "prompts/**"
+      instructions: |
+        Prompt files teach reasoning strategies only.
+        They must NOT contain game-specific facts (puzzle solutions, item
+        locations, walkthrough steps). Ask: "would this instruction apply
+        to a different text adventure?" If not, it doesn't belong here.
+    - path: "tests/**"
+      instructions: |
+        Tests must run with `uv run pytest`. pytest is not on the system PATH.
+    - path: "run_episode.py"
+      instructions: |
+        CLI entry point for running a single episode. Emits structured log
+        lines (TURN N, EPISODE_END). Cross-episode data lives on disk, not
+        in the Burr DB (persist=False).
+    - path: "viewer/**"
+      instructions: |
+        The viewer is a separate web app for visualizing episode data.
+
+chat:
+  auto_reply: true
+
+tools:
+  ruff:
+    enabled: true
