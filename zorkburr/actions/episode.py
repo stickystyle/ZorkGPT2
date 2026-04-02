@@ -221,8 +221,8 @@ def finalize_episode(state: State, config: GameConfig, client=None) -> dict:
     """Save map and knowledge to disk for cross-episode persistence.
 
     If *client* is provided, regenerates the KB with full episode data
-    before persisting so that gameplay after the last periodic update
-    is captured.
+    before persisting, then runs memory consolidation on locations
+    with 5+ active memories.
 
     Returns an episode summary dict.
     """
@@ -235,7 +235,38 @@ def finalize_episode(state: State, config: GameConfig, client=None) -> dict:
 
     persist_map(state[S.MAP_DATA], config)
     persist_knowledge(state[S.KNOWLEDGE_BASE], config)
-    persist_memories(state[S.MEMORIES_BY_LOCATION], config)
+
+    # Run memory consolidation if client is available
+    all_mems = dict(state[S.MEMORIES_BY_LOCATION])
+    if client is not None and all_mems:
+        # Backup before consolidation
+        mem_path = Path(config.memory_file)
+        if mem_path.exists():
+            shutil.copy2(mem_path, str(mem_path) + ".bak")
+            logger.info(f"Created pre-consolidation backup: {mem_path}.bak")
+
+        kb = state[S.KNOWLEDGE_BASE]
+        for loc_key, loc_mems in list(all_mems.items()):
+            active_count = sum(1 for m in loc_mems if m.get("status") != "SUPERSEDED")
+            if active_count < 5:
+                continue
+            try:
+                updated, stats = consolidate_location(
+                    location_id=loc_key, memories=loc_mems,
+                    knowledge_base=kb, client=client, config=config,
+                )
+                all_mems[loc_key] = updated
+                before = len(loc_mems)
+                after = sum(1 for m in updated if m.get("status") != "SUPERSEDED")
+                logger.info(
+                    f"CONSOLIDATION | location={loc_key} | before={before} | after={after}"
+                    f" | kept={stats['kept']} | merged={stats['merged']}"
+                    f" | dropped={stats['dropped']} | superseded={stats['superseded']}"
+                )
+            except Exception as e:
+                logger.warning(f"Consolidation failed for location {loc_key}: {e}")
+
+    persist_memories(all_mems, config)
 
     return {
         "episode_id": state[S.EPISODE_ID],
