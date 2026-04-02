@@ -1761,3 +1761,74 @@ Started: 2026-03-30
 **Result:** PENDING
 
 ---
+
+## Episode 34 — STOPPED BY USER at turn 57
+**Turns:** 57 (killed)
+**Final score:** 15/350 (score stagnant from turn 18 onward — 39 turns at 15)
+**Locations visited:** 12 unique (CanyView, Rocky_Ledge new)
+**End reason:** killed by user
+**Key achievements:**
+  - Egg taken at turn 9, house entered at turn 17
+**Key problems:**
+  - Agent left house at turn 23 and NEVER RETURNED to Living Room
+  - Spent turns 23-57 (34 turns!) wandering forest/clearing, fixated on examining egg
+  - Egg examination rejected 6+ times with -0.80/-0.90 scores — agent kept trying
+  - Equipment check fix UNTESTED — agent never reached Living Room
+  - Oscillation detection not triggering despite cycling same 6 locations for 30+ turns
+**Equipment fix evaluation:** INCONCLUSIVE — agent never reached the test scenario (Living Room with equipment visible)
+**Improvement dispatched:** No — stopped by user
+
+---
+
+## Session Complete
+**Episodes run:** 5 (ep30-ep34)
+**Best score achieved:** 45/350 (ep32 — egg deposit bonus)
+**Improvements made:** 3 (treasure management, surface acquisition, equipment check)
+**System status:** STOPPED BY USER
+**Summary:** Treasure management prompt confirmed working (ep32 deposited egg for +5 bonus). Equipment gathering regressed for 3 episodes (ep31-33) — agents saw sword/lantern but deferred or used wrong syntax. Equipment-first rule added but untested in ep34 due to agent getting stuck in forest exploration loop. Best score remains 45 from ep24. Key remaining issues: (1) equipment gathering reliability, (2) agent fixation on examining egg instead of progressing, (3) forest exploration oscillation.
+
+---
+
+## Episode 35 — Turn 25 Checkpoint
+**Type:** HEALTHY — best turn-25 performance across all metrics
+**Score:** 15/350 (delta: +15 from start — fastest scoring ever)
+**Locations visited:** 8 unique (West_House, North_House, Forest_Path, Up_a_Tree, Behind_House, Kitchen, Living_Room, Attic)
+**Avg critic score:** 0.63 (HEALTHY — best turn-25 ever)
+**Rejection rate:** 1/25 (4%) — LOWEST EVER
+**Gameplay quality:** LEARNING
+  - Memory use: Agent explicitly references memories in reasoning ("memory confirms this goes to Attic with grues"). Lit lantern before entering dark staircase.
+  - KB alignment: KB mentions lantern/sword needed, agent took them at turn 17 and lit lantern at turn 20
+  - Objective quality: 6 objectives, well-formed with specific targets
+  - Objective pursuit: Agent pursuing "go up dark staircase" objective at turn 24-25, has equipment ready
+  - Learning system quality: KB rich with score changes, puzzle mechanics (15 locations in memory). Strategic content >80%
+**Triggers:** None — all metrics healthy
+**Notes:** EQUIPMENT FIX CONFIRMED WORKING — agent took sword+lantern at turn 17 ("take sword, take lantern"), lit lantern at turn 20, then safely entered dark Attic. First time agent has been fully equipped before entering dangerous areas. Score trajectory: 0→5 (egg, t9)→15 (house entry, t14). Agent now collecting rope+knife in Attic, preparing for underground.
+
+---
+
+## Episode 35 — Turn 50 Checkpoint (KILLED)
+**Type:** URGENT — target fixation, score stagnant
+**Score:** 15/350 (delta: 0 from turn 25 — stagnant)
+**Locations visited (turns 26-50):** 3 (Attic, Kitchen, Living_Room) — severely narrowed
+**Avg critic score:** 0.36 (below 0.5)
+**Rejection rate:** 15/25 (60%) — CRITICAL
+**Gameplay quality:** IGNORING
+  - Memory use: Agent has memories but ignores them re: door
+  - KB alignment: KB has no info about door (correct — it's unsolvable)
+  - Objective quality: "Open nailed door" is unsolvable objective
+  - Objective pursuit: Agent pursuing impossible objective for 20 turns
+  - Learning system quality: KB good, but agent needs to recognize permanent obstacles
+**Triggers:** Score stagnant (0 delta), avg critic < 0.5, rejection rate 60%, stuck 20+ turns on same target
+**Notes:** Agent got equipment (GREAT), lit lantern (GREAT), collected rope+knife (GREAT) — then fixated on nailed-shut door in Living Room for 20 turns. Used varied verbs (pry, pull, cut, push, axe, saw, break) so cross-turn detection didn't catch it. The "puzzle feedback" clause in agent.md overrides forced-movement because door produces varied responses. Need hard cap: after N failed approaches on same target, classify as permanent obstacle and MOVE ON.
+
+---
+
+## Episode 35 → 36 — IMPROVEMENT
+**Trigger:** Agent fixated on nailed-shut door for 20 consecutive turns (turns 31-50) using varied verbs (pry, pull, cut, push, axe, saw, break, open, remove). Score stagnant at 15. Rejection rate 60%. Avg critic 0.36.
+**Hypothesis:** The puzzle-solving protocols (lines 80-148) classify varied game responses as "puzzle feedback" and encourage continued experimentation. When the agent uses DIFFERENT verbs on the SAME target, each attempt looks like legitimate puzzle-solving to the agent (new verb = new approach). The forced-movement rule (2+ turns stuck) and the hard-failure rule (stop after 2 identical attempts) both fail to trigger because the agent varies its verbs. The cross-turn stuck detection from ep8→9 was lost in a prior prompt rewrite.
+**Change:** Added PERMANENT OBSTACLE RULE as Critical Rule #2 in `prompts/agent.md`. After 5 different attempts on the same object/feature with no score change, the target is classified as a permanent obstacle. Agent must stop all interaction and move to a different area. Rule explicitly states that varied failure messages on the same target are NOT puzzle feedback. Placed in CRITICAL RULES section to override puzzle-solving protocols. Agent instructed to count prior attempts on current target in `thinking` field.
+**Reasoning:** The root cause is that the puzzle-solving protocol's "varied feedback = learning" heuristic has no cap. A hard numeric limit (5 attempts) on same-target interactions regardless of verb variety creates an upper bound on fixation. Placing it in CRITICAL RULES (above puzzle protocols) ensures it takes precedence. The "count attempts in thinking" instruction makes the rule self-enforcing — the agent must track and acknowledge the limit each turn.
+**Target metric:** Rejection rate at turn 50 should drop below 30% (from 60%). Score should increase beyond 15 as agent redirects to exploration/underground access instead of door fixation. Max consecutive turns on any single target should be ≤5.
+**Result:** PENDING
+
+---
