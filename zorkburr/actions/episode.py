@@ -136,6 +136,14 @@ def apply_consolidation_actions(
             processed_titles.add(act.memory_title)
 
         elif act.action == "merge":
+            if act.memory_title.strip() == act.merge_with.strip():
+                logger.warning(f"Consolidation rejected merge: self-reference '{act.memory_title}'")
+                stats["rejected"] += 1
+                continue
+            if not act.new_title.strip() or not act.new_text.strip():
+                logger.warning(f"Consolidation rejected merge: empty new_title or new_text for '{act.memory_title}'")
+                stats["rejected"] += 1
+                continue
             primary_matches = _find_active(act.memory_title)
             secondary_matches = _find_active(act.merge_with)
             if len(primary_matches) != 1 or len(secondary_matches) != 1:
@@ -171,6 +179,10 @@ def apply_consolidation_actions(
             processed_titles.add(act.merge_with)
 
         elif act.action == "supersede":
+            if act.memory_title.strip() == act.merge_with.strip():
+                logger.warning(f"Consolidation rejected supersede: self-reference '{act.memory_title}'")
+                stats["rejected"] += 1
+                continue
             wrong_matches = _find_active(act.memory_title)
             correct_matches = _find_active(act.merge_with)
             if len(wrong_matches) != 1 or len(correct_matches) != 1:
