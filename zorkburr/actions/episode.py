@@ -3,13 +3,16 @@ from __future__ import annotations
 
 import json
 import logging
+import shutil
 from pathlib import Path
+from typing import Any
 
 from burr.core import State
 
 from zorkburr.config import GameConfig
 from zorkburr.game.jericho_interface import JerichoInterface
 from zorkburr.game.map_graph import MapGraph
+from zorkburr.llm.models import ConsolidationAction, ConsolidationResponse
 from zorkburr.state import S
 
 logger = logging.getLogger(__name__)
@@ -98,6 +101,120 @@ def persist_knowledge(knowledge: str, config: GameConfig) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(knowledge)
     logger.debug(f"Persisted knowledge to {path}")
+
+
+def apply_consolidation_actions(
+    memories: list[dict],
+    actions: list[ConsolidationAction],
+) -> tuple[list[dict], dict]:
+    """Apply consolidation actions to a location's memory list.
+
+    Returns (updated_memories, stats_dict).
+    """
+    stats = {"kept": 0, "dropped": 0, "merged": 0, "superseded": 0}
+    # Track which memories have been processed
+    processed_titles: set[str] = set()
+    result = list(memories)  # shallow copy
+
+    for act in actions:
+        if act.action == "keep":
+            stats["kept"] += 1
+            processed_titles.add(act.memory_title)
+
+        elif act.action == "drop":
+            result = [m for m in result if m.get("title") != act.memory_title]
+            logger.warning(f"Consolidation dropped memory: {act.memory_title} — {act.reason}")
+            stats["dropped"] += 1
+            processed_titles.add(act.memory_title)
+
+        elif act.action == "merge":
+            # Mark both source memories as SUPERSEDED
+            for m in result:
+                if m.get("title") in (act.memory_title, act.merge_with) and m.get("status") != "SUPERSEDED":
+                    m["status"] = "SUPERSEDED"
+                    m["superseded_by"] = act.new_title
+            # Create merged memory — category from the primary memory
+            primary = next((m for m in memories if m.get("title") == act.memory_title), None)
+            merged = {
+                "category": primary.get("category", "NOTE") if primary else "NOTE",
+                "title": act.new_title,
+                "text": act.new_text,
+                "episode": "consolidated",
+                "turn": 0,
+                "persistence": "permanent",
+                "status": "ACTIVE",
+                "superseded_by": "",
+            }
+            result.append(merged)
+            logger.warning(
+                f"Consolidation merged '{act.memory_title}' + '{act.merge_with}' -> '{act.new_title}' — {act.reason}"
+            )
+            stats["merged"] += 1
+            processed_titles.add(act.memory_title)
+            processed_titles.add(act.merge_with)
+
+        elif act.action == "supersede":
+            for m in result:
+                if m.get("title") == act.memory_title and m.get("status") != "SUPERSEDED":
+                    m["status"] = "SUPERSEDED"
+                    m["superseded_by"] = act.merge_with
+                    logger.info(f"Consolidation superseded '{act.memory_title}' by '{act.merge_with}' — {act.reason}")
+            stats["superseded"] += 1
+            processed_titles.add(act.memory_title)
+
+    # Default-keep any non-superseded memories not mentioned in actions
+    for m in result:
+        if m.get("title") not in processed_titles and m.get("status") != "SUPERSEDED":
+            stats["kept"] += 1
+
+    return result, stats
+
+
+_consolidation_prompt: str | None = None
+
+
+def _get_consolidation_prompt() -> str:
+    global _consolidation_prompt
+    if _consolidation_prompt is None:
+        from zorkburr.llm.prompts import load_prompt
+        _consolidation_prompt = load_prompt("memory_consolidation")
+    return _consolidation_prompt
+
+
+def consolidate_location(
+    location_id: str,
+    memories: list[dict],
+    knowledge_base: str,
+    client: Any,
+    config: GameConfig,
+) -> tuple[list[dict], dict]:
+    """Run consolidation LLM on one location's memories. Returns (updated_memories, stats)."""
+    from zorkburr.llm.client import effective_model, thinking_kwargs
+
+    # Build context: all memories with status markers
+    mem_lines = []
+    for m in memories:
+        status_tag = " [SUPERSEDED]" if m.get("status") == "SUPERSEDED" else ""
+        mem_lines.append(f"- [{m.get('title', '?')}]{status_tag}: {m.get('text', '')}")
+
+    context = (
+        f"Location ID: {location_id}\n\n"
+        f"Memories:\n" + "\n".join(mem_lines) + "\n\n"
+        f"Current Knowledge Base:\n{knowledge_base or '(empty)'}"
+    )
+
+    response: ConsolidationResponse = client.create(
+        model=effective_model(config, config.analysis_model),
+        response_model=ConsolidationResponse,
+        messages=[
+            {"role": "system", "content": _get_consolidation_prompt()},
+            {"role": "user", "content": context},
+        ],
+        temperature=0.3, max_tokens=2048, max_retries=2,
+        **thinking_kwargs(config, False),
+    )
+
+    return apply_consolidation_actions(memories, response.actions)
 
 
 def finalize_episode(state: State, config: GameConfig, client=None) -> dict:
