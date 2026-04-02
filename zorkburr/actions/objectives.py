@@ -59,7 +59,7 @@ def update_objectives(state: State, client: instructor.Instructor, config: GameC
             response_model=ObjectiveDiscoveryResponse,
             messages=[{"role": "system", "content": _get_discovery_prompt()}, {"role": "user", "content": user_msg}],
             temperature=0.7, max_tokens=512, max_retries=2,
-            **thinking_kwargs(config, False),
+            **thinking_kwargs(config, use_thinking),
         )
         completed = set(response.completed)
         updated = [o for o in current_objectives if _obj_text(o) not in completed]

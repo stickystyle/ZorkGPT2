@@ -3,7 +3,7 @@ The game resets each episode — these memories are reusable guidance, not curre
 
 You will receive all memories at one location. Return an action for EVERY non-superseded memory.
 
-Actions:
+Actions (every action MUST include a "reason" explaining why it was chosen):
 - keep: Memory is useful and unique. No change needed.
 - drop: Memory is low-value (room description, movement log, inventory noise, score change without context). Will be permanently deleted.
 - merge: Two memories say the same thing in different words. Combine into one with the best text. Specify merge_with (the other memory's title), new_title, and new_text.

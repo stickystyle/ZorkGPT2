@@ -85,8 +85,8 @@ def test_update_objectives_extra_body_for_local():
         state, client=mock_client, config=_mock_config(use_local_models=True), use_thinking=True
     )
     call_kwargs = mock_client.create.call_args.kwargs
-    # objectives always uses thinking=False regardless of the use_thinking param
-    assert call_kwargs["extra_body"] == {"chat_template_kwargs": {"enable_thinking": False}}
+    # use_thinking=True should be propagated to thinking_kwargs
+    assert call_kwargs["extra_body"] == {"chat_template_kwargs": {"enable_thinking": True}}
 
 
 def test_update_objectives_no_extra_body_on_openrouter():

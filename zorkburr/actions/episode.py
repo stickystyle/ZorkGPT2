@@ -111,10 +111,13 @@ def apply_consolidation_actions(
 
     Returns (updated_memories, stats_dict).
     """
-    stats = {"kept": 0, "dropped": 0, "merged": 0, "superseded": 0}
+    stats = {"kept": 0, "dropped": 0, "merged": 0, "superseded": 0, "rejected": 0}
     # Track which memories have been processed
     processed_titles: set[str] = set()
     result = list(memories)  # shallow copy
+
+    def _find_active(title: str) -> list[dict]:
+        return [m for m in result if m.get("title") == title and m.get("status") != "SUPERSEDED"]
 
     for act in actions:
         if act.action == "keep":
@@ -122,21 +125,35 @@ def apply_consolidation_actions(
             processed_titles.add(act.memory_title)
 
         elif act.action == "drop":
+            matches = _find_active(act.memory_title)
+            if len(matches) != 1:
+                logger.warning(f"Consolidation rejected drop: title '{act.memory_title}' matched {len(matches)} active memories, expected 1")
+                stats["rejected"] += 1
+                continue
             result = [m for m in result if m.get("title") != act.memory_title]
             logger.warning(f"Consolidation dropped memory: {act.memory_title} — {act.reason}")
             stats["dropped"] += 1
             processed_titles.add(act.memory_title)
 
         elif act.action == "merge":
+            primary_matches = _find_active(act.memory_title)
+            secondary_matches = _find_active(act.merge_with)
+            if len(primary_matches) != 1 or len(secondary_matches) != 1:
+                logger.warning(
+                    f"Consolidation rejected merge: '{act.memory_title}' matched {len(primary_matches)}, "
+                    f"'{act.merge_with}' matched {len(secondary_matches)} active memories, expected 1 each"
+                )
+                stats["rejected"] += 1
+                continue
             # Mark both source memories as SUPERSEDED
             for m in result:
                 if m.get("title") in (act.memory_title, act.merge_with) and m.get("status") != "SUPERSEDED":
                     m["status"] = "SUPERSEDED"
                     m["superseded_by"] = act.new_title
             # Create merged memory — category from the primary memory
-            primary = next((m for m in memories if m.get("title") == act.memory_title), None)
+            primary = primary_matches[0]
             merged = {
-                "category": primary.get("category", "NOTE") if primary else "NOTE",
+                "category": primary.get("category", "NOTE"),
                 "title": act.new_title,
                 "text": act.new_text,
                 "episode": "consolidated",
@@ -154,6 +171,15 @@ def apply_consolidation_actions(
             processed_titles.add(act.merge_with)
 
         elif act.action == "supersede":
+            wrong_matches = _find_active(act.memory_title)
+            correct_matches = _find_active(act.merge_with)
+            if len(wrong_matches) != 1 or len(correct_matches) != 1:
+                logger.warning(
+                    f"Consolidation rejected supersede: wrong='{act.memory_title}' matched {len(wrong_matches)}, "
+                    f"correct='{act.merge_with}' matched {len(correct_matches)} active memories, expected 1 each"
+                )
+                stats["rejected"] += 1
+                continue
             for m in result:
                 if m.get("title") == act.memory_title and m.get("status") != "SUPERSEDED":
                     m["status"] = "SUPERSEDED"
@@ -264,6 +290,7 @@ def finalize_episode(state: State, config: GameConfig, client=None) -> dict:
                     f"CONSOLIDATION | location={loc_key} | before={before} | after={after}"
                     f" | kept={stats['kept']} | merged={stats['merged']}"
                     f" | dropped={stats['dropped']} | superseded={stats['superseded']}"
+                    f" | rejected={stats['rejected']}"
                 )
             except Exception as e:
                 logger.warning(f"Consolidation failed for location {loc_key}: {e}")
