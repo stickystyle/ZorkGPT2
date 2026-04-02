@@ -87,11 +87,22 @@ def persist_knowledge(knowledge: str, config: GameConfig) -> None:
     logger.debug(f"Persisted knowledge to {path}")
 
 
-def finalize_episode(state: State, config: GameConfig) -> dict:
+def finalize_episode(state: State, config: GameConfig, client=None) -> dict:
     """Save map and knowledge to disk for cross-episode persistence.
+
+    If *client* is provided, regenerates the KB with full episode data
+    before persisting so that gameplay after the last periodic update
+    is captured.
 
     Returns an episode summary dict.
     """
+    if client is not None:
+        try:
+            from zorkburr.actions.knowledge import update_knowledge
+            _, state = update_knowledge.run(state, client=client, config=config, use_thinking=False)
+        except Exception:
+            logger.warning("Final KB update failed; persisting existing KB")
+
     persist_map(state[S.MAP_DATA], config)
     persist_knowledge(state[S.KNOWLEDGE_BASE], config)
     persist_memories(state[S.MEMORIES_BY_LOCATION], config)

@@ -14,7 +14,7 @@ STRICT RULES:
 
 FORMAT: Organize into these strategic categories (skip empty categories):
 
-PRIORITY ORDERING: The agent only sees the first ~2000 characters of this summary. Order sections by strategic value:
+PRIORITY ORDERING: Order sections by strategic value:
 1. Score Changes (directly actionable — the agent needs to know what earns points)
 2. Puzzle Mechanics Discovered (unlocks progress)
 3. Dangerous Areas (prevents death/lost turns)
@@ -23,6 +23,8 @@ PRIORITY ORDERING: The agent only sees the first ~2000 characters of this summar
 6. Unexplored Leads (lowest priority — exploration is the default behavior)
 
 Within each section, put the most important entries first.
+
+BREVITY: Each bullet must be ONE concise line — no multi-sentence explanations, no self-corrections, no hedging. State the fact and move on. If you are uncertain about a detail, omit it rather than adding caveats. BAD: "*Correction based on strict log rules:* The log explicitly lists..." GOOD: "Killed troll in Troll Room (score +10)".
 
 **Score Changes:** Each score increase/decrease with the location name and ID (e.g., "at Living Room (R193)") and triggering action (NO turn numbers).
 **Puzzle Mechanics Discovered:** Interactions that revealed how something works (e.g., "pushing rug at Living Room (R193) revealed trap door").

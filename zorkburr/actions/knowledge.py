@@ -21,8 +21,8 @@ def _get_knowledge_prompt() -> str:
     return _knowledge_prompt
 
 @action(
-    reads=[S.KNOWLEDGE_BASE, S.ACTION_HISTORY, S.DISCOVERED_OBJECTIVES,
-           S.COMPLETED_OBJECTIVES, S.SCORE, S.TURN_COUNT, S.MEMORIES_BY_LOCATION],
+    reads=[S.KNOWLEDGE_BASE, S.ACTION_HISTORY, S.SCORE, S.TURN_COUNT,
+           S.MEMORIES_BY_LOCATION],
     writes=[S.KNOWLEDGE_BASE],
 )
 def update_knowledge(state: State, client: instructor.Instructor, config: GameConfig, use_thinking: bool = False) -> tuple[dict, State]:
@@ -32,9 +32,7 @@ def update_knowledge(state: State, client: instructor.Instructor, config: GameCo
     )
     existing = state[S.KNOWLEDGE_BASE]
     user_msg = (
-        f"Score: {state[S.SCORE]} | Turn: {state[S.TURN_COUNT]}\n"
-        f"Objectives: {state[S.DISCOVERED_OBJECTIVES]}\n"
-        f"Completed: {[o['objective'] for o in state[S.COMPLETED_OBJECTIVES]]}\n\n"
+        f"Score: {state[S.SCORE]} | Turn: {state[S.TURN_COUNT]}\n\n"
         f"Existing knowledge:\n{existing or '(none yet)'}\n\nRecent gameplay:\n{action_summary}"
     )
     try:

@@ -96,6 +96,42 @@ class MapGraph:
                     seen.add(edge_key)
         return "\n".join(lines)
 
+    def to_mermaid_local(self, current_room_id: int, depth: int = 2) -> str:
+        """Generate a Mermaid flowchart showing only rooms within `depth` hops of current_room_id."""
+        if not self.rooms or current_room_id not in self.rooms:
+            return ""
+        # BFS to find nearby rooms
+        visited: set[int] = {current_room_id}
+        frontier: list[int] = [current_room_id]
+        for _ in range(depth):
+            next_frontier: list[int] = []
+            for room_id in frontier:
+                for dest_id in self.connections.get(room_id, {}).values():
+                    if dest_id not in visited and dest_id in self.rooms:
+                        visited.add(dest_id)
+                        next_frontier.append(dest_id)
+            frontier = next_frontier
+        # Build diagram with only visited rooms and edges between them
+        lines = ["graph LR"]
+        for room_id in sorted(visited):
+            name = self.rooms[room_id]
+            if room_id == current_room_id:
+                lines.append(f'    R{room_id}[["**{name}** ★"]]')
+            else:
+                lines.append(f'    R{room_id}["{name}"]')
+        seen: set[tuple[int, int, str]] = set()
+        for from_id in sorted(visited):
+            for direction, to_id in sorted(self.connections.get(from_id, {}).items()):
+                if to_id not in visited:
+                    continue
+                edge_key = (min(from_id, to_id), max(from_id, to_id), direction)
+                reverse_dir = _OPPOSITE_DIRS.get(direction, "")
+                reverse_key = (min(from_id, to_id), max(from_id, to_id), reverse_dir)
+                if edge_key not in seen and reverse_key not in seen:
+                    lines.append(f'    R{from_id} -->|"{direction}"| R{to_id}')
+                    seen.add(edge_key)
+        return "\n".join(lines)
+
     def to_dict(self) -> dict:
         return {
             "rooms": {str(k): v for k, v in self.rooms.items()},

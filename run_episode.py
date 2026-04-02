@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import argparse
+from dotenv import load_dotenv
+
+load_dotenv()  # Export .env vars (incl. AWS creds) to the environment for boto3
 import sys
 import uuid
 from pathlib import Path
@@ -121,7 +124,7 @@ def _run(config: GameConfig, max_turns: int, episode_id: str) -> None:
         try:
             final_state = app.state
             # Save cross-episode learning (knowledge base, map) for future episodes
-            finalize_episode(final_state, config)
+            finalize_episode(final_state, config, client=client)
             print(
                 format_episode_end(
                     turns=turn_num,

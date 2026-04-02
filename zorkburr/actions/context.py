@@ -36,7 +36,7 @@ def assemble_context(state: State) -> tuple[dict, State]:
     if map_data:
         from zorkburr.game.map_graph import MapGraph
         mg = MapGraph.from_dict(map_data) if isinstance(map_data, dict) else map_data
-        mermaid = mg.to_mermaid(loc_id)
+        mermaid = mg.to_mermaid_local(loc_id)
         if mermaid:
             sections.append(f"## CURRENT WORLD MAP\n```mermaid\n{mermaid}\n```")
 
@@ -104,7 +104,7 @@ def assemble_context(state: State) -> tuple[dict, State]:
 
     knowledge = state[S.KNOWLEDGE_BASE]
     if knowledge:
-        sections.append(f"**Strategic Knowledge:**\n{knowledge[:2000]}")
+        sections.append(f"**Strategic Knowledge:**\n{knowledge}")
 
     turns_stuck = state[S.TURNS_SINCE_PROGRESS]
     if turns_stuck >= 20:
