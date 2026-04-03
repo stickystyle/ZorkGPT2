@@ -12,7 +12,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from langfuse import observe, get_client, propagate_attributes
+from contextlib import ExitStack
+
+from langfuse import get_client
 
 from zorkburr.actions.episode import finalize_episode, initialize_episode
 from zorkburr.app import build_turn_app
@@ -77,7 +79,6 @@ def format_episode_end(
     return line
 
 
-@observe()
 def _run(config: GameConfig, max_turns: int, episode_id: str) -> None:
     jericho = JerichoInterface(config.game_file)
     jericho.start()
@@ -102,53 +103,74 @@ def _run(config: GameConfig, max_turns: int, episode_id: str) -> None:
     turn_num = 0
     end_reason = "max_turns"
 
+    langfuse = get_client()
+    turn_stack: ExitStack | None = None
+    local_turn_num = 0
+
     try:
-        with propagate_attributes(
-            trace_name=f"zorkburr-episode-{episode_id}",
-            session_id=episode_id,
-            user_id="zorkburr",
-            metadata={
-                "agent_model": config.agent_model,
-                "critic_model": config.critic_model,
-                "max_turns": str(max_turns),
-            },
-            tags=["zorkburr", "episode"],
+        for action_obj, result, state in app.iterate(
+            halt_after=["turn_complete"]
         ):
-            for action_obj, result, state in app.iterate(
-                halt_after=["turn_complete"]
-            ):
-                if action_obj.name == "turn_complete":
+            # After assemble_context completes, the next actions are a new turn.
+            # Create a fresh langfuse trace so each turn is its own trace with
+            # the @observe()-decorated actions as child spans.
+            if action_obj.name == "assemble_context":
+                if turn_stack is not None:
+                    turn_stack.close()
+                local_turn_num += 1
+                turn_stack = ExitStack()
+                turn_stack.enter_context(
+                    langfuse.start_as_current_observation(
+                        name=f"turn-{local_turn_num}",
+                    )
+                )
+                turn_stack.enter_context(
+                    langfuse.propagate_attributes(
+                        trace_name=f"turn-{local_turn_num}",
+                        session_id=episode_id,
+                        user_id="zorkburr",
+                        metadata={
+                            "agent_model": config.agent_model,
+                            "critic_model": config.critic_model,
+                        },
+                        tags=["zorkburr", "episode"],
+                    )
+                )
+
+            if action_obj.name == "turn_complete":
+                end_reason = _resolve_end_reason(state[S.GAME_OVER_REASON])
+                objectives_found = len(state[S.DISCOVERED_OBJECTIVES])
+                break
+
+            if action_obj.name == "execute_action":
+                turn_num = state[S.TURN_COUNT]
+                loc = state[S.LOCATION_NAME]
+                locations_visited.add(loc)
+
+                print(
+                    format_turn_line(
+                        turn_num=turn_num,
+                        loc=loc,
+                        score=state[S.SCORE],
+                        max_score=state[S.MAX_SCORE],
+                        critic=state[S.CRITIC_SCORE],
+                        rejections=state[S.REJECTION_COUNT],
+                        action=state[S.ACTION_TO_TAKE],
+                    ),
+                    flush=True,
+                )
+
+                if state[S.GAME_OVER]:
                     end_reason = _resolve_end_reason(state[S.GAME_OVER_REASON])
                     objectives_found = len(state[S.DISCOVERED_OBJECTIVES])
                     break
 
-                if action_obj.name == "execute_action":
-                    turn_num = state[S.TURN_COUNT]
-                    loc = state[S.LOCATION_NAME]
-                    locations_visited.add(loc)
-
-                    print(
-                        format_turn_line(
-                            turn_num=turn_num,
-                            loc=loc,
-                            score=state[S.SCORE],
-                            max_score=state[S.MAX_SCORE],
-                            critic=state[S.CRITIC_SCORE],
-                            rejections=state[S.REJECTION_COUNT],
-                            action=state[S.ACTION_TO_TAKE],
-                        ),
-                        flush=True,
-                    )
-
-                    if state[S.GAME_OVER]:
-                        end_reason = _resolve_end_reason(state[S.GAME_OVER_REASON])
-                        objectives_found = len(state[S.DISCOVERED_OBJECTIVES])
-                        break
-
-                    if turn_num >= max_turns:
-                        objectives_found = len(state[S.DISCOVERED_OBJECTIVES])
-                        break
+                if turn_num >= max_turns:
+                    objectives_found = len(state[S.DISCOVERED_OBJECTIVES])
+                    break
     finally:
+        if turn_stack is not None:
+            turn_stack.close()
         try:
             final_state = app.state
             # Save cross-episode learning (knowledge base, map) for future episodes
