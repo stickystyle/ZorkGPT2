@@ -1012,3 +1012,14 @@ Started: 2026-03-30
   - Pathfinding: NAVIGATING — Agent used map to navigate Cellar→Troll→East-West→Round→Loud. Currently stuck in Loud Room (echo puzzle) but actively trying different approaches.
 **Triggers:** None — all metrics healthy.
 **Notes:** First episode with Ministral-3-14B-Reasoning. Model switch is a clear improvement — score 40 at turn 25 vs ep47's 0, ep46's 10, ep45's 35 (but ep45 died at turn 27). Agent killed the troll (first time since model switch!) and is exploring new underground territory. Loud Room puzzle ("echo") is discovery-gated — agent needs to figure out the echo mechanic. No intervention needed.
+
+---
+
+## Episode 48 (mid-episode) — IMPROVEMENT (Memory Synthesis Too Conservative)
+**Type:** BLOCKER
+**Trigger:** Zero new memories created across ep48 (47 turns). Ministral returns should_remember=False for every event including score changes and troll defeats. Memory system completely broken for cross-episode learning.
+**Hypothesis:** The memory synthesis prompt's DO NOT rules override the DO remember rules for Ministral. Dedup rules too aggressive — model considers "troll blocks passage" as covering "defeat troll with sword." Score-change events need mandatory memory creation.
+**Change:** Modified prompts/memory_synthesis.md: (1) Added mandatory memory rule for score changes, (2) Clarified that problem-memories don't cover solution-memories in dedup, (3) Removed conflicting "don't remember score changes without understanding why" rule.
+**Reasoning:** The memory system is the foundation of cross-episode learning. Zero memories = zero learning. The prompt needed to clearly prioritize score events and distinguish problem-identification from solution-discovery.
+**Target metric:** Memory system should create 5+ new memories per episode. Score-change events must always generate memories.
+**Result:** PENDING

@@ -2,6 +2,7 @@ You are a memory synthesizer for an AI playing Zork I.
 Given an action and its outcome, decide if this is worth remembering.
 
 Rules:
+- MANDATORY: If score_delta != 0 (score changed), should_remember MUST be true. Score changes are the most important learning signal. This rule overrides deduplication — even if a related memory exists, a score change means new actionable knowledge was gained.
 - DO remember: object interactions, dangers, puzzle mechanics, item discoveries, score-earning actions
 - Record MECHANICS and STRATEGIES, not game state. Memories persist across episodes but the game resets each time. Write memories as reusable instructions, not descriptions of current state.
   - BAD: "The trap door is open" / "Opened the trap door" / "The window was opened"
@@ -13,11 +14,11 @@ Rules:
 - DO NOT remember: room descriptions or flavor text (the game engine provides these every visit)
 - DO NOT remember: information already captured in the knowledge base — check the existing memories list to avoid duplication
 - DO NOT remember: repeated failures with the same approach at the same location — if a FAILURE memory already exists for this interaction, do not create another
-- DO NOT remember: score changes without understanding WHY the score changed — the score delta alone is not useful
+- DO NOT remember: score deltas without any context — but if the action and game response are available (they always are), the "why" is already known, so record the memory
 
 DEDUPLICATION — do NOT create memories that duplicate existing ones:
 - EXACT DUPLICATES: If an existing memory has the same title, do not create another
-- SEMANTIC DUPLICATES: If an existing memory conveys the same insight in different words, do not create another
+- SEMANTIC DUPLICATES: If an existing memory conveys the same insight in different words, do not create another. IMPORTANT: A memory about a PROBLEM (e.g., "troll blocks passage") does NOT cover a SOLUTION (e.g., "attack troll with sword to defeat it"). Identifying a challenge and solving it are different insights.
   - BAD: Existing says "Window ajar behind house" -> you create "Behind house window is ajar" (same fact, different words)
   - GOOD: Existing says "Window ajar behind house" -> you create "Enter window to reach Kitchen (+10 points)" (new actionable info)
 - If your new observation adds meaningful detail to an existing memory, supersede it with a better version instead of creating a separate entry
