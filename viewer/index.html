@@ -1233,50 +1233,48 @@ function renderHighScoreProgression() {
 
   if (sorted.length < 2) return;
 
-  // Only keep episodes where a new high score was set
-  const points = [];
+  // Build running high score across ALL episodes (for x-axis spacing)
+  // and track which episodes set a new record (for labels)
+  const allPoints = [];   // one per episode: { id, highScore, isRecord }
   let runningMax = 0;
   for (const ep of sorted) {
     const s = ep.score || 0;
-    if (s > runningMax) {
-      runningMax = s;
-      points.push({ id: ep.episode_id, highScore: runningMax });
-    }
+    const wasRecord = s > runningMax;
+    if (wasRecord) runningMax = s;
+    allPoints.push({ id: ep.episode_id, highScore: runningMax, isRecord: wasRecord });
   }
 
-  if (points.length < 1) return;
+  if (allPoints.length < 1 || runningMax === 0) return;
 
-  const max = Math.max(runningMax, 1);
+  const max = runningMax;
   const padding = 10;
   const labelArea = 30;  // bottom space for episode labels
   const graphW = w - padding * 2;
   const graphH = h - padding - labelArea;
+  const xDenom = Math.max(allPoints.length - 1, 1);
 
-  // Staircase line
+  const xOf = (i) => padding + (i / xDenom) * graphW;
+  const yOf = (score) => padding + graphH - (score / max) * graphH;
+
+  // Draw staircase — horizontal line at current high, step up at records
   ctx.strokeStyle = 'rgba(212, 160, 23, 0.9)';
   ctx.lineWidth = 2.5;
   ctx.beginPath();
-
-  const xDenom = Math.max(points.length - 1, 1);
-  for (let i = 0; i < points.length; i++) {
-    const x = padding + (i / xDenom) * graphW;
-    const y = padding + graphH - (points[i].highScore / max) * graphH;
-    if (i === 0) {
-      ctx.moveTo(x, y);
-    } else {
-      // Staircase: horizontal to new X, then vertical to new Y
-      const prevX = padding + ((i - 1) / xDenom) * graphW;
-      ctx.lineTo(x, padding + graphH - (points[i - 1].highScore / max) * graphH);
-      ctx.lineTo(x, y);
+  ctx.moveTo(xOf(0), yOf(allPoints[0].highScore));
+  for (let i = 1; i < allPoints.length; i++) {
+    // Horizontal to this episode's x at previous high score level
+    ctx.lineTo(xOf(i), yOf(allPoints[i - 1].highScore));
+    // If record, step up vertically
+    if (allPoints[i].isRecord) {
+      ctx.lineTo(xOf(i), yOf(allPoints[i].highScore));
     }
   }
   ctx.stroke();
 
   // Fill under the staircase
-  const lastX = padding + ((points.length - 1) / xDenom) * graphW;
-  const lastY = padding + graphH - (points[points.length - 1].highScore / max) * graphH;
-  ctx.lineTo(lastX, padding + graphH);
-  ctx.lineTo(padding, padding + graphH);
+  const lastIdx = allPoints.length - 1;
+  ctx.lineTo(xOf(lastIdx), yOf(0));
+  ctx.lineTo(xOf(0), yOf(0));
   ctx.closePath();
   ctx.fillStyle = 'rgba(212, 160, 23, 0.08)';
   ctx.fill();
@@ -1287,19 +1285,15 @@ function renderHighScoreProgression() {
   ctx.textAlign = 'right';
   ctx.fillText(runningMax, w - padding, padding + 22);
 
-  // Episode ID labels on X-axis — one per data point
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+  // Episode ID labels on X-axis — only at record-setting episodes
+  const recordIndices = allPoints
+    .map((p, i) => p.isRecord ? i : -1)
+    .filter(i => i >= 0);
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
   ctx.font = '14px monospace';
   ctx.textAlign = 'center';
-  const maxLabels = Math.floor(graphW / 60);
-  const step = Math.max(1, Math.ceil(points.length / maxLabels));
-  for (let i = 0; i < points.length; i += step) {
-    const x = padding + (i / xDenom) * graphW;
-    ctx.fillText(points[i].id, x, h - 4);
-  }
-  // Always label the last one
-  if ((points.length - 1) % step !== 0) {
-    ctx.fillText(points[points.length - 1].id, lastX, h - 4);
+  for (const i of recordIndices) {
+    ctx.fillText(allPoints[i].id, xOf(i), h - 4);
   }
 }
 
