@@ -40,6 +40,11 @@ def assemble_context(state: State) -> tuple[dict, State]:
         if mermaid:
             sections.append(f"## CURRENT WORLD MAP\n```mermaid\n{mermaid}\n```")
 
+    # Strategic Knowledge (KB) — high priority, before plan/reasoning
+    knowledge = state[S.KNOWLEDGE_BASE]
+    if knowledge:
+        sections.append(f"**Strategic Knowledge:**\n{knowledge}")
+
     if state[S.IN_COMBAT]:
         sections.append("**COMBAT ACTIVE — prioritize combat actions**")
 
@@ -110,10 +115,6 @@ def assemble_context(state: State) -> tuple[dict, State]:
             else:
                 obj_lines.append(f"  - {o}")
         sections.append("**Active Objectives:**\n" + "\n".join(obj_lines))
-
-    knowledge = state[S.KNOWLEDGE_BASE]
-    if knowledge:
-        sections.append(f"**Strategic Knowledge:**\n{knowledge}")
 
     turns_stuck = state[S.TURNS_SINCE_PROGRESS]
     if turns_stuck >= 20:

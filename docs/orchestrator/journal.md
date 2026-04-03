@@ -1151,6 +1151,48 @@ Started: 2026-03-30
 **Change:** Replaced full-rewrite KB update with programmatic append-and-merge in `zorkburr/actions/knowledge.py`. Added `_parse_sections()` to extract section->bullets from KB markdown, `_merge_kb()` to merge LLM output into existing KB with per-section dedup by normalized content. Existing bullets always survive; new bullets are appended. Updated `prompts/knowledge.md` to inform LLM that merge is automatic.
 **Reasoning:** The KB is append-only by nature (discoveries don't un-happen). The LLM's job is to identify new entries from recent gameplay, not to curate the whole document. Programmatic merge makes the existing KB immutable — the LLM can only add, never remove. Dedup by normalized bullet content prevents duplicates when the LLM repeats existing entries.
 **Target metric:** KB should preserve all score-change and puzzle-mechanic entries across the entire episode. Early-game score 40+ by turn 25 should return.
+**Result:** PENDING — KB update runs only at turns 50/100 (both intervals must divide turn count). ep50 killed at turn 38 — merge fix never tested. Carry forward.
+
+---
+
+## Episode 50 — Turn 25 Checkpoint
+**Type:** CONCERN — same regression as ep49
+**Score:** 10/350 (delta: +10 from start — Kitchen entry at turn 22)
+**Locations visited:** 8 unique (West_House, Forest, Forest_Path, Up_a_Tree, Clearing, North_House, Behind_House, Kitchen)
+**Avg critic score:** 0.61
+**Rejection rate:** 6/25 (24%) — acceptable
+**Gameplay quality:** DRIFTING
+  - Memory use: Agent at Kitchen — memories mention "sack and water bottle" and "Entered via window" but nothing about going west to Living Room
+  - KB alignment: KB still only has dam info. No early-game guidance available.
+  - Objective quality: 9 objectives, including "Explore the path leading west from the kitchen" — but agent left before following it
+  - Objective pursuit: Low — agent took items and left Kitchen immediately
+  - Learning system quality: KB merge fix deployed but untested (update runs at turn 50 only)
+**Triggers:** Score stagnant pattern from ep49 repeating. Agent leaving Kitchen without exploring west.
+**Notes:** Same pattern as ep49: agent enters Kitchen (score 10), takes visible items, leaves east to Behind_House, wanders in forest. Never reaches Living Room (west from Kitchen). Without KB mentioning sword/lantern/rug puzzle, agent has no reason to go deeper into house.
+
+---
+
+## Episode 50 — COMPLETE (killed at turn 38)
+**Turns:** 38
+**Final score:** 10/350
+**Locations visited:** 10
+**End reason:** killed (stuck in Forest, same pattern as ep49)
+**Memory stats:** 67 total, 0 new
+**Improvement dispatched:** yes — KB content restoration BLOCKER
+
+**Notes:** 2 consecutive episodes (ep49, ep50) stuck at score 10 with identical failure pattern. KB merge fix prevents future loss but can't restore lost knowledge. The early-game KB (house→sword→lantern→rug→cellar) was learned by the agent in ep36-41 and lost due to overwrite bug. Without this KB, agent can't discover non-obvious "move rug" puzzle or know to take sword. Restoring previously-learned KB content is data recovery, not knowledge injection.
+
+---
+
+## Episode 50 → 51 — IMPROVEMENT (KB Restoration + Context Reordering)
+**Type:** BLOCKER (2 fixes)
+**Trigger:** Agent sees restored KB in context (at char 7295 of 10423) but ignores it — follows Current Plan ("get egg") over KB strategy ("get sword/lantern/rug"). KB placed LAST in context (position 12 of 13 sections), after Plan and Reasoning sections. Agent commits to plan before reading KB.
+**Hypothesis:** The KB being last in the context causes it to be deprioritized relative to the Current Plan, which appears earlier. The agent forms its intent from the Plan section and never reconsiders when it reaches the KB. Moving KB before the Plan section will ensure strategic guidance informs plan formation rather than being ignored.
+**Changes:**
+1. **KB content restoration** — Restored `data/knowledge.md` with previously-learned early-game knowledge (ep36-41): house entry (+10), egg (+5), troll kill (+5), rug/trap door (+5), coins (+10), painting (+4), sword/lantern locations, "move rug" mechanics, failed approaches.
+2. **Context reordering** in `zorkburr/actions/context.py` — Moved KB from position 12 (after objectives) to position 6 (after map, before combat/plan/reasoning). New order: game state → location → inventory → exits → map → **KB** → combat → plan → reasoning → memories → objectives → stuck warnings.
+**Reasoning:** The agent reads context sequentially. KB after the map gives strategic guidance before the plan section. The plan should be informed by KB, not vice versa.
+**Target metric:** Agent should follow KB house strategy (Kitchen → west → Living Room → take sword, lantern → move rug → trap door → cellar) within 20 turns of entering Kitchen. Score 35+ by turn 25.
 **Result:** PENDING
 
 ---
