@@ -1193,6 +1193,17 @@ Started: 2026-03-30
 2. **Context reordering** in `zorkburr/actions/context.py` — Moved KB from position 12 (after objectives) to position 6 (after map, before combat/plan/reasoning). New order: game state → location → inventory → exits → map → **KB** → combat → plan → reasoning → memories → objectives → stuck warnings.
 **Reasoning:** The agent reads context sequentially. KB after the map gives strategic guidance before the plan section. The plan should be informed by KB, not vice versa.
 **Target metric:** Agent should follow KB house strategy (Kitchen → west → Living Room → take sword, lantern → move rug → trap door → cellar) within 20 turns of entering Kitchen. Score 35+ by turn 25.
+**Result:** PARTIAL — KB restored and context reordered. Agent read KB correctly ("move to Living Room for sword") but tried to go EAST (wrong direction). Root cause: Mermaid map only showed one direction per edge pair (R193→east→R203 but not R203→west→R193). Agent couldn't determine reverse navigation. Fixed with bidirectional map edges.
+
+---
+
+## Episode 51 — IMPROVEMENT (Map Bidirectional Fix)
+**Type:** BLOCKER
+**Trigger:** Agent at Kitchen sees map arrow `R193 -->|"east"| R203` (Living Room east → Kitchen) and concludes "go east to reach Living Room." The reverse direction `R203 -->|"west"| R193` was suppressed by dedup logic in `to_mermaid_local()`. Agent tried "west" at turn 9 but critic rejected it 3 times (score -0.80) because map didn't validate the direction.
+**Hypothesis:** The Mermaid map's dedup logic (`edge_key`/`reverse_key` check in `to_mermaid_local`) suppresses reverse directions, making the map a directed graph that only shows one arrow per room pair. The agent needs BOTH directions to navigate correctly. Showing both `R193→east→R203` and `R203→west→R193` gives the agent explicit navigation info in both directions.
+**Change:** Removed dedup logic from `to_mermaid_local()` in `zorkburr/game/map_graph.py`. Now both directions are shown for every connection.
+**Reasoning:** The map data already stores bidirectional connections (line 47-50 of `add_connection`). Only the rendering suppressed the reverse direction. Removing dedup makes the diagram slightly larger but gives the agent correct navigation info.
+**Target metric:** Agent should navigate Kitchen→west→Living Room successfully. No more confusion about reverse directions.
 **Result:** PENDING
 
 ---

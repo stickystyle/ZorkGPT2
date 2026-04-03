@@ -119,17 +119,11 @@ class MapGraph:
                 lines.append(f'    R{room_id}[["**{name}** ★"]]')
             else:
                 lines.append(f'    R{room_id}["{name}"]')
-        seen: set[tuple[int, int, str]] = set()
         for from_id in sorted(visited):
             for direction, to_id in sorted(self.connections.get(from_id, {}).items()):
                 if to_id not in visited:
                     continue
-                edge_key = (min(from_id, to_id), max(from_id, to_id), direction)
-                reverse_dir = _OPPOSITE_DIRS.get(direction, "")
-                reverse_key = (min(from_id, to_id), max(from_id, to_id), reverse_dir)
-                if edge_key not in seen and reverse_key not in seen:
-                    lines.append(f'    R{from_id} -->|"{direction}"| R{to_id}')
-                    seen.add(edge_key)
+                lines.append(f'    R{from_id} -->|"{direction}"| R{to_id}')
         return "\n".join(lines)
 
     def merge(self, other: MapGraph) -> None:
