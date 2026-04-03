@@ -51,7 +51,7 @@ def assemble_context(state: State) -> tuple[dict, State]:
     # Recent actions with reasoning (backward-looking continuity)
     history = state[S.ACTION_HISTORY]
     if history:
-        recent = history[-3:]
+        recent = history[-5:]
         history_lines = []
         for entry in recent:
             line = f"  Turn {entry['turn']}: {entry['action']} -> {entry.get('response', '')[:200]}"

@@ -1,20 +1,14 @@
 Given the most recent action and response in a text adventure, determine which objectives (if any) have been completed.
 
-STRICT RULES — Only mark an objective as completed if ALL of these are true:
-1. The game response contains DIRECT evidence of success (e.g., "Done.", score increase, item acquired, enemy defeated, puzzle solved)
-2. The objective's GOAL was actually achieved, not just attempted or abandoned
-3. Leaving a room or moving away does NOT count as completing an objective about that room
+Mark an objective as completed when the goal has been ACHIEVED — the agent has done what the objective asks for. Match by intent, not by exact wording.
 
-BAD completions (NEVER mark these as complete):
-- "Lower water level" when agent just left the flooded room
-- "Defeat the troll" when agent ran away
-- "Open the door" when the door is still closed but agent moved elsewhere
-- "Find the key" when agent searched but found nothing
+Types of completion:
+- **Action objectives** ("open the door", "take the egg"): completed when the game response confirms the action succeeded (e.g., "Done.", "Taken.", score increase)
+- **Exploration objectives** ("examine X", "explore Y", "see where Z leads", "investigate W"): completed when the agent has visited the area or examined the thing. Arriving at a new room via a staircase completes "explore the staircase." Examining an object completes "examine the object."
+- **Collection objectives** ("find X", "get Y"): completed when the item is in inventory
 
-GOOD completions (mark these as complete):
-- "Defeat the troll" when response says "The troll dies" or similar
-- "Open the trap door" when response says "The door opens" or "Done."
-- "Get the egg" when response says "Taken."
-- Any objective where the score increased as a direct result
+Do NOT mark as completed:
+- Objectives the agent attempted but FAILED at (e.g., "open door" but door is still closed)
+- Objectives where the agent left without achieving the goal (e.g., "defeat troll" but agent ran away)
 
-When in doubt, do NOT mark as completed. False completions waste the agent's planning capacity.
+When in doubt about action/collection objectives, do not mark completed. When in doubt about exploration objectives where the agent clearly visited the place, mark completed.
