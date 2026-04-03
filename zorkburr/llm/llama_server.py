@@ -47,6 +47,7 @@ class LlamaServer:
             "--n-gpu-layers", str(self._config.n_gpu_layers),
             "--ctx-size", str(self._config.context_size),
             "--parallel", str(self._config.n_parallel),
+            "--flash-attn", "on",
         ]
         logger.info(f"Starting llama-server: model={self._config.local_model} port={port}")
         self._process = subprocess.Popen(

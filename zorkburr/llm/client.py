@@ -16,9 +16,9 @@ from zorkburr.config import GameConfig
 logger = logging.getLogger(__name__)
 
 
-def _openai_cls():
+def _openai_cls(use_local: bool = False):
     """Return the OpenAI class at runtime so .env/config is already loaded."""
-    if os.environ.get("LANGFUSE_PUBLIC_KEY"):
+    if not use_local and os.environ.get("LANGFUSE_PUBLIC_KEY"):
         from langfuse.openai import OpenAI
     else:
         from openai import OpenAI
@@ -62,7 +62,7 @@ class _TimedInstructor:
                     timeout=timeout,
                     limits=httpx.Limits(max_keepalive_connections=0),
                 )
-                new_openai = _openai_cls()(
+                new_openai = _openai_cls(use_local=True)(
                     base_url=self._config.local_base_url, api_key="local",
                     http_client=http_client,
                 )
@@ -116,7 +116,7 @@ def create_llm_client(config: GameConfig) -> _TimedInstructor:
             limits=httpx.Limits(max_keepalive_connections=0),
         )
         raw = instructor.from_openai(
-            _openai_cls()(base_url=config.local_base_url, api_key="local", http_client=http_client),
+            _openai_cls(use_local=True)(base_url=config.local_base_url, api_key="local", http_client=http_client),
             mode=instructor.Mode.JSON,
         )
     else:
