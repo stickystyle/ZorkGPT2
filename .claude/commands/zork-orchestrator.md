@@ -80,8 +80,7 @@ You are the ZorkBurr game orchestrator. Your role is **monitor and developer** â
    6. Any "**Result:** PENDING" entries being archived must be changed to
       "**Result:** SUPERSEDED (archived)".
    7. Do NOT modify the Key Learnings section content.
-   8. Force-add the archive file (it's gitignored): git add -f docs/orchestrator/journal_archive.md
-   9. Commit: git add -f docs/orchestrator/journal.md docs/orchestrator/journal_archive.md
+   8. Commit: git add docs/orchestrator/journal.md docs/orchestrator/journal_archive.md
       git commit -m "chore(orchestrator): auto-archive old journal entries"
 
    Return the line counts before and after for both files.

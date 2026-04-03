@@ -10,6 +10,8 @@ data/*.bak
 dist/
 .burr/
 docs/orchestrator
+!docs/orchestrator/journal.md
+!docs/orchestrator/journal_archive.md
 .playwright-mcp/
 MagicMock/
 models/
