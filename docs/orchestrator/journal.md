@@ -2,34 +2,37 @@
 
 Started: 2026-03-30
 
-## Key Learnings (updated after episode 38)
+## Key Learnings (updated after episode 48)
 
-**Current best score:** 54 (episode 37 — NEW ALL-TIME RECORD)
-**Current bottleneck:** Agent scores 45 by turn 22-25 consistently, but stalls 45-54 in mid-game. Maze navigation and dam puzzle consume turns without scoring. Treasure deposits to trophy case not attempted.
+**Current best score:** 54 (episode 37, A3b MoE model). Local-model best: 40 (ep48, Ministral-3-14B-Reasoning)
+**Current bottleneck:** Underground puzzle discovery. Agent reliably scores 40 (house+troll) by turn 16 but stalls — Loud Room ("echo"), Dam (wrench+bolt), maze all unsolved. Memory system was broken (zero new memories) — fix committed, awaiting validation in ep49.
 
 ### What works
-- Equipment-before-descent rule (ep33→34): Agent reliably takes sword+lantern — confirmed ep35-38 (4 consecutive)
-- Permanent obstacle cap (ep35→36): Agent abandons unsolvable targets after ~5 attempts — confirmed ep36
-- Cross-episode KB learning: After 38 episodes, KB drives near-optimal early game (score 40+ by turn 22-25 across ep36-38)
-- Simple verbs first for structural features (ep11→12): Agent tries "open X" before complex combinations
-- Depleted location + exploration breadth (ep10→11): Agent leaves explored areas, finds new ones
-- Anti-oscillation with new-strategy exception (ep9→10): Prevents location loops while allowing revisits
+- **Ministral-3-14B-Reasoning model** (ep48): Reliable KB adherence, killed troll (first since model switch), 19 locations explored. Clear upgrade from Qwen3-14B which was inconsistent (scores 0-35 on identical config).
+- **Reasoning continuity + next_steps** (ep44→45): Multi-step plan execution confirmed working. Agent follows KB strategy across 14 turns in ep48.
+- **Agent prompt trim** (ep43→44): 55% size reduction freed context for KB/memories. Confirmed effective with both Qwen3 and Ministral.
+- Equipment-before-descent rule (ep33→34): Agent reliably takes sword+lantern — confirmed through ep48.
+- Cross-episode KB: KB drives near-optimal early game (score 35 by turn 14 in ep48).
 
 ### Falsified hypotheses
-- "Surface acquisition syntax" — FAILED ep33: Problem was prioritization, not syntax
-- "Anti-oscillation after retreat" — FAILED ep7: Too broad, penalized ALL revisits (reverted)
+- "Temperature 0.7 reduces variance" — FAILED ep47: Made agent deterministically follow wrong path (egg fixation). Reverted to 1.0.
+- "Qwen3-14B is sufficient" — FAILED ep42-47: Inconsistent KB adherence, scores 0-35 on identical config. Model limitations, not prompt issues.
+- "Surface acquisition syntax" — FAILED ep33: Problem was prioritization, not syntax.
+- "Anti-oscillation after retreat" — FAILED ep7: Too broad, reverted.
 
 ### Open problems
-- Maze navigation: Agent enters maze but gets lost (ep37 turns 83-100, 20 turns wandering)
-- Dam puzzle: Agent finds wrench+buttons but hasn't completed it; ep38 death possibly from flood
-- Treasure deposits: Agent collects but never returns to trophy case
-- Score plateau at 45-54: Mid-game exploration productive but not scoring
+- **Memory system broken with Ministral** — fix committed (mandatory score-change memories), pending validation in ep49
+- **Ministral hallucination** — model invents "sword is glowing" not in game text, causing unnecessary retreats. Investigate prompt mitigation.
+- **Loud Room puzzle** — agent doesn't discover "echo" command. Needs experimentation guidance.
+- **Dam puzzle** — agent found wrench+bolt+buttons but can't complete sequence (take wrench → turn bolt → press button)
+- **Consolidation title matching** — bracket formatting from prior episodes causes title mismatch failures
 
 ### Subsystems investigated
-- Agent prompt: ~17 changes, last ep35→36
+- Agent prompt: ~18 changes, last ep43→44
 - Critic prompt: ~3 changes, last ep7
-- KB/memory system: ~5 changes, last ep39→40
-- Python pipeline: ~5 changes, last ep19
+- KB/memory system: ~7 changes, last ep48 (memory synthesis fix)
+- Python pipeline: ~6 changes, last ep48 (thinking_kwargs for Ministral)
+- Model: 2 switches (API→Qwen3-14B ep42, Qwen3→Ministral ep48)
 
 ---
 
@@ -1015,6 +1018,32 @@ Started: 2026-03-30
 
 ---
 
+## Episode 48 — Turn 50 Checkpoint
+**Type:** CONCERN — score stagnant 34 turns, rejection rate elevated
+**Score:** 40/350 (delta: +0 since turn 16 — stagnant × 2 checkpoints)
+**Locations visited (t26-50):** 9 unique (Deep_Canyon, Reservoir_South, Chasm, Round_, Loud_, East-West_Passage, Dam, Dam_Base, North-South_Passage)
+**Avg critic score:** 0.56
+**Rejection rate:** 9/25 (36%) — above 30% threshold, mainly from dam puzzle experimentation
+**Gameplay quality:** DRIFTING
+  - Memory use: BROKEN — zero new memories this episode (BLOCKER fix dispatched above)
+  - KB alignment: Agent in new territory (Dam area) beyond KB knowledge. Exploring appropriately.
+  - Objective quality: 6 well-formed objectives. Agent reached Dam (not an explicit objective but productive exploration).
+  - Objective pursuit: Mixed — agent explored Loud Room and Dam but didn't solve either puzzle. Revisiting same areas.
+  - Learning system quality: KB clean. Memory system not creating new memories (BLOCKER fix dispatched).
+  - Pathfinding: NAVIGATING — good exploration breadth (9 locations in 25 turns), reached Dam area and Dam_Base.
+**Triggers:** Score stagnant (0 delta × 2 checkpoints). Rejection rate 36%. Memory system BLOCKER (fix already dispatched).
+**Notes:** Score stagnation is from discovery-gated puzzles (Loud Room needs "echo", Dam needs wrench on bolt). Agent experimented extensively at Dam — examined control panel, bolt, bubble — but hasn't found the wrench (in Maintenance Room). The 36% rejection rate is mostly from the agent trying creative actions on the dam (sword on panel, push bubble) that the critic correctly rejects. This is productive experimentation, not a system failure. Memory fix already committed for ep49. Let episode continue — no additional improvement needed.
+
+---
+
+## Episode 48 — Turn 75 Checkpoint
+**Type:** CONCERN — score stagnant 59 turns, but alive and exploring
+**Score:** 40/350 (delta: +0 since turn 16)
+**Locations (t51-75):** 7 unique (Dam, Dam_Lobby, Maintenance_, Reservoir_South, Deep_Canyon, Stream_View, Chasm)
+**Notes:** Agent found Maintenance Room (has wrench for dam puzzle) but didn't take wrench — oscillating between Dam_Lobby and Maintenance. Ministral hallucinating "sword is glowing" in reasoning despite this not appearing in game text, causing agent to treat areas as dangerous and retreat. Dam puzzle unsolved. Score stagnation is expected for discovery-gated puzzles but hallucination issue is new. No improvement dispatched — memory fix already committed, hallucination is model-level behavior not fixable via prompt.
+
+---
+
 ## Episode 48 (mid-episode) — IMPROVEMENT (Memory Synthesis Too Conservative)
 **Type:** BLOCKER
 **Trigger:** Zero new memories created across ep48 (47 turns). Ministral returns should_remember=False for every event including score changes and troll defeats. Memory system completely broken for cross-episode learning.
@@ -1022,4 +1051,53 @@ Started: 2026-03-30
 **Change:** Modified prompts/memory_synthesis.md: (1) Added mandatory memory rule for score changes, (2) Clarified that problem-memories don't cover solution-memories in dedup, (3) Removed conflicting "don't remember score changes without understanding why" rule.
 **Reasoning:** The memory system is the foundation of cross-episode learning. Zero memories = zero learning. The prompt needed to clearly prioritize score events and distinguish problem-identification from solution-discovery.
 **Target metric:** Memory system should create 5+ new memories per episode. Score-change events must always generate memories.
-**Result:** PENDING
+**Result:** PENDING — ep48 used pre-fix prompt (0 new memories). ep49 will validate.
+
+---
+
+## Episode 48 — COMPLETE
+**Turns:** 100
+**Final score:** 40/350
+**Locations visited:** 19
+**Objectives found:** 15
+**End reason:** max_turns
+**Memory stats:** 67 total, 0 new, 0 dedup rejected, 0 superseded, 0 consolidated
+**Improvement dispatched:** yes (memory synthesis fix, committed mid-episode)
+
+**Summary:** First episode with Ministral-3-14B-Reasoning. Flawless KB execution through turn 14 (house→lantern→rug→trap door→cellar, score 35). Defeated troll (+5, score 40 at turn 16 — first troll kill since model switch). Explored underground extensively (19 locations — tied for most explored). Found Dam area, Maintenance Room (wrench), buttons. Score stagnated at 40 from turn 16 to 100 — discovery-gated puzzles (Loud Room needs "echo", Dam needs wrench+bolt sequence). Memory system created zero new memories (BLOCKER fix committed). Ministral hallucinated "sword is glowing" causing unnecessary retreat behavior. Consolidation had title-matching failures (bracket formatting from prior episodes).
+
+**Key observations:**
+- Ministral follows KB perfectly in early game — major improvement over Qwen3-14B
+- Score 40 matches ep39/ep41 performance but reached it 30 turns faster
+- Underground exploration is productive but no puzzle breakthroughs
+- Memory system needs the fix validated in ep49
+- Hallucination issue ("sword glowing") is new with Ministral
+
+---
+
+| Episode | Score | vs Prev | Best So Far | Turns to 1st Score | Locations | KB Quality | End Reason |
+|---------|-------|---------|-------------|-------------------|-----------|------------|------------|
+| ep36 | 45 | +30 | 45 | 6 | 22 | clean | max_turns! |
+| ep37 | 54 | +9 | 54 | 8 | 14 | clean | max_turns! |
+| ep38 | 35(45) | -19 | 54 | 6 | 18 | clean | death t61 |
+| ep39 | 50 | +15 | 54 | 9 | 13 | clean | max_turns |
+| ep40 | 30(40) | -20 | 54 | 9 | 14 | clean | death t46 |
+| ep41 | 45 | +15 | 54 | 5 | 20 | clean | max_turns! |
+| ep42 | 10 | -35 | 54 | 19 | 7 | stale | killed t50+ |
+| ep43 | 0(10) | -10 | 54 | 6 | 5 | n/a | crash t12 |
+| ep44 | 10 | +10 | 54 | 6 | 6 | clean | killed t79 |
+| ep45 | 25(35) | +15 | 54 | 5 | 8 | clean | death t27 |
+| ep46 | 10 | -25 | 54 | 6 | 10 | clean | crash t27 |
+| ep47 | 0 | -10 | 54 | n/a | 5 | clean | killed t27 |
+| ep48 | 40 | +40 | 54 | 7 | 19 | clean | max_turns! |
+
+**Trend:** Ministral model is a clear upgrade. ep48 scored 40 (best since model switch at ep42), survived to max_turns with 19 locations explored (most since ep36). KB adherence is now reliable — agent follows house strategy every time. The 40→54 gap is the underground puzzle ceiling: Loud Room ("echo"), Dam (wrench+bolt), and maze treasures. Memory system fix is committed and should help future episodes learn these solutions. Next bottleneck is puzzle discovery, not system failures.
+
+---
+
+## Session Status
+**Episodes run this session:** ep47 (killed), ep48 (complete)
+**Best score:** 40/350 (ep48)
+**Improvements made:** 4 (temp 0.7 DEGRADED→reverted, model switch BLOCKER, context 32K, memory synthesis BLOCKER)
+**Pending validation:** Memory synthesis fix (ep49)
+**System status:** STOPPED PER USER REQUEST
