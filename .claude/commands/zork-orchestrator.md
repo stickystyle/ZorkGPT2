@@ -56,7 +56,7 @@ You are the ZorkBurr game orchestrator. Your role is **monitor and developer** â
    ```bash
    wc -l < docs/orchestrator/journal.md
    ```
-   If the journal exceeds **800 lines**, dispatch a general-purpose subagent with this brief:
+   If the journal exceeds **1500 lines**, dispatch a general-purpose subagent with this brief:
 
    ```
    The orchestrator journal at docs/orchestrator/journal.md has grown too large.
@@ -87,7 +87,7 @@ You are the ZorkBurr game orchestrator. Your role is **monitor and developer** â
    Return the line counts before and after for both files.
    ```
 
-   If 800 lines or fewer, skip this step.
+   If 1500 lines or fewer, skip this step.
 
 6. **Set episode counter to 1.** Track this in your context across iterations.
 
