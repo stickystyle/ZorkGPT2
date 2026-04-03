@@ -1329,3 +1329,58 @@ Started: 2026-03-30
 **Result:** PENDING
 
 ---
+
+## Episode 53 — COMPLETE
+**Turns:** 22
+**Final score:** 25/350 (peak 35, -10 death penalty)
+**Locations visited:** 7 unique
+**Objectives found:** 8
+**End reason:** game_over_death (troll killed agent — no sword in inventory)
+**Memory stats:** 65 total, 0 new, 1 dedup rejected, 0 superseded, 0 ephemeral pruned, **6 consolidated** (BRACKET FIX CONFIRMED!)
+**Improvement dispatched:** yes
+
+**Key achievements:**
+  - CONSOLIDATION FIX CONFIRMED: 6 memories successfully consolidated (drops + merges). First working consolidation since ep43 (10+ episodes).
+  - Fast early game: score 35 by turn 13 (house→Kitchen→Living Room→move rug→cellar)
+  - KB path followed correctly through turn 13
+
+**Key issues:**
+  1. **Agent did NOT take sword** — Entered Living Room at turn 8, took lantern at turn 11, but NEVER took sword. KB says "Elvish sword: Found in Living Room (R193). Essential for killing troll." Agent ignored this KB entry.
+  2. **Troll combat impossible without sword** — Agent stuck at Troll Room for 8 turns (15-22) trying to attack with bottle, sack, nonexistent sword. All forced through at max rejections.
+  3. **Critic rejecting valid actions** — "move rug" rejected at -0.50 (3 rejections, turn 9). "take sack" rejected at 0.20 (3 rejections, turn 7). Critic is too aggressive on KB-validated actions.
+  4. **KB update timeout** — Knowledge update failed again (3rd consecutive episode).
+
+**Root cause analysis:**
+The agent takes lantern but skips sword because:
+- KB lists them separately ("Elvish sword: Found in Living Room" and "Brass lantern: Found in Living Room")
+- Agent prioritizes immediate utility (lantern for dark areas) over combat preparation (sword for troll)
+- The agent prompt doesn't emphasize gathering ALL essential items before proceeding
+- In ep52, the sword was taken accidentally during a rejection recovery (not intentionally)
+
+---
+
+| Episode | Score | vs Prev | Best So Far | Turns to 1st Score | Locations | KB Quality | End Reason |
+|---------|-------|---------|-------------|-------------------|-----------|------------|------------|
+| ep45 | 25(35) | +15 | 54 | 5 | 8 | clean | death t27 |
+| ep46 | 10 | -25 | 54 | 6 | 10 | clean | crash t27 |
+| ep47 | 0 | -10 | 54 | n/a | 5 | clean | killed t27 |
+| ep48 | 40 | +40 | 54 | 7 | 19 | clean | max_turns! |
+| ep49 | 10 | -30 | 54 | 11 | 14 | degraded | killed t50 |
+| ep50 | 10 | 0 | 54 | 22 | 10 | degraded | killed t38 |
+| ep51 | 25(35) | +15 | 54 | 5 | 10 | restored | death t24 |
+| ep52 | 30(40) | +5 | 54 | 7 | 15 | clean | death t38 |
+| ep53 | 25(35) | -5 | 54 | 5 | 7 | clean | death t22 |
+
+**Trend:** ep51-53 all peak at 35-40 and die to troll. The pattern is identical: agent reaches Living Room, takes lantern, skips sword, enters cellar, reaches troll, can't fight, dies. The sword-skipping is now the single biggest bottleneck — it's happened in ep51 (died t24), ep53 (died t22), and ep52 partially recovered only by accident. Early game KB path is reliable (score 35 by turn 13-22). Consolidation fix confirmed (6 memories consolidated in ep53). KB update timeout persists.
+
+---
+
+## Episode 53 → 54 — IMPROVEMENT
+**Trigger:** Agent skips essential items (sword) at locations, reads first KB entry and acts without checking all entries. Died to troll without sword in ep53 (also ep51, ep52).
+**Hypothesis:** Rule 6 says "check inventory" but doesn't instruct the agent to scan the KB for essential items at the current location before acting. Agent reads KB sequentially, acts on first match (puzzle) without processing all entries (items).
+**Change:** Rewrote Rule 6 from "EQUIPMENT BEFORE DESCENT" to "EQUIPMENT BEFORE PUZZLES — MANDATORY SEQUENCE." New rule explicitly requires: (1) scan ALL KB entries for current location before first non-take action, (2) take every essential item listed there (weapons, light sources, tools), (3) only then solve puzzles or descend. Added warning that skipping step 1 to jump to step 2 is a "critical error" since items may be needed to survive what follows.
+**Reasoning:** The old rule was triggered by "entering dark/underground areas" — too late, since the agent was already in the Living Room when it needed to gather items. The new rule triggers on arrival at any location, and explicitly says "do NOT act on the first KB entry you see" to prevent the sequential-reading bias that caused the agent to jump straight to "move rug."
+**Target metric:** Agent should take ALL KB-listed essential items before solving puzzles at that location. In ep54, expect sword+lantern taken before rug puzzle. Score should reach 40+ (troll killed).
+**Result:** PENDING
+
+---
