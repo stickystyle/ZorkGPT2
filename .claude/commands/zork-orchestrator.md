@@ -39,7 +39,7 @@ You are the ZorkBurr game orchestrator. Your role is **monitor and developer** �
    ```
    If `BURR_DOWN`: start it in the background:
    ```bash
-   burr 2>&1 &
+   burr --host 0.0.0.0 2>&1 &
    ```
    Wait a few seconds and re-check. The Burr tracker is your primary observability tool — do not proceed without it.
 
@@ -70,14 +70,12 @@ Note the PID. Poll for progress every 60 seconds using (NEVER increase this inte
 
 ```bash
 grep -c "^TURN" docs/orchestrator/run_log_ep01.txt
-```
-
-When the count crosses a **25-turn boundary** (25, 50, 75, 100), perform a checkpoint review (Phase 2). When `EPISODE_END` appears in the log, the episode is complete — perform a final review.
-
-To detect completion:
-```bash
 grep "^EPISODE_END" docs/orchestrator/run_log_ep01.txt
 ```
+
+**CRITICAL:** Both commands must run on EVERY poll. The `EPISODE_END` check detects death and other early termination — without it, you'll miss deaths and keep polling a finished episode. When `EPISODE_END` appears, the episode is complete — immediately perform a final review (Phase 4).
+
+When the turn count crosses a **25-turn boundary** (25, 50, 75, 100), perform a checkpoint review (Phase 2).
 
 To read the last 30 lines for a checkpoint:
 ```bash
@@ -124,78 +122,22 @@ The Burr tracker at `http://localhost:7241` stores the **full state snapshot** a
 **Fetch the full execution trace:**
 ```bash
 # Replace {app_id} with the app_id found in Phase 1
-curl -s 'http://localhost:7241/api/v0/default/{app_id}/__none__/apps' | python3 -c "
-import json, sys
-data = json.load(sys.stdin)
-steps = data.get('steps', [])
-print(f'Total steps: {len(steps)}')
-for s in steps[-10:]:
-    end = s.get('step_end_log', {})
-    state = end.get('state', {})
-    action = s.get('step_start_log', {}).get('action', '?')
-    print(f\"  {action}: score={state.get('score', '?')} loc={state.get('location_name', '?')} critic={state.get('critic_score', '?')}\")
-"
+python3 scripts/burr_trace.py {app_id}
 ```
 
 **Read agent reasoning and critic justifications for specific turns:**
 ```bash
-curl -s 'http://localhost:7241/api/v0/default/{app_id}/__none__/apps' | python3 -c "
-import json, sys
-data = json.load(sys.stdin)
-steps = data.get('steps', [])
-# Adjust slice to inspect specific turns — these are steps, not turns
-# (multiple steps per turn: generate_action, evaluate_action, execute_action, etc.)
-for s in steps[-30:]:
-    end = s.get('step_end_log', {})
-    state = end.get('state', {})
-    action_name = s.get('step_start_log', {}).get('action', '')
-    if action_name == 'evaluate_action':
-        print(f\"--- Turn {state.get('turn_count', '?')} ---\")
-        print(f\"  Proposed: {state.get('proposed_action', '?')}\")
-        print(f\"  Critic score: {state.get('critic_score', '?')}\")
-        print(f\"  Critic says: {state.get('critic_justification', '?')[:200]}\")
-        print(f\"  Rejections so far: {state.get('rejection_count', 0)}\")
-        print()
-"
+python3 scripts/burr_critic.py {app_id}
 ```
 
 **Check accumulated knowledge and memories:**
 ```bash
-curl -s 'http://localhost:7241/api/v0/default/{app_id}/__none__/apps' | python3 -c "
-import json, sys
-data = json.load(sys.stdin)
-steps = data.get('steps', [])
-if steps:
-    last_state = steps[-1].get('step_end_log', {}).get('state', {})
-    kb = last_state.get('knowledge_base', 'none')
-    memories = last_state.get('memories_by_location', {})
-    objectives = last_state.get('discovered_objectives', [])
-    print('=== Knowledge Base ===')
-    print(kb[:500] if kb else 'empty')
-    print(f'\n=== Memories ({len(memories)} locations) ===')
-    for loc, mem in list(memories.items())[:5]:
-        print(f'  {loc}: {str(mem)[:150]}')
-    print(f'\n=== Objectives ({len(objectives)}) ===')
-    for o in objectives:
-        print(f'  - {o}')
-"
+python3 scripts/burr_knowledge.py {app_id}
 ```
 
 **Sample what the agent actually sees (formatted context):**
 ```bash
-curl -s 'http://localhost:7241/api/v0/default/{app_id}/__none__/apps' | python3 -c "
-import json, sys
-data = json.load(sys.stdin)
-steps = data.get('steps', [])
-for s in reversed(steps):
-    if s.get('step_start_log', {}).get('action') == 'generate_action':
-        state = s.get('step_end_log', {}).get('state', {})
-        ctx = state.get('formatted_context', '')
-        print('=== FORMATTED CONTEXT (what the agent sees) ===')
-        print(ctx[:2000])
-        print(f'\n... ({len(ctx)} chars total)')
-        break
-"
+python3 scripts/burr_context.py {app_id}
 ```
 
 Use this to verify KB, memories, and objectives actually reach the agent. If a subsystem has content but it's missing from the formatted context, the problem is in `assemble_context` (Python code), not the prompts.
@@ -237,42 +179,13 @@ These checks require reading the full Burr state — they assess whether the age
 **Fetch agent reasoning, memories, knowledge base, and objectives for the last 25 turns:**
 
 ```bash
-curl -s 'http://localhost:7241/api/v0/default/{app_id}/__none__/apps' | python3 -c "
-import json, sys
-data = json.load(sys.stdin)
-steps = data.get('steps', [])
+python3 scripts/burr_gameplay.py {app_id}
+```
 
-# Collect the last ~25 generate_action steps (one per turn)
-agent_steps = [s for s in steps if s.get('step_start_log', {}).get('action') == 'generate_action'][-25:]
+**Fetch pathfinding data — map graph, next_steps plans, and movement outcomes for the last 25 turns:**
 
-# Get latest state for KB, memories, objectives
-last_state = steps[-1].get('step_end_log', {}).get('state', {}) if steps else {}
-kb = last_state.get('knowledge_base', '')
-memories = last_state.get('memories_by_location', {})
-objectives = last_state.get('discovered_objectives', [])
-
-print('=== KNOWLEDGE BASE ===')
-print(kb[:800] if kb else '(empty)')
-
-print(f'\n=== MEMORIES ({sum(len(v) for v in memories.values())} total across {len(memories)} locations) ===')
-for loc_id, mems in list(memories.items())[:8]:
-    titles = [m.get('title', '?') for m in mems[:3]]
-    print(f'  Location {loc_id}: {titles}')
-
-print(f'\n=== OBJECTIVES ({len(objectives)}) ===')
-for o in objectives:
-    print(f'  - {o}')
-
-print('\n=== AGENT REASONING (last 10 turns) ===')
-for s in agent_steps[-10:]:
-    state = s.get('step_end_log', {}).get('state', {})
-    reasoning = state.get('agent_reasoning', '')[:250]
-    action = state.get('proposed_action', '?')
-    loc = state.get('location_name', '?')
-    print(f'  Turn {state.get(\"turn_count\", \"?\")}: [{loc}] {action}')
-    print(f'    Thinking: {reasoning}')
-    print()
-"
+```bash
+python3 scripts/burr_pathfinding.py {app_id}
 ```
 
 **After fetching, evaluate these four dimensions:**
@@ -331,6 +244,34 @@ Sample the actual outputs of KB, memories, and objectives to evaluate their usef
 
 **Trigger:** KB >500 chars but <20% contains strategic content (score changes, item interactions, puzzle mechanics, failed approaches). Or: memories at 3+ high-visit locations contain no actionable information.
 
+#### 6. Pathfinding Quality
+
+Evaluate whether the agent reads the map correctly and navigates coherently toward stated goals. Cross-reference `next_steps` plans, movement actions, `MAP_DATA` connections, and actual location transitions.
+
+**Data to inspect (from the pathfinding trace above):**
+- `next_steps` — does the agent state a navigation destination?
+- `proposed_action` — is it a movement command? Does the direction match a known connection in `MAP_DATA`?
+- `pre_location_id` → `location_id` — did the agent end up where the map predicted?
+- `exit_failures` — is the agent retrying directions that have failed multiple times?
+
+**Positive signals:**
+- Agent states a destination in `next_steps`, and subsequent movement commands follow a valid path through `MAP_DATA.connections` toward that destination
+- Agent's reasoning references map directions ("map shows east leads to Kitchen")
+- Agent avoids directions with high `exit_failures` counts
+- `MAP_CORRECT` tags appear on most movement actions (the map accurately predicts where movement leads)
+
+**Negative signals:**
+- Agent states "go to Kitchen" in `next_steps` but takes directions that lead away from Kitchen per the map graph
+- Agent retries directions tagged `KNOWN_FAILURE` — especially with 3+ prior failures at that room
+- `MAP_MISMATCH` tags appear — map says direction leads to room X but agent ends up in room Y (indicates stale/wrong map data)
+- Agent's reasoning never mentions the map despite having 5+ rooms mapped with connections
+- Agent has a `next_steps` navigation plan but next action is unrelated (non-movement) with no reasoning explaining the change
+
+**Trigger:** Agent states navigation goals in `next_steps` in 5+ of last 15 turns, AND any of:
+- <30% of subsequent movement actions follow a valid path (per `MAP_DATA`) toward the stated destination
+- Agent retries 3+ `KNOWN_FAILURE` directions in the last 25 turns
+- 3+ `MAP_MISMATCH` tags appear (map graph has bad data — this is a data quality problem, not an agent problem)
+
 ---
 
 **Gameplay quality journal notation:** Add a line to each checkpoint entry:
@@ -342,11 +283,12 @@ Sample the actual outputs of KB, memories, and objectives to evaluate their usef
   - Objective quality: <X well-formed / Y total>
   - Objective pursuit: <evidence summary>
   - Learning system quality: <KB strategic vs. noise ratio, memory actionability, evidence>
+  - Pathfinding: <NAVIGATING | WANDERING | MISREADING MAP — evidence summary>
 ```
 
-- **LEARNING**: Agent references memories/KB in reasoning, objectives are well-formed and being pursued
-- **DRIFTING**: Some references but inconsistent — agent sometimes ignores available knowledge
-- **IGNORING**: Agent rarely references memories/KB, objectives are stale or vague, actions don't align with stated goals
+- **LEARNING**: Agent references memories/KB in reasoning, objectives are well-formed and being pursued, navigation follows map and plans
+- **DRIFTING**: Some references but inconsistent — agent sometimes ignores available knowledge or wanders despite having a plan
+- **IGNORING**: Agent rarely references memories/KB, objectives are stale or vague, actions don't align with stated goals, movement ignores map data
 
 ### Write Journal Entry
 
@@ -365,6 +307,7 @@ After every checkpoint, append to `docs/orchestrator/journal.md`:
   - Objective quality: <X well-formed / Y total>
   - Objective pursuit: <% of recent actions aligned with an objective>
   - Learning system quality: <KB strategic vs. noise ratio, memory actionability>
+  - Pathfinding: <NAVIGATING | WANDERING | MISREADING MAP — evidence summary>
 **Triggers:** none | <trigger name and detail>
 **Notes:** <1-2 sentences of your analysis>
 
@@ -388,6 +331,9 @@ Dispatch a subagent **only if at least one** of these is true:
 | Objective drift | Agent has active objectives but <20% of last 15 actions align with any of them |
 | KB noise | KB >500 chars but <20% is strategic content (score changes, puzzles, items) vs. movement logs |
 | Memory noise | Memories at 3+ locations contain no actionable information |
+| Navigation drift | Agent states nav goals in next_steps (5+ of last 15 turns) but <30% of movement actions follow a valid map path toward the destination |
+| Retrying failed exits | Agent tries 3+ directions tagged KNOWN_FAILURE in last 25 turns |
+| Map data corruption | 3+ MAP_MISMATCH tags in pathfinding trace (map graph has bad connection data) |
 
 If none apply: write a HEALTHY journal entry and continue polling.
 
