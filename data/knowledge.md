@@ -1,5 +1,5 @@
 **Score Changes:**
-* Entered house via kitchen window from Behind House (R79) (score +10).
+* Entered house via kitchen window from Behind House (R79) (score +10). Requires "open window" first, then "enter" or "enter window".
 * Took jewel-encrusted egg from bird's nest in tree at Forest Path (R75) (score +5).
 * Killed troll with elvish sword in Troll Room (R72) (score +5).
 * Moving rug in Living Room (R193) and opening trap door to access Cellar (R25) (score +5).
@@ -32,6 +32,7 @@
 
 **Failed Approaches:**
 * "lift rug", "push rug", "examine rug" in Living Room — only "move rug" reveals the trap door.
+* "push window", "pull window", "climb window" at Behind House — only "open window" works to open the kitchen window.
 * Trying to open the nailed-shut gothic door in Living Room (R193) — permanent obstacle, cannot be opened.
 * Attempting to "use" the matchbook on the control panel.
 * Attempting to apply the matchbook to the green bubble.
