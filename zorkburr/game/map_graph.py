@@ -132,6 +132,19 @@ class MapGraph:
                     seen.add(edge_key)
         return "\n".join(lines)
 
+    def merge(self, other: MapGraph) -> None:
+        """Merge another MapGraph into this one (union of rooms/connections, max counts)."""
+        for room_id, name in other.rooms.items():
+            if room_id not in self.rooms:
+                self.rooms[room_id] = name
+        for from_id, exits in other.connections.items():
+            for direction, to_id in exits.items():
+                self.connections[from_id][direction] = to_id
+        for key, count in other.connection_confidence.items():
+            self.connection_confidence[key] = max(self.connection_confidence[key], count)
+        for key, count in other.exit_failures.items():
+            self.exit_failures[key] = max(self.exit_failures[key], count)
+
     def to_dict(self) -> dict:
         return {
             "rooms": {str(k): v for k, v in self.rooms.items()},

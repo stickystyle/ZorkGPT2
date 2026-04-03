@@ -73,13 +73,30 @@ def initialize_episode(
 
 
 def persist_map(map_data: dict, config: GameConfig) -> None:
-    """Write map data to disk. Called after every map update."""
+    """Write map data to disk, merging with existing data to prevent regression.
+
+    Loads the current on-disk map and merges in the new data (union of rooms
+    and connections, max of confidence/failure counts) so that a short or
+    failed episode can never shrink the accumulated map.
+    """
     if not map_data:
         return
     path = Path(config.map_file)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(map_data, indent=2))
-    logger.debug(f"Persisted map to {path}")
+
+    # Start from the on-disk map (the accumulated truth)
+    merged = MapGraph()
+    if path.exists():
+        try:
+            merged = MapGraph.from_dict(json.loads(path.read_text()))
+        except Exception as e:
+            logger.warning(f"Failed to load existing map for merge: {e}")
+
+    # Merge the episode's map on top
+    merged.merge(MapGraph.from_dict(map_data))
+
+    path.write_text(json.dumps(merged.to_dict(), indent=2))
+    logger.debug(f"Persisted merged map ({len(merged.rooms)} rooms) to {path}")
 
 
 def persist_memories(memories: dict, config: GameConfig) -> None:

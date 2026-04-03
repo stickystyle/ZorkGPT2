@@ -30,14 +30,40 @@ def _config(tmp_path: Path) -> GameConfig:
 class TestPersistMap:
     def test_writes_map_json(self, tmp_path):
         cfg = _config(tmp_path)
-        map_data = {"rooms": {"10": {"name": "West of House"}}, "connections": {}}
+        map_data = {"rooms": {"10": "West of House"}, "connections": {}}
         persist_map(map_data, cfg)
-        assert json.loads(Path(cfg.map_file).read_text()) == map_data
+        result = json.loads(Path(cfg.map_file).read_text())
+        assert result["rooms"] == {"10": "West of House"}
+        assert result["connections"] == {}
 
     def test_skips_empty_map(self, tmp_path):
         cfg = _config(tmp_path)
         persist_map({}, cfg)
         assert not Path(cfg.map_file).exists()
+
+    def test_merges_with_existing_map(self, tmp_path):
+        """A smaller episode map must not overwrite a larger on-disk map."""
+        cfg = _config(tmp_path)
+        # Simulate a large accumulated map on disk
+        big_map = {
+            "rooms": {"10": "West of House", "20": "Kitchen", "30": "Attic"},
+            "connections": {"10": {"north": 20}, "20": {"south": 10, "up": 30}},
+            "confidence": {"10:north": 3, "20:south": 3, "20:up": 2},
+            "failures": {},
+        }
+        Path(cfg.map_file).write_text(json.dumps(big_map))
+
+        # Episode only visits one room — must not lose the others
+        small_map = {
+            "rooms": {"10": "West of House"},
+            "connections": {},
+            "confidence": {},
+            "failures": {},
+        }
+        persist_map(small_map, cfg)
+        result = json.loads(Path(cfg.map_file).read_text())
+        assert set(result["rooms"].keys()) == {"10", "20", "30"}
+        assert result["connections"]["20"]["up"] == 30
 
     def test_creates_parent_dirs(self, tmp_path):
         cfg = GameConfig(
