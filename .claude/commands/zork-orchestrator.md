@@ -373,9 +373,10 @@ When an improvement is needed:
    RECENT JOURNAL (paste last 2-3 checkpoint/complete entries from docs/orchestrator/journal.md):
    <paste entries>
 
-   PREVIOUSLY ATTEMPTED FIXES FOR THIS PROBLEM (grep the journal for all IMPROVEMENT
-   entries whose Trigger or Hypothesis relates to this same root cause — include their
-   Hypothesis, Change, and Result fields. If none exist, write "None — first attempt."):
+   PREVIOUSLY ATTEMPTED FIXES FOR THIS PROBLEM (grep BOTH docs/orchestrator/journal.md
+   AND docs/orchestrator/journal_archive.md for all IMPROVEMENT entries whose Trigger or
+   Hypothesis relates to this same root cause — include their Hypothesis, Change, and
+   Result fields. If none exist, write "None — first attempt."):
    <paste matching IMPROVEMENT entries>
 
    You MUST NOT re-test a hypothesis that was already falsified. If a prior attempt
@@ -436,7 +437,7 @@ When an improvement is needed:
 
 4. **Escalation rule — 3 strikes on the same root cause:**
    Before dispatching, count how many prior IMPROVEMENT entries target the same root cause
-   (grep journal for similar Trigger/Hypothesis). If 3+ prior attempts all failed (NEUTRAL,
+   (grep both journal.md and journal_archive.md for similar Trigger/Hypothesis). If 3+ prior attempts all failed (NEUTRAL,
    DEGRADED, or REVERTED):
    - **Stop making prompt changes** for this root cause.
    - Investigate whether the problem is in the Python pipeline — how data flows into the
@@ -496,8 +497,8 @@ for every `**Result:** PENDING` entry. For each one:
   `REVERTED` in the journal.
 
 ```bash
-# Find all PENDING entries
-grep -n "Result:.*PENDING" docs/orchestrator/journal.md
+# Find all PENDING entries (check both active journal and archive)
+grep -n "Result:.*PENDING" docs/orchestrator/journal.md docs/orchestrator/journal_archive.md
 ```
 
 ### Score Trend Table (mandatory at episode end)
