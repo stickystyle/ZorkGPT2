@@ -1233,14 +1233,18 @@ function renderHighScoreProgression() {
 
   if (sorted.length < 2) return;
 
-  // Compute running high score (staircase)
+  // Only keep episodes where a new high score was set
   const points = [];
   let runningMax = 0;
   for (const ep of sorted) {
     const s = ep.score || 0;
-    if (s > runningMax) runningMax = s;
-    points.push({ id: ep.episode_id, highScore: runningMax });
+    if (s > runningMax) {
+      runningMax = s;
+      points.push({ id: ep.episode_id, highScore: runningMax });
+    }
   }
+
+  if (points.length < 1) return;
 
   const max = Math.max(runningMax, 1);
   const padding = 10;
@@ -1253,23 +1257,25 @@ function renderHighScoreProgression() {
   ctx.lineWidth = 2.5;
   ctx.beginPath();
 
-  let prevY = null;
+  const xDenom = Math.max(points.length - 1, 1);
   for (let i = 0; i < points.length; i++) {
-    const x = padding + (i / (points.length - 1)) * graphW;
+    const x = padding + (i / xDenom) * graphW;
     const y = padding + graphH - (points[i].highScore / max) * graphH;
     if (i === 0) {
       ctx.moveTo(x, y);
     } else {
       // Staircase: horizontal to new X, then vertical to new Y
-      ctx.lineTo(x, prevY);
+      const prevX = padding + ((i - 1) / xDenom) * graphW;
+      ctx.lineTo(x, padding + graphH - (points[i - 1].highScore / max) * graphH);
       ctx.lineTo(x, y);
     }
-    prevY = y;
   }
   ctx.stroke();
 
   // Fill under the staircase
-  ctx.lineTo(padding + graphW, padding + graphH);
+  const lastX = padding + ((points.length - 1) / xDenom) * graphW;
+  const lastY = padding + graphH - (points[points.length - 1].highScore / max) * graphH;
+  ctx.lineTo(lastX, padding + graphH);
   ctx.lineTo(padding, padding + graphH);
   ctx.closePath();
   ctx.fillStyle = 'rgba(212, 160, 23, 0.08)';
@@ -1281,20 +1287,19 @@ function renderHighScoreProgression() {
   ctx.textAlign = 'right';
   ctx.fillText(runningMax, w - padding, padding + 22);
 
-  // Episode ID labels on X-axis (show subset to avoid overlap)
+  // Episode ID labels on X-axis — one per data point
   ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
   ctx.font = '14px monospace';
   ctx.textAlign = 'center';
   const maxLabels = Math.floor(graphW / 60);
   const step = Math.max(1, Math.ceil(points.length / maxLabels));
   for (let i = 0; i < points.length; i += step) {
-    const x = padding + (i / (points.length - 1)) * graphW;
+    const x = padding + (i / xDenom) * graphW;
     ctx.fillText(points[i].id, x, h - 4);
   }
   // Always label the last one
   if ((points.length - 1) % step !== 0) {
-    const x = padding + graphW;
-    ctx.fillText(points[points.length - 1].id, x, h - 4);
+    ctx.fillText(points[points.length - 1].id, lastX, h - 4);
   }
 }
 
