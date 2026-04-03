@@ -51,7 +51,7 @@ def should_synthesize(score_delta: int, location_changed: bool, died: bool) -> b
            S.MEMORIES_BY_LOCATION, S.EPISODE_ID, S.TURN_COUNT, S.MEMORY_STATS],
     writes=[S.MEMORIES_BY_LOCATION, S.MEMORY_STATS],
 )
-@observe(capture_input=False)
+@observe()
 def record_memory(state: State, client: instructor.Instructor, config: GameConfig) -> tuple[dict, State]:
     score_delta = state[S.SCORE] - state[S.PRE_SCORE]
     location_changed = state[S.LOCATION_ID] != state[S.PRE_LOCATION_ID]

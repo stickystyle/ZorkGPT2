@@ -90,7 +90,7 @@ def validate_against_object_tree(
         S.ACTION_TO_TAKE, S.REJECTION_COUNT,
     ],
 )
-@observe(capture_input=False)
+@observe()
 def evaluate_action(
     state: State,
     llm: instructor.Instructor,

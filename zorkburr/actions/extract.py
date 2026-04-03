@@ -25,7 +25,7 @@ def _get_extractor_prompt() -> str:
     reads=[S.GAME_RESPONSE, S.LOCATION_NAME, S.LOCATION_ID, S.IN_COMBAT],
     writes=[S.EXITS, S.IN_COMBAT, S.IS_ROOM_DESCRIPTION, S.VISIBLE_OBJECTS],
 )
-@observe(capture_input=False)
+@observe()
 def extract_info(state: State, client: instructor.Instructor, jericho: JerichoInterface, config: GameConfig) -> tuple[dict, State]:
     """Extract structured game state using hybrid approach.
 
