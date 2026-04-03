@@ -3,6 +3,8 @@ __pycache__/
 .env
 data/*.json
 data/*.md
+data/*.db
+data/*.bak
 !data/.gitkeep
 *.egg-info/
 dist/
