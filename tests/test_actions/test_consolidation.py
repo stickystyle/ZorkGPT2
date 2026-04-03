@@ -129,6 +129,77 @@ class TestApplyConsolidationActions:
         assert stats["kept"] == 2  # 1 explicit + 1 default
 
 
+    def test_drop_with_bracketed_title(self):
+        """LLM returns titles wrapped in brackets — should still match bare titles."""
+        mems = [
+            {"title": "Found Behind House with Window", "text": "Window is open.", "status": "ACTIVE",
+             "category": "DISCOVERY", "persistence": "permanent", "episode": "ep-1", "turn": 3},
+        ]
+        actions = [ConsolidationAction(action="drop", memory_title="[Found Behind House with Window]", reason="stale")]
+        result, stats = apply_consolidation_actions(mems, actions)
+        assert len(result) == 0
+        assert stats["dropped"] == 1
+        assert stats["rejected"] == 0
+
+    def test_merge_with_bracketed_titles(self):
+        """LLM returns bracket-wrapped titles for merge — should match bare titles."""
+        mems = [
+            {"title": "Window Open", "text": "Window behind house is open.", "status": "ACTIVE",
+             "category": "DISCOVERY", "persistence": "permanent", "episode": "ep-1", "turn": 3},
+            {"title": "Window Ajar", "text": "The window is ajar.", "status": "ACTIVE",
+             "category": "DISCOVERY", "persistence": "permanent", "episode": "ep-2", "turn": 5},
+        ]
+        actions = [
+            ConsolidationAction(
+                action="merge", memory_title="[Window Open]", merge_with="[Window Ajar]",
+                new_title="Enter via Window", new_text="Open window behind house to reach Kitchen.",
+                reason="duplicates",
+            ),
+        ]
+        result, stats = apply_consolidation_actions(mems, actions)
+        superseded = [m for m in result if m["status"] == "SUPERSEDED"]
+        active = [m for m in result if m["status"] == "ACTIVE"]
+        assert len(superseded) == 2
+        assert len(active) == 1
+        assert active[0]["title"] == "Enter via Window"
+        assert stats["merged"] == 1
+        assert stats["rejected"] == 0
+
+    def test_supersede_with_bracketed_titles(self):
+        """LLM returns bracket-wrapped titles for supersede — should match bare titles."""
+        mems = [
+            {"title": "Wrong Info", "text": "Bad advice.", "status": "ACTIVE",
+             "category": "NOTE", "persistence": "permanent", "episode": "ep-1", "turn": 2},
+            {"title": "Correct Info", "text": "Good advice.", "status": "ACTIVE",
+             "category": "SUCCESS", "persistence": "permanent", "episode": "ep-2", "turn": 4},
+        ]
+        actions = [
+            ConsolidationAction(
+                action="supersede", memory_title="[Wrong Info]",
+                merge_with="[Correct Info]", reason="contradicted",
+            ),
+            ConsolidationAction(action="keep", memory_title="[Correct Info]", reason="accurate"),
+        ]
+        result, stats = apply_consolidation_actions(mems, actions)
+        wrong = next(m for m in result if m["title"] == "Wrong Info")
+        assert wrong["status"] == "SUPERSEDED"
+        assert stats["superseded"] == 1
+        assert stats["rejected"] == 0
+
+    def test_keep_with_bracketed_title_default_keep(self):
+        """Bracket-wrapped keep title should count in processed_titles, not double-count."""
+        mems = [
+            {"title": "Found Sword", "text": "Sword in trophy case.", "status": "ACTIVE",
+             "category": "DISCOVERY", "persistence": "permanent", "episode": "ep-1", "turn": 5},
+            {"title": "Other Memory", "text": "Something.", "status": "ACTIVE",
+             "category": "NOTE", "persistence": "permanent", "episode": "ep-1", "turn": 6},
+        ]
+        actions = [ConsolidationAction(action="keep", memory_title="[Found Sword]", reason="useful")]
+        result, stats = apply_consolidation_actions(mems, actions)
+        assert len(result) == 2
+        assert stats["kept"] == 2  # 1 explicit + 1 default
+
+
 class TestConsolidateLocation:
     def test_calls_llm_and_applies_actions(self):
         mock_client = MagicMock()

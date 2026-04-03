@@ -133,13 +133,21 @@ def apply_consolidation_actions(
     processed_titles: set[str] = set()
     result = list(memories)  # shallow copy
 
+    def _strip_brackets(s: str) -> str:
+        """Strip leading '[' and trailing ']' from a string (LLM copies display brackets)."""
+        s = s.strip()
+        if s.startswith("[") and s.endswith("]"):
+            s = s[1:-1]
+        return s
+
     def _find_active(title: str) -> list[dict]:
-        return [m for m in result if m.get("title") == title and m.get("status") != "SUPERSEDED"]
+        normalized = _strip_brackets(title)
+        return [m for m in result if _strip_brackets(m.get("title", "")) == normalized and m.get("status") != "SUPERSEDED"]
 
     for act in actions:
         if act.action == "keep":
             stats["kept"] += 1
-            processed_titles.add(act.memory_title)
+            processed_titles.add(_strip_brackets(act.memory_title))
 
         elif act.action == "drop":
             matches = _find_active(act.memory_title)
@@ -150,10 +158,10 @@ def apply_consolidation_actions(
             result.remove(matches[0])
             logger.warning(f"Consolidation dropped memory: {act.memory_title} — {act.reason}")
             stats["dropped"] += 1
-            processed_titles.add(act.memory_title)
+            processed_titles.add(_strip_brackets(act.memory_title))
 
         elif act.action == "merge":
-            if act.memory_title.strip() == act.merge_with.strip():
+            if _strip_brackets(act.memory_title) == _strip_brackets(act.merge_with):
                 logger.warning(f"Consolidation rejected merge: self-reference '{act.memory_title}'")
                 stats["rejected"] += 1
                 continue
@@ -175,8 +183,10 @@ def apply_consolidation_actions(
                 stats["rejected"] += 1
                 continue
             # Mark both source memories as SUPERSEDED
+            norm_primary = _strip_brackets(act.memory_title)
+            norm_secondary = _strip_brackets(act.merge_with)
             for m in result:
-                if m.get("title") in (act.memory_title, act.merge_with) and m.get("status") != "SUPERSEDED":
+                if _strip_brackets(m.get("title", "")) in (norm_primary, norm_secondary) and m.get("status") != "SUPERSEDED":
                     m["status"] = "SUPERSEDED"
                     m["superseded_by"] = act.new_title
             # Create merged memory — category from the primary memory
@@ -196,11 +206,11 @@ def apply_consolidation_actions(
                 f"Consolidation merged '{act.memory_title}' + '{act.merge_with}' -> '{act.new_title}' — {act.reason}"
             )
             stats["merged"] += 1
-            processed_titles.add(act.memory_title)
-            processed_titles.add(act.merge_with)
+            processed_titles.add(_strip_brackets(act.memory_title))
+            processed_titles.add(_strip_brackets(act.merge_with))
 
         elif act.action == "supersede":
-            if act.memory_title.strip() == act.merge_with.strip():
+            if _strip_brackets(act.memory_title) == _strip_brackets(act.merge_with):
                 logger.warning(f"Consolidation rejected supersede: self-reference '{act.memory_title}'")
                 stats["rejected"] += 1
                 continue
@@ -213,17 +223,18 @@ def apply_consolidation_actions(
                 )
                 stats["rejected"] += 1
                 continue
+            norm_wrong = _strip_brackets(act.memory_title)
             for m in result:
-                if m.get("title") == act.memory_title and m.get("status") != "SUPERSEDED":
+                if _strip_brackets(m.get("title", "")) == norm_wrong and m.get("status") != "SUPERSEDED":
                     m["status"] = "SUPERSEDED"
                     m["superseded_by"] = act.merge_with
                     logger.info(f"Consolidation superseded '{act.memory_title}' by '{act.merge_with}' — {act.reason}")
             stats["superseded"] += 1
-            processed_titles.add(act.memory_title)
+            processed_titles.add(_strip_brackets(act.memory_title))
 
     # Default-keep any non-superseded memories not mentioned in actions
     for m in result:
-        if m.get("title") not in processed_titles and m.get("status") != "SUPERSEDED":
+        if _strip_brackets(m.get("title", "")) not in processed_titles and m.get("status") != "SUPERSEDED":
             stats["kept"] += 1
 
     return result, stats
