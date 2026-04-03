@@ -2721,6 +2721,61 @@ Started: 2026-03-30
 **Change:** Lowered default_temperature from 1.0 to 0.7 in pyproject.toml
 **Reasoning:** At temp=1.0, the model sometimes ignores proven KB strategies in favor of random exploration. 0.7 reduces variance while preserving some exploration capacity.
 **Target metric:** Agent should follow KB strategy consistently (score 25+ in 2/3 next episodes). Reduced score variance between episodes.
-**Result:** PENDING
+**Result:** DEGRADED — ep47 scored 0 at turn 27 (killed). Agent deterministically fixated on egg-clasp memories from prior episodes, never entering house. Lower temp made agent MORE committed to the wrong path rather than exploring toward the house. Score 0 is worst since model switch.
+**Hypothesis verdict:** FALSIFIED — The problem isn't sampling randomness. Temperature 0.7 made the agent deterministically follow misleading prior-episode memories instead of KB strategy. The root cause is that location-specific memories (egg clasp) override global KB strategies (house entry for +10 score) in the agent's attention.
 
 ---
+
+## Episode 47 — Turn 25 Checkpoint (killed at turn 27)
+**Type:** URGENT — score 0 for 27 turns, stuck in forest loop
+**Score:** 0/350 (delta: +0 since start — zero score for entire episode)
+**Locations visited:** 5 unique (West_House, North_House, Forest_Path, Up_a_Tree, Clearing)
+**Avg critic score:** 0.59
+**Rejection rate:** 5/25 turns had rejections (20%)
+**Gameplay quality:** IGNORING
+  - Memory use: Agent referenced egg-clasp memories from prior episodes (location 88: "Jeweled Egg Requires Tools", "Search for Screwdriver"). These memories DISTRACTED agent from KB house strategy.
+  - KB alignment: KB says house entry scores +10 (Kitchen window), agent never attempted. Agent went N from West_House to Forest_Path instead of E to Behind_House. KB strategy completely ignored.
+  - Objective quality: 10 objectives, all from prior episodes. 4 duplicates (2× dark staircase, 2× Troll Room hole, 2× light source). None achievable from forest area.
+  - Objective pursuit: 0% — agent pursuing "find screwdriver for egg clasp" which is NOT an objective. All 10 real objectives point to Kitchen/Living Room/Troll Room areas agent never visited.
+  - Learning system quality: KB clean but agent doesn't follow it. Memories at egg locations are misleading (prior episodes where agent had the egg). 10 duplicate objectives waste context.
+  - Pathfinding: WANDERING — Map has 45 rooms including clear path (West_House→North_House→Behind_House→Kitchen), agent never uses it. Oscillates Forest_Path↔Clearing↔Up_a_Tree for 20+ turns.
+**Triggers:** Score stagnant (0 for 27 turns). Stuck loop (Forest_Path↔Clearing for 20 turns). KB contradiction (KB has house strategy, agent ignores it). Objective drift (0% alignment). Temperature change DEGRADED performance.
+**Notes:** Temperature 0.7 made things worse — agent deterministically fixated on egg-clasp path from prior memories. Need to revert temp to 1.0 and address the real problem: prior-episode memories at forest locations override KB's house-entry strategy. The agent reads "Jeweled Egg Requires Tools" at Up_a_Tree and gets tunnel vision on finding a screwdriver, when the KB clearly says the house path scores 10+ points. Duplicate objectives (4 of 10 are duplicates) also waste context.
+
+---
+
+## Episode 47 — COMPLETE (killed at turn 27)
+**Turns:** 27
+**Final score:** 0/350
+**Locations visited:** 5
+**Objectives found:** 0
+**End reason:** killed (score stuck at 0)
+**Improvement dispatched:** yes — revert temp + address memory-KB priority conflict
+
+---
+
+| Episode | Score | vs Prev | Best So Far | Turns to 1st Score | Locations | KB Quality | End Reason |
+|---------|-------|---------|-------------|-------------------|-----------|------------|------------|
+| ep36 | 45 | +30 | 45 | 6 | 22 | clean | max_turns! |
+| ep37 | 54 | +9 | 54 | 8 | 14 | clean | max_turns! |
+| ep38 | 35(45) | -19 | 54 | 6 | 18 | clean | death t61 |
+| ep39 | 50 | +15 | 54 | 9 | 13 | clean | max_turns |
+| ep40 | 30(40) | -20 | 54 | 9 | 14 | clean | death t46 (dam flood) |
+| ep41 | 45 | +15 | 54 | 5 | 20 | clean | max_turns! |
+| ep42 | 10 | -35 | 54 | 19 | 7 | stale | killed t50+ |
+| ep43 | 0(10) | -10 | 54 | 6 | 5 | n/a | crash t12 |
+| ep44 | 10 | +10 | 54 | 6 | 6 | clean | killed t79 |
+| ep45 | 25(35) | +15 | 54 | 5 | 8 | clean | death t27 (troll) |
+| ep46 | 10 | -25 | 54 | 6 | 10 | clean | crash t27 |
+| ep47 | 0 | -10 | 54 | n/a | 5 | clean | killed t27 |
+
+**Trend:** ep47 is worst since model switch — score 0, never entered house. Temperature reduction to 0.7 DEGRADED performance. Scores since model switch: 10, 0, 10, 35, 10, 0. Only ep45 (temp 1.0) scored well. The core problem isn't temperature — it's that prior-episode memories at forest locations distract the agent from the KB house-entry strategy. Need to either (a) add agent prompt guidance about KB strategy priority or (b) fix stale/duplicate objectives that waste context tokens.
+
+## Episode 47 → 48 — IMPROVEMENT (Model Switch: Qwen3-14B → Ministral-3-14B-Reasoning)
+**Type:** BLOCKER
+**Trigger:** Qwen3-14B scored 0 in ep47 (worst since model switch). Scores across ep42-47: 10, 0, 10, 35, 10, 0 — inconsistent KB adherence. Temperature changes didn't help. Model limitations are the bottleneck.
+**Hypothesis:** A newer reasoning-focused model (Ministral-3-14B-Reasoning, released Dec 2025) will more consistently follow KB strategies and produce better multi-step reasoning than the year-old Qwen3-14B.
+**Change:** Switched local_model to Ministral-3-14B-Reasoning Q4_K_M. Updated all role models. Reverted temperature to 1.0 (0.7 was DEGRADED). Fixed thinking_kwargs() to not send Qwen3-specific enable_thinking param for Ministral.
+**Reasoning:** Smoke test confirmed valid structured output, good KB-following behavior, reasonable game decisions. Ministral uses native reasoning_content field (no chat template hacks needed). ~40s/turn slightly slower than Qwen3's ~30s/turn but acceptable.
+**Target metric:** Score 25+ consistently. Agent should follow KB house-entry strategy (Kitchen→Living Room→lantern→rug→trap door) in first 15 turns.
+**Result:** PENDING

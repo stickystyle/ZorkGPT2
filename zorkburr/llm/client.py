@@ -94,9 +94,14 @@ def thinking_kwargs(config: GameConfig, use_thinking: bool) -> dict:
     """Return extra_body kwargs to control thinking for local llama-server.
 
     For local models, passes chat_template_kwargs.enable_thinking via extra_body.
+    Ministral models use a native reasoning_content field and don't support
+    chat_template_kwargs — sending enable_thinking: false causes empty output.
     For remote models, returns empty dict (no-op).
     """
     if config.use_local_models:
+        # Ministral uses native reasoning_content — no chat_template control needed
+        if "ministral" in (config.local_model or "").lower():
+            return {}
         return {"extra_body": {"chat_template_kwargs": {"enable_thinking": use_thinking}}}
     return {}
 
