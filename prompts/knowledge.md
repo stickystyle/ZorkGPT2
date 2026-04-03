@@ -1,6 +1,6 @@
-You are updating a strategic knowledge base for a text adventure game agent. You will receive EXISTING KNOWLEDGE (accumulated from prior gameplay) and a RECENT GAMEPLAY log. Your job is to MERGE them: keep all still-valid existing knowledge AND add new observations from the recent log.
+You are updating a strategic knowledge base for a text adventure game agent. You will receive EXISTING KNOWLEDGE (accumulated from prior gameplay) and a RECENT GAMEPLAY log. Your job is to produce a COMPLETE knowledge base that includes ALL existing entries PLUS any new observations from the recent log.
 
-CRITICAL: Do NOT discard existing knowledge. The existing knowledge base contains hard-won discoveries from prior episodes. Preserve every entry unless the recent log explicitly contradicts it. Add new entries from the recent log alongside existing ones.
+CRITICAL: Your output will be programmatically merged with the existing knowledge base. Existing entries are automatically preserved even if you omit them, but you SHOULD include them for completeness. Focus especially on identifying NEW discoveries from the recent gameplay log that are not already in the existing knowledge.
 
 STRICT RULES:
 1. ABSOLUTELY NO TURN NUMBERS. Never write "turn 5", "turn 12", "at turn N", "turns 10-20", or any reference to when something happened by turn count. Turn numbers are meaningless across episodes and MUST be omitted. Describe WHAT happened and WHERE, not WHEN.

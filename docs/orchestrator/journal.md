@@ -1095,9 +1095,62 @@ Started: 2026-03-30
 
 ---
 
-## Session Status
-**Episodes run this session:** ep47 (killed), ep48 (complete)
-**Best score:** 40/350 (ep48)
-**Improvements made:** 4 (temp 0.7 DEGRADED→reverted, model switch BLOCKER, context 32K, memory synthesis BLOCKER)
-**Pending validation:** Memory synthesis fix (ep49)
-**System status:** STOPPED PER USER REQUEST
+## Episode 49 — Turn 25 Checkpoint
+**Type:** CONCERN — KB degradation causing regression
+**Score:** 10/350 (delta: +10 from start — house entry at turn 11)
+**Locations visited:** 10 unique (West_House, North_House, Forest, Forest_Path, Clearing, Behind_House, Kitchen, Living_, Attic, CanyView)
+**Avg critic score:** 0.68 (HEALTHY)
+**Rejection rate:** 4/25 (16%) — excellent
+**Gameplay quality:** DRIFTING
+  - Memory use: Agent referenced memories at Living Room (trap door) but didn't act on them — didn't do rug puzzle
+  - KB alignment: KB DEGRADED — missing all early-game strategy (house entry, sword, rug puzzle, score changes). Only contains dam-area info from ep48's late-game KB update. Agent had no KB guidance for house strategy.
+  - Objective quality: 7 objectives, mostly vague exploration ("examine mailbox", "investigate tree"). No scoring-focused objectives.
+  - Objective pursuit: Agent explored house correctly (took lantern, lit it, got attic items) but missed sword and left house without rug puzzle
+  - Learning system quality: KB BROKEN — all early-game knowledge lost. Memories at 27 locations but no "move rug" instruction. Agent following memories partially but KB can't guide optimal play.
+  - Pathfinding: WANDERING — Agent left house at turn 21, went to Canyon View at turn 24, now circling back
+**Triggers:** KB degradation (early-game strategy lost). Score 10 at turn 25 vs ep48's 40 at turn 25. Agent didn't take sword (can't kill troll).
+**Notes:** ROOT CAUSE IDENTIFIED: The `update_knowledge` function replaces the full KB each time it runs. When ep48 ran KB updates at turns 50/75/100 (all underground/dam area), the LLM rewrote the KB focusing on dam info and discarded house-entry, rug, and sword strategies. The prompt says "do not discard existing knowledge" but the model doesn't comply. Without KB guidance, the agent took lantern but missed sword and rug puzzle. Monitoring to turn 50 — if agent doesn't recover, will dispatch BLOCKER fix for KB preservation.
+
+---
+
+## Episode 49 — Turn 50 Checkpoint (killed)
+**Type:** URGENT — score stagnant 40 turns, no progress
+**Score:** 10/350 (delta: 0 from turn 11 — stagnant × 2)
+**Locations visited (turns 26-50):** 9 unique (Attic, Behind_House, CanyBottom, CanyView, Clearing, End_Rainbow, Kitchen, Living_, Rocky_Ledge)
+**Avg critic score:** 0.62 (HEALTHY)
+**Rejection rate:** 5/25 (20%) — healthy
+**Gameplay quality:** IGNORING
+  - Memory use: Agent in Living Room (turns 32-35) with "Trap door leads to cellar" memory but didn't try rug puzzle. Never took sword.
+  - KB alignment: KB missing all early-game strategy — no rug puzzle, no sword, no score changes. Agent had zero guidance.
+  - Objective quality: Agent tried opening gothic door with knife and rope (permanent obstacle, wasted 2 turns)
+  - Objective pursuit: Low — agent cycling house↔canyon without clear goal
+  - Learning system quality: KB DEGRADED is root cause. Agent can't learn what KB doesn't teach.
+  - Pathfinding: WANDERING — House→Canyon→House→Canyon loop with no progress
+**Triggers:** Score stagnant × 2 (0 delta turns 11-50). KB degradation BLOCKER.
+**Notes:** Agent returned to house (turns 27-39) but never found sword or rug puzzle. Went to canyon area (turns 42-50), stuck at CanyBottom examining rainbow. Episode killed at turn 50 — unrecoverable without sword (can't kill troll) and without rug knowledge (can't access cellar). BLOCKER fix dispatched for KB restoration.
+
+---
+
+## Episode 49 — COMPLETE (killed at turn 50)
+**Turns:** 50
+**Final score:** 10/350
+**Locations visited:** 14
+**Objectives found:** 7
+**End reason:** killed (score stagnant, KB degraded)
+**Memory stats:** 67 total, 0 new (score-change deduped against existing memory)
+**Improvement dispatched:** yes — KB preservation BLOCKER
+
+**Pending improvement evaluations:**
+- **Memory synthesis fix (ep48):** Score only changed once (turn 11, 0→10), deduped against existing "Entered White House via Window" memory. No new memories needed for this event — INCONCLUSIVE, need more score-change events to validate. Carry forward to ep50.
+
+---
+
+## Episode 49 → 50 — IMPROVEMENT
+**Trigger:** KB score-change entries lost during late-game KB updates — Ministral ignores "do not discard" instruction, rewriting KB with only recent dam-area info and discarding early-game strategy (rug puzzle, sword, troll kill, egg)
+**Hypothesis:** Prompt-only guards ("do not discard existing knowledge") are unreliable with smaller models. The LLM receives 50 recent actions from underground/dam areas and overwrites the KB to focus on those, despite instructions to preserve. A programmatic merge that treats existing entries as immutable will prevent any knowledge loss regardless of LLM behavior.
+**Change:** Replaced full-rewrite KB update with programmatic append-and-merge in `zorkburr/actions/knowledge.py`. Added `_parse_sections()` to extract section->bullets from KB markdown, `_merge_kb()` to merge LLM output into existing KB with per-section dedup by normalized content. Existing bullets always survive; new bullets are appended. Updated `prompts/knowledge.md` to inform LLM that merge is automatic.
+**Reasoning:** The KB is append-only by nature (discoveries don't un-happen). The LLM's job is to identify new entries from recent gameplay, not to curate the whole document. Programmatic merge makes the existing KB immutable — the LLM can only add, never remove. Dedup by normalized bullet content prevents duplicates when the LLM repeats existing entries.
+**Target metric:** KB should preserve all score-change and puzzle-mechanic entries across the entire episode. Early-game score 40+ by turn 25 should return.
+**Result:** PENDING
+
+---
