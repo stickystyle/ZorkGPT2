@@ -119,21 +119,26 @@ def _run(config: GameConfig, max_turns: int, episode_id: str) -> None:
                     turn_stack.close()
                 local_turn_num += 1
                 turn_stack = ExitStack()
+                # propagate_attributes MUST wrap start_as_current_observation
+                # so the trace itself gets session_id, not just children.
+                try:
+                    turn_stack.enter_context(
+                        langfuse.propagate_attributes(
+                            trace_name=f"turn-{local_turn_num}",
+                            session_id=episode_id,
+                            user_id="zorkburr",
+                            metadata={
+                                "agent_model": config.agent_model,
+                                "critic_model": config.critic_model,
+                            },
+                            tags=["zorkburr", "episode"],
+                        )
+                    )
+                except AttributeError:
+                    pass  # Langfuse version without propagate_attributes
                 turn_stack.enter_context(
                     langfuse.start_as_current_observation(
                         name=f"turn-{local_turn_num}",
-                    )
-                )
-                turn_stack.enter_context(
-                    langfuse.propagate_attributes(
-                        trace_name=f"turn-{local_turn_num}",
-                        session_id=episode_id,
-                        user_id="zorkburr",
-                        metadata={
-                            "agent_model": config.agent_model,
-                            "critic_model": config.critic_model,
-                        },
-                        tags=["zorkburr", "episode"],
                     )
                 )
 
