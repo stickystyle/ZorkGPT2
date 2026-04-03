@@ -655,6 +655,7 @@ let maxTurn = 0;
 let lastTimestamp = null;
 let turnCache = {};
 let scoreHistory = [];
+let lastScoreTurn = 0;
 let cachedEpisodeIndex = { episodes: [] };
 
 function getHighScore(excludeEpisodeId) {
@@ -840,9 +841,30 @@ function renderState(data) {
   // Map
   renderMap(map);
 
-  // Score chart
-  if (recent_history) {
-    scoreHistory = recent_history.map(h => h.score || 0);
+  // Score chart — accumulate across polls like the game log
+  if (isLive && recent_history) {
+    if (scoreHistory.length === 0) {
+      // Seed from recent_history on first load
+      scoreHistory = recent_history.map(h => h.score_after != null ? h.score_after : (h.score || 0));
+      lastScoreTurn = recent_history.length > 0 ? (recent_history[recent_history.length - 1].turn || recent_history.length) : 0;
+    } else {
+      // Append only new turns from recent_history
+      for (const h of recent_history) {
+        const t = h.turn || 0;
+        if (t > lastScoreTurn) {
+          scoreHistory.push(h.score_after != null ? h.score_after : (h.score || 0));
+          lastScoreTurn = t;
+        }
+      }
+    }
+    // Always ensure the current turn's score is represented
+    if (metadata.turn > lastScoreTurn) {
+      scoreHistory.push(metadata.score);
+      lastScoreTurn = metadata.turn;
+    }
+  } else if (!isLive && recent_history) {
+    // Historical mode: just show what's available
+    scoreHistory = recent_history.map(h => h.score_after != null ? h.score_after : (h.score || 0));
     scoreHistory.push(metadata.score);
   }
   const highScore = getHighScore(currentEpisodeId);
@@ -1167,8 +1189,12 @@ function renderScoreChart(scores, highScore) {
   ctx.lineWidth = 2;
   ctx.beginPath();
 
+  // Fixed x-axis: use a minimum window so the graph doesn't stretch
+  const minTurns = 100;
+  const totalTurns = Math.max(scores.length - 1, minTurns);
+
   for (let i = 0; i < scores.length; i++) {
-    const x = padding + (i / (scores.length - 1)) * graphW;
+    const x = padding + (i / totalTurns) * graphW;
     const y = h - padding - (scores[i] / max) * graphH;
     if (i === 0) ctx.moveTo(x, y);
     else ctx.lineTo(x, y);
@@ -1176,7 +1202,8 @@ function renderScoreChart(scores, highScore) {
   ctx.stroke();
 
   // Fill under the line
-  ctx.lineTo(padding + graphW, h - padding);
+  const lastX = padding + ((scores.length - 1) / totalTurns) * graphW;
+  ctx.lineTo(lastX, h - padding);
   ctx.lineTo(padding, h - padding);
   ctx.closePath();
   ctx.fillStyle = 'rgba(79, 195, 247, 0.1)';
@@ -1316,6 +1343,8 @@ episodeSelect.addEventListener('change', async () => {
   currentEpisodeId = episodeId;
   accumulatedTurns = [];
   lastSeenTurn = 0;
+  scoreHistory = [];
+  lastScoreTurn = 0;
   userScrolledUp = false;
   newMessagesIndicator.style.display = 'none';
 
@@ -1337,6 +1366,8 @@ liveBtn.addEventListener('click', () => {
   turnSliderContainer.classList.remove('visible');
   accumulatedTurns = [];
   lastSeenTurn = 0;
+  scoreHistory = [];
+  lastScoreTurn = 0;
   userScrolledUp = false;
   newMessagesIndicator.style.display = 'none';
   gameLog.innerHTML = '<div class="empty-state loading">Reconnecting...</div>';
