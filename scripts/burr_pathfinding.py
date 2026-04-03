@@ -70,7 +70,10 @@ def main():
     ][-25:]
 
     for i, gs in enumerate(gen_steps):
-        gstate = (gs.get("step_end_log") or {}).get("state", {})
+        gend = gs.get("step_end_log")
+        if not gend or not gend.get("state"):
+            continue
+        gstate = gend["state"]
         turn = gstate.get("turn_count", "?")
         action = gstate.get("proposed_action", "?")
         next_steps = gstate.get("next_steps", "")[:150]
@@ -79,7 +82,8 @@ def main():
         post_loc = pre_loc
         post_loc_id = pre_loc_id
         if i < len(exec_steps):
-            estate = (exec_steps[i].get("step_end_log") or {}).get("state", {})
+            eend = exec_steps[i].get("step_end_log")
+            estate = eend["state"] if eend and eend.get("state") else {}
             post_loc = estate.get("location_name", pre_loc)
             post_loc_id = estate.get("location_id", pre_loc_id)
         moved = "MOVED" if str(pre_loc_id) != str(post_loc_id) else "STAYED"

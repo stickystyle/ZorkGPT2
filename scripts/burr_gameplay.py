@@ -46,7 +46,10 @@ def main():
 
     print("\n=== AGENT REASONING (last 10 turns) ===")
     for s in agent_steps[-10:]:
-        state = (s.get("step_end_log") or {}).get("state", {})
+        end = s.get("step_end_log")
+        if not end or not end.get("state"):
+            continue
+        state = end["state"]
         reasoning = state.get("agent_reasoning", "")[:250]
         action = state.get("proposed_action", "?")
         loc = state.get("location_name", "?")
