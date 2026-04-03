@@ -2525,3 +2525,144 @@ Started: 2026-03-30
 **Summary:** Fixed two critical BLOCKER bugs: (1) KB shovel contamination from prior session, (2) objective discovery LLM never received KB content. Both fixes confirmed — ep40 restart achieved score 40 by turn 25 (vs 5 before fix), agent followed KB path precisely ("move rug" on first try). ep41 scored 45 with 20 locations explored, survived dam area without drowning. Current bottleneck is underground puzzle-solving (Loud Room needs "echo", dam needs specific button+wrench sequence). User stopping to work on memory system improvements.
 
 ---
+
+## Memory System Improvements — IMPROVEMENT (3-phase)
+**Type:** INCREMENTAL (systematic overhaul)
+**Date:** 2026-04-02
+**Spec:** `docs/superpowers/specs/2026-04-02-memory-system-improvements-design.md`
+**Trigger:** Duplicate memories accumulating across episodes (e.g., location 74 had three near-identical "Behind House Window" entries). `persistence` and `status` fields were write-only — LLM set them but nothing read them. No end-of-episode cleanup existed.
+
+### Phase 1: Prompt + Guard Rails
+- **1A. Synthesis prompt dedup rules** (`prompts/memory_synthesis.md`): Added DEDUPLICATION section — exact-title and semantic-duplicate rejection rules with good/bad examples.
+- **1B. Exact-title dedup guard** (`zorkburr/actions/memory.py`): Hard block on creating a memory with the same title as an existing active memory at the same location. Increments `mem_dedup_rejected` counter.
+- **1C. Ephemeral pruning on episode load** (`zorkburr/actions/episode.py`): Strips `persistence=ephemeral` memories from prior episodes during `initialize_episode`. Increments `mem_ephemeral_pruned` counter.
+- **1D. Filter SUPERSEDED in context assembly** (`zorkburr/actions/context.py`): Both current-location and adjacent-room memory blocks now exclude `status=SUPERSEDED` memories. Previously only the synthesis context filtered them.
+- **1E. Memory stats on EPISODE_END** (`run_episode.py`): Added `mem_total`, `mem_new`, `mem_dedup_rejected`, `mem_ephemeral_pruned` counters to structured log line.
+
+### Phase 2: Supersession
+- **2A. `supersedes_titles` on response model** (`zorkburr/llm/models.py`): New `list[str]` field on `MemorySynthesisResponse`.
+- **2B. Expose titles in synthesis context** (`zorkburr/actions/memory.py`): Memory format in LLM context changed from `- {text}` to `- [{title}]: {text}` so LLM can reference memories by exact title.
+- **2C. Process supersession in `record_memory`** (`zorkburr/actions/memory.py`): Marks matched memories as SUPERSEDED with `superseded_by` pointing to the new memory. Increments `mem_superseded` counter.
+- **2D. Supersession prompt rules** (`prompts/memory_synthesis.md`): Added SUPERSESSION section with examples showing when to supersede (wrong advice) vs when not to (still-valid guidance). Clarified that display brackets `[]` must not be copied into `supersedes_titles`.
+
+### Phase 3: End-of-Episode Consolidation
+- **3A. Pre-consolidation backup** (`zorkburr/actions/episode.py`): Copies `memories.json` to `memories.json.bak` before consolidation runs.
+- **3B. Consolidation response model** (`zorkburr/llm/models.py`): New `ConsolidationAction` (keep/drop/merge/supersede) and `ConsolidationResponse` models.
+- **3C. Action processing** (`zorkburr/actions/episode.py`): `apply_consolidation_actions()` processes each action type with validation guards — rejects self-references, empty payloads, ambiguous title matches, and duplicate new_titles. Uses exact `list.remove()` for drops. Wired into `finalize_episode` for locations with 5+ active memories.
+- **3D. Consolidation prompt** (`prompts/memory_consolidation.md`): Guides the consolidator to keep useful memories, drop noise, merge semantic duplicates, and supersede contradicted advice.
+- **3E. Observability** (`run_episode.py`): Per-location `CONSOLIDATION` log lines and `mem_consolidated` counter on EPISODE_END.
+
+### Additional Changes
+- **Test coverage:** 553 new lines across `tests/test_actions/test_memory.py`, `test_consolidation.py`, `test_context.py`, `test_episode.py`.
+- **S3 viewer hook:** Updated tests for index-on-every-turn behavior.
+- **LLM client:** Cleaned up `thinking_kwargs` handling for consolidation model calls.
+- **State keys:** Added `MEM_DEDUP_REJECTED` and `MEM_SUPERSEDED` counters to `state.py`.
+
+**Reasoning:** Memory quality is the foundation of cross-episode learning. Without dedup, supersession, and consolidation, the agent's context fills with redundant or contradictory memories that dilute useful guidance and waste context tokens. The 3-phase approach builds incrementally: Phase 1 prevents new duplicates, Phase 2 lets the agent self-correct memories during play, Phase 3 cleans up across episodes.
+**Target metric:** Zero duplicate memory titles per location. SUPERSEDED memories hidden from agent context. End-of-episode consolidation reduces memory count at high-density locations. Agent should reference cleaner, more actionable memories in subsequent episodes.
+**Result:** PENDING — no episodes run since merge.
+
+---
+
+## Infrastructure — Model Switch to Qwen3-8B Q6_K (pre-ep42)
+**Type:** BLOCKER
+**Changes:**
+- Switched local model from Qwen3-14B Q6_K (11GB, too slow) to Qwen3-8B Q6_K (6.6GB, ~30s/turn)
+- Increased context_size 8192→32768 (prompt alone is ~6K tokens)
+- Added `--flash-attn on` to llama-server startup
+- Fixed `instructor.patch()` → `instructor.from_openai()` (broken with current instructor v1.14.4)
+- Fixed Langfuse OpenAI wrapper incompatibility with instructor for local models (skip Langfuse wrapper when `use_local_models=true`)
+- Increased llm_request_timeout 300→600s
+- Disabled thinking mode for agent (`use_thinking=False`) — JSON `thinking` field still captures reasoning; native thinking mode caused unlimited reasoning token generation (~900 tokens overhead per call, doubling latency)
+**Result:** Episode runs at ~30s/turn (vs 5-10min/turn with 14B + thinking). Agent produces valid structured output with reasoning.
+
+---
+
+## Episode 42 — Turn 25 Checkpoint
+**Type:** HEALTHY
+**Score:** 10/350 (delta: +10 from start)
+**Locations visited:** 7 unique (West_House, North_House, Behind_House, Kitchen, Forest_Path, Up_a_Tree, Clearing)
+**Avg critic score:** 0.48
+**Rejection rate:** 5/25 turns had rejections (20%) — 3 turns hit max rejections
+**Gameplay quality:** DRIFTING
+  - Memory use: Agent referenced bird's nest/egg memory when climbing tree — good. But spent 5 turns at North_House without referencing existing memories for that location.
+  - KB alignment: KB mentions dam puzzle mechanics but agent hasn't reached dam area yet. KB from prior episodes still loaded.
+  - Objective quality: 3/5 well-formed (dam-related from prior episodes), 2/5 vague ("investigate narrow path", "explore behind house")
+  - Objective pursuit: Agent explored Behind_House (aligned with objective) but spent many turns at North_House without clear objective alignment
+  - Learning system quality: KB is from prior episodes (ep41), not updated yet. Memories inherited from prior episodes. Ephemeral pruning removed 6 memories on load.
+**Triggers:** None — score improving, no stuck loops, rejection rate acceptable
+**Notes:** First episode with Qwen3-8B and memory system improvements. Agent scored 10 by turn 19 (tree climb for egg). Pace is good at ~30s/turn. Agent reasoning quality is adequate without thinking mode — references memories in reasoning text. Score 10 at turn 25 is below previous episodes (ep36-41 scored 30-45 by turn 25), but this is a new model that may need time to build KB knowledge.
+
+---
+
+## Episode 42 — Turn 50 Checkpoint
+**Type:** CONCERN — score stagnant 25 turns, agent stuck in 4-location loop
+**Score:** 10/350 (delta: +0 since turn 25 — stagnant × 1)
+**Locations visited (turns 26-50):** 4 unique (Clearing, Forest, Forest_Path, Up_a_Tree)
+**Avg critic score:** 0.69 — healthy
+**Rejection rate:** 4/25 (16%) — acceptable
+**Gameplay quality:** IGNORING
+  - Memory use: Agent references bird's nest memory when climbing tree — good. But doesn't reference house/underground memories from prior episodes.
+  - KB alignment: KB contains house entry strategy (move rug, trap door, lantern) but agent never goes to house. Agent's reasoning references dam bolt and grating but not the proven house→underground path.
+  - Objective quality: 3/5 from prior episodes (dam-related), 2/5 vague. No new objectives set this episode.
+  - Objective pursuit: Agent keeps examining grating in Clearing (not an active objective) while ignoring "investigate narrow path" objective.
+  - Learning system quality: KB is stale from ep41. Agent reasoning doesn't reference KB strategic content.
+**Triggers:** Score stagnant × 1. Stuck loop (Clearing↔Forest_Path↔Up_a_Tree for 25 turns). KB contradiction — KB has house entry strategy but agent ignores it.
+**Notes:** Major regression from prior model (A3b MoE scored 30-45 by turn 25). Qwen3-8B isn't following KB guidance — the agent's reasoning mentions dam bolt and grating but never references the KB's proven house→underground path. This might be a prompt/context issue where the KB isn't prominent enough in the formatted context for the smaller model. Not dispatching improvement yet — letting episode complete to measure full score and see if KB update at turn 50 improves behavior.
+
+---
+
+## Episode 42 — COMPLETE (crashed)
+**Turns:** 5 (crashed/killed — no EPISODE_END in log)
+**Final score:** 0/350
+**Locations visited:** 3 (West_House, North_House, Behind_House)
+**End reason:** crashed or killed mid-episode
+**Improvement dispatched:** no
+**Notes:** Only 5 turns logged. Agent took mailbox leaflet and navigated to Behind_House. No scoring. Episode appears to have been killed during the model switch investigation or manually terminated. Insufficient data for analysis.
+
+---
+
+## Episode 43 — COMPLETE (crashed at turn 12)
+**Turns:** 12 (crashed — knowledge update timeout, consolidation failures)
+**Final score:** 0/350 (scored 10 at turn 6, dropped to 0 at turn 12)
+**Locations visited:** 5 (West_House, North_House, Behind_House, Kitchen, Attic, Forest)
+**End reason:** crash — knowledge update timed out, consolidation rejected multiple memory operations
+**Improvement dispatched:** yes (prompt trim)
+**Notes:** Agent entered house via window at turn 6 (score 10). Went to Attic at turn 8 but got stuck trying to "light lantern" twice (turns 9, 11 — critic rejected at -1.0, forced through at max rejections). Score dropped from 10→0 at turn 12 (moved to Forest — likely died in dark or lost points). Knowledge update timed out. Consolidation rejected 5 operations due to title mismatches — memories referenced by consolidator didn't match active memory titles (bracket formatting issue from Phase 2 memory system changes). Critical issues: (1) agent repeatedly force-executing rejected lantern actions, (2) consolidation title matching broken.
+
+---
+
+## Episode 43 → 44 — IMPROVEMENT (Agent Prompt Size Reduction)
+**Trigger:** Agent prompt consuming ~40% of 16K context window for Qwen3-8B. Smaller models struggle to follow long system prompts — instructions from earlier in the prompt get deprioritized, contributing to KB/memory ignoring behavior seen in ep42.
+**Hypothesis:** The 8B model can't reliably attend to a 6K-token system prompt. Reducing prompt size will give the model more context budget for game state, KB, and memories, and fewer instructions to lose track of.
+**Change:** Trimmed `prompts/agent.md` from 312 lines (~4K tokens) to 130 lines (~1.8K tokens) — 55% reduction. Cuts: removed 4 of 5 hypothetical puzzle examples (all taught same concept), merged duplicate Feedback Taxonomy into Rule #1, merged Parser Vocabulary Expansion into Puzzle section, shortened new_objective examples, removed redundant Anti-Patterns list. All core reasoning strategies preserved.
+**Reasoning:** The prompt had extensive redundancy — the same "read environmental clues, try related verbs" concept was taught in 3 separate sections with 5 hypothetical examples. A 14B/8B model either grasps the concept from 1 example or it doesn't — additional examples waste context tokens that could hold KB/memory content.
+**Target metric:** Agent should reference KB strategies in reasoning text. Score should reach 30+ by turn 50 (matching prior model performance). Context budget freed for game state.
+**Result:** PENDING
+
+---
+
+## Episode 44 → 45 — IMPROVEMENT (Reasoning Continuity & Plan Persistence)
+**Trigger:** Agent has no cross-turn memory of its own reasoning. Each turn starts blind to why it chose previous actions. Identified during investigation: ZorkGPT (predecessor) had a `get_recent_reasoning_formatted()` feature that was scaffolded in ZorkGPT2 (`REASONING_HISTORY` state key, "USING YOUR PREVIOUS REASONING" prompt section) but never wired up. The agent prompt references "## Previous Reasoning and Actions" context that was never populated.
+**Hypothesis:** Without reasoning continuity, the agent cannot execute multi-step plans. Turn 10 decides "go to bird nest (2 hops away)", turn 11 arrives with no idea why it's there, turn 12 doesn't know to climb the tree. This causes aimless wandering and abandoned strategies, contributing to score stagnation in mid-game where multi-step puzzle sequences are required.
+**Change:** Two additions:
+1. **Inline reasoning in recent history** — `assemble_context` now shows the agent's `thinking` from the last 3 turns alongside action + response (was: 5 turns of action + response only). Reasoning storage increased from 300→600 chars in action history entries. Section header changed to `## Previous Reasoning and Actions` to match what the prompt already expects.
+2. **`next_steps` plan field** — New field on `AgentResponse` for forward-looking tactical intent ("Go north → climb tree → take egg, step 2 of 3"). Persists in state as `NEXT_STEPS`, displayed as `**Current Plan:**` in context each turn. Agent updates or clears it naturally. Distinct from `new_objective` (long-lived goals for the objectives system) — `next_steps` is tactical, lives 2-5 turns.
+**Reasoning:** Reasoning history alone (ZorkGPT's approach) is noisy — most per-turn thinking is ephemeral situation analysis that doesn't carry forward. The `next_steps` field provides a clean forward-looking signal: the agent reads "Current Plan: climb tree → take egg" instead of parsing 3 paragraphs of mixed reasoning. The combination gives both backward context (what happened and why) and forward intent (what to do next). Token cost: ~400-500 tokens total (plan ~75 tokens + 3 turns of reasoning ~300 tokens), offset by the prompt trim from ep43→44.
+**Target metric:** Agent should maintain multi-step strategies across 3+ turns (visible in reasoning text referencing "Current Plan" and updating step counts). Score plateau should improve as agent can now complete multi-step puzzle sequences instead of abandoning them mid-execution. Expect fewer "aimless wandering" patterns in turn logs.
+**Result:** PENDING
+
+---
+
+| Episode | Score | vs Prev | Best So Far | Turns to 1st Score | Locations | KB Quality | End Reason |
+|---------|-------|---------|-------------|-------------------|-----------|------------|------------|
+| ep36 | 45 | +30 | 45 | 6 | 22 | clean | max_turns! |
+| ep37 | 54 | +9 | 54 | 8 | 14 | clean | max_turns! |
+| ep38 | 35(45) | -19 | 54 | 6 | 18 | clean | death t61 |
+| ep39 | 50 | +15 | 54 | 9 | 13 | clean | max_turns |
+| ep40 | 30(40) | -20 | 54 | 9 | 14 | clean | death t46 (dam flood) |
+| ep41 | 45 | +15 | 54 | 5 | 20 | clean | max_turns! |
+| ep42 | 10 | -35 | 54 | 19 | 7 | stale | killed t50+ |
+| ep43 | 0(10) | -10 | 54 | 6 | 5 | n/a | crash t12 |
+
+**Trend:** Sharp regression since model switch to Qwen3-8B (ep42-43). Best score dropped from 45-54 range to 0-10. Agent enters house correctly (ep43 turn 6) but gets stuck in Attic and crashes. Two issues: (1) agent prompt too large for 8B model context, now addressed with 55% trim; (2) consolidation title matching broken (bracket format mismatch). ep44 will test whether the prompt trim improves KB/memory utilization and scoring.

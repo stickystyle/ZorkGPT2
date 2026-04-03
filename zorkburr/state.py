@@ -38,6 +38,7 @@ class S:
     DISCOVERED_OBJECTIVES = "discovered_objectives"
     COMPLETED_OBJECTIVES = "completed_objectives"
     KNOWLEDGE_BASE = "knowledge_base"
+    NEXT_STEPS = "next_steps"
     TURNS_SINCE_PROGRESS = "turns_since_progress"
     LAST_SCORE_CHANGE_TURN = "last_score_change_turn"
     PRE_LOCATION_ID = "pre_location_id"
@@ -80,6 +81,7 @@ def create_initial_state(episode_id: str | None = None) -> State:
         S.DISCOVERED_OBJECTIVES: [],
         S.COMPLETED_OBJECTIVES: [],
         S.KNOWLEDGE_BASE: "",
+        S.NEXT_STEPS: "",
         S.TURNS_SINCE_PROGRESS: 0,
         S.LAST_SCORE_CHANGE_TURN: 0,
         S.PRE_LOCATION_ID: 0,

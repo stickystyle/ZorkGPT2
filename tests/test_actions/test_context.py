@@ -18,6 +18,7 @@ def test_assemble_context_basic():
         S.IN_COMBAT: False,
         S.TURN_COUNT: 5,
         S.TURNS_SINCE_PROGRESS: 0,
+        S.NEXT_STEPS: "",
     })
     _, new_state = assemble_context.run(state)
     ctx = new_state[S.FORMATTED_CONTEXT]
@@ -46,6 +47,7 @@ def test_assemble_context_with_history():
         S.IN_COMBAT: False,
         S.TURN_COUNT: 3,
         S.TURNS_SINCE_PROGRESS: 0,
+        S.NEXT_STEPS: "",
     })
     _, new_state = assemble_context.run(state)
     ctx = new_state[S.FORMATTED_CONTEXT]
@@ -81,6 +83,7 @@ def test_assemble_context_with_map_diagram():
         S.IN_COMBAT: False,
         S.TURN_COUNT: 3,
         S.TURNS_SINCE_PROGRESS: 0,
+        S.NEXT_STEPS: "",
     })
     _, new_state = assemble_context.run(state)
     ctx = new_state[S.FORMATTED_CONTEXT]
@@ -109,6 +112,7 @@ def test_assemble_context_legacy_string_objectives():
         S.IN_COMBAT: False,
         S.TURN_COUNT: 1,
         S.TURNS_SINCE_PROGRESS: 0,
+        S.NEXT_STEPS: "",
     })
     _, new_state = assemble_context.run(state)
     ctx = new_state[S.FORMATTED_CONTEXT]
@@ -139,6 +143,7 @@ def test_assemble_context_filters_superseded_memories():
         S.IN_COMBAT: False,
         S.TURN_COUNT: 5,
         S.TURNS_SINCE_PROGRESS: 0,
+        S.NEXT_STEPS: "",
     })
     _, new_state = assemble_context.run(state)
     ctx = new_state[S.FORMATTED_CONTEXT]
@@ -176,6 +181,7 @@ def test_assemble_context_filters_superseded_adjacent_memories():
         S.IN_COMBAT: False,
         S.TURN_COUNT: 3,
         S.TURNS_SINCE_PROGRESS: 0,
+        S.NEXT_STEPS: "",
     })
     _, new_state = assemble_context.run(state)
     ctx = new_state[S.FORMATTED_CONTEXT]

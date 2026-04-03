@@ -44,7 +44,7 @@ def execute_action(state: State, jericho: JerichoInterface) -> tuple[dict, State
         "location_name": pre_loc_name,
         "score_before": pre_score,
         "score_after": score,
-        "reasoning": (state[S.AGENT_REASONING] or "")[:300],
+        "reasoning": (state[S.AGENT_REASONING] or "")[:600],
         "critic_score": state[S.CRITIC_SCORE],
         "critic_justification": (state[S.CRITIC_JUSTIFICATION] or "")[:200],
         "was_overridden": state[S.WAS_OVERRIDDEN],

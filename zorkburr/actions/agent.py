@@ -32,9 +32,9 @@ def _get_system_prompt(knowledge_base: str = "") -> str:
 
 @action(
     reads=[S.FORMATTED_CONTEXT, S.REJECTION_COUNT, S.CRITIC_JUSTIFICATION, S.KNOWLEDGE_BASE, S.TURN_COUNT],
-    writes=[S.PROPOSED_ACTION, S.AGENT_REASONING, S.NEW_OBJECTIVE, S.ACTION_TO_TAKE],
+    writes=[S.PROPOSED_ACTION, S.AGENT_REASONING, S.NEW_OBJECTIVE, S.NEXT_STEPS, S.ACTION_TO_TAKE],
 )
-@observe(capture_input=False)
+@observe()
 def generate_action(state: State, client: instructor.Instructor, config: GameConfig, use_thinking: bool = False) -> tuple[dict, State]:
     """Ask the agent LLM for the next action. Returns validated AgentResponse."""
     system = _get_system_prompt(state[S.KNOWLEDGE_BASE])
@@ -58,23 +58,26 @@ def generate_action(state: State, client: instructor.Instructor, config: GameCon
             response_model=AgentResponse,
             messages=messages,
             temperature=config.default_temperature,
-            max_tokens=config.default_max_tokens,
+            max_tokens=1024,
             max_retries=3,
             **thinking_kwargs(config, use_thinking),
         )
         action_text = clean_action(response.action)
         reasoning = response.thinking
         new_objective = response.new_objective
+        next_steps = response.next_steps
     except Exception as e:
         logger.error(f"Agent LLM call failed: {e}")
         action_text = "look"
         reasoning = f"LLM error: {e}"
         new_objective = ""
+        next_steps = ""
 
     new_state = state.update(**{
         S.PROPOSED_ACTION: action_text,
         S.AGENT_REASONING: reasoning,
         S.NEW_OBJECTIVE: new_objective,
+        S.NEXT_STEPS: next_steps,
         S.ACTION_TO_TAKE: action_text,
     })
     return {"action": action_text}, new_state

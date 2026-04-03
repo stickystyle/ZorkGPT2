@@ -8,9 +8,10 @@ from pydantic import BaseModel, Field, field_validator
 class AgentResponse(BaseModel):
     thinking: str = Field(description="Brief reasoning about what to do next")
     action: str = Field(description="The game command to execute")
+    next_steps: str = Field(default="", description="Your plan for the next 2-3 turns, if pursuing a multi-turn goal")
     new_objective: str = Field(default="", description="Optional new objective")
 
-    @field_validator("new_objective", mode="before")
+    @field_validator("new_objective", "next_steps", mode="before")
     @classmethod
     def coerce_none(cls, v: object) -> str:
         return v if v is not None else ""

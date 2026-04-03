@@ -7,7 +7,7 @@ from zorkburr.state import S
     reads=[S.GAME_RESPONSE, S.LOCATION_NAME, S.LOCATION_ID, S.INVENTORY, S.SCORE,
            S.ACTION_HISTORY, S.EXITS, S.DISCOVERED_OBJECTIVES, S.KNOWLEDGE_BASE,
            S.MEMORIES_BY_LOCATION, S.MAP_DATA, S.IN_COMBAT, S.TURN_COUNT,
-           S.TURNS_SINCE_PROGRESS],
+           S.TURNS_SINCE_PROGRESS, S.NEXT_STEPS],
     writes=[S.FORMATTED_CONTEXT],
 )
 def assemble_context(state: State) -> tuple[dict, State]:
@@ -43,15 +43,23 @@ def assemble_context(state: State) -> tuple[dict, State]:
     if state[S.IN_COMBAT]:
         sections.append("**COMBAT ACTIVE — prioritize combat actions**")
 
+    # Current plan (forward-looking multi-turn intent)
+    next_steps = state[S.NEXT_STEPS]
+    if next_steps:
+        sections.append(f"**Current Plan:** {next_steps}")
+
+    # Recent actions with reasoning (backward-looking continuity)
     history = state[S.ACTION_HISTORY]
     if history:
-        recent = history[-5:]
+        recent = history[-3:]
         history_lines = []
         for entry in recent:
-            history_lines.append(
-                f"  Turn {entry['turn']}: {entry['action']} -> {entry.get('response', '')[:200]}"
-            )
-        sections.append("**Recent Actions:**\n" + "\n".join(history_lines))
+            line = f"  Turn {entry['turn']}: {entry['action']} -> {entry.get('response', '')[:200]}"
+            reasoning = entry.get("reasoning", "")
+            if reasoning:
+                line += f"\n    Thinking: {reasoning}"
+            history_lines.append(line)
+        sections.append("## Previous Reasoning and Actions\n" + "\n".join(history_lines))
 
     loc_key = str(loc_id)
     has_any_memories = loc_key in memories and memories[loc_key]
