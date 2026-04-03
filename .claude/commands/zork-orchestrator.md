@@ -52,7 +52,44 @@ You are the ZorkBurr game orchestrator. Your role is **monitor and developer** �
    ---
    ```
 
-5. **Set episode counter to 1.** Track this in your context across iterations.
+5. **Archive old journal entries if journal is too large:**
+   ```bash
+   wc -l < docs/orchestrator/journal.md
+   ```
+   If the journal exceeds **800 lines**, dispatch a general-purpose subagent with this brief:
+
+   ```
+   The orchestrator journal at docs/orchestrator/journal.md has grown too large.
+   Archive old episodes to docs/orchestrator/journal_archive.md.
+
+   Rules:
+   1. Read docs/orchestrator/journal.md fully.
+   2. Identify the Key Learnings section (starts with "## Key Learnings") — this MUST
+      stay in journal.md. It ends at the first "---" after the subsystems list.
+   3. Keep the Key Learnings section + the LAST 10 "## Episode" or "## Session" entries
+      (and any IMPROVEMENT entries between them) in journal.md. Everything else gets
+      archived.
+   4. If docs/orchestrator/journal_archive.md already exists, read it. Append the
+      newly-archived entries BEFORE the existing archive content (so the archive stays
+      in reverse-chronological order matching the journal).
+   5. If it doesn't exist, create it with this header:
+      # ZorkBurr Orchestrator Journal — Archive
+      > Archived entries. Active journal: journal.md
+      > This archive is searched for prior improvement history (3-strikes rule).
+      ---
+   6. Any "**Result:** PENDING" entries being archived must be changed to
+      "**Result:** SUPERSEDED (archived)".
+   7. Do NOT modify the Key Learnings section content.
+   8. Force-add the archive file (it's gitignored): git add -f docs/orchestrator/journal_archive.md
+   9. Commit: git add -f docs/orchestrator/journal.md docs/orchestrator/journal_archive.md
+      git commit -m "chore(orchestrator): auto-archive old journal entries"
+
+   Return the line counts before and after for both files.
+   ```
+
+   If 800 lines or fewer, skip this step.
+
+6. **Set episode counter to 1.** Track this in your context across iterations.
 
 ---
 
