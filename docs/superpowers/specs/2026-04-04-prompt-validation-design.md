@@ -58,7 +58,7 @@ The `state` keys captured depend on the `action_type`, matching each action's `r
 |---|---|
 | `generate_action` | `formatted_context`, `rejection_count`, `critic_justification`, `knowledge_base`, `turn_count` |
 | `evaluate_action` | `proposed_action`, `game_response`, `action_history`, `exits`, `inventory`, `location_name`, `rejection_count`, `in_combat` |
-| `record_memory` | `pre_location_id`, `pre_location_name`, `pre_score`, `pre_inventory`, `location_id`, `score`, `inventory`, `game_over`, `game_over_reason`, `game_response`, `action_to_take`, `agent_reasoning`, `action_history`, `memories_by_location`, `episode_id`, `turn_count`, `memory_stats` |
+| `record_memory` | `pre_location_id`, `pre_location_name`, `pre_score`, `pre_inventory`, `location_id`, `score`, `inventory`, `game_over`, `game_over_reason`, `game_response`, `action_to_take`, `agent_reasoning`, `action_history`, `memories_by_location`, `episode_id`, `turn_count`, `memory_stats`, `location_summaries` |
 | `update_knowledge` | `action_history`, `knowledge_base`, `memories_by_location`, `discovered_objectives`, `completed_objectives`, `score`, `max_score` |
 | `extract_info` | `game_response`, `location_name`, `action_to_take` |
 | `update_objectives` | `action_history`, `memories_by_location`, `knowledge_base`, `discovered_objectives`, `completed_objectives`, `score`, `location_name` |
