@@ -182,3 +182,95 @@ def format_comparison(fixture, new_output):
         lines.append(f"  New:      {json.dumps(new_output, default=str)[:300]}")
 
     return "\n".join(lines)
+
+
+def validate_fixtures(fixture_paths, client, config):
+    """Run replay + structural check on all fixtures, print comparison output.
+
+    Returns (results_list, all_structural_passed).
+    """
+    results = []
+
+    for path in fixture_paths:
+        fixture = json.loads(Path(path).read_text())
+        meta = fixture["meta"]
+        action_type = fixture["action_type"]
+        role = meta["role"].upper()
+
+        print(f"\nFIXTURE {Path(path).name} [{role}]")
+
+        # Phase 1: Replay
+        start = time.time()
+        print(f"  Replaying {meta['episode_id']}_t{meta['turn']} {action_type}...", end=" ", flush=True)
+        new_output = replay_fixture(fixture, client, config)
+        elapsed = time.time() - start
+        print(f"done ({elapsed:.1f}s)")
+
+        if new_output.get("_error"):
+            print(f"  Replay: FAILED — {new_output['_error']}")
+            results.append({"fixture": path, "role": role, "structural_passed": False, "detail": new_output["_error"]})
+            continue
+
+        # Phase 2: Structural check
+        struct = structural_check(fixture, new_output)
+        status = "PASS" if struct["passed"] else "FAIL"
+        print(f"  Structural: {status} ({struct['detail']})")
+
+        # Phase 3: Comparison output for subagent evaluation
+        comparison = format_comparison(fixture, new_output)
+        print(f"  Comparison:\n{comparison}")
+
+        results.append({
+            "fixture": path,
+            "role": role,
+            "structural_passed": struct["passed"],
+            "detail": struct["detail"],
+        })
+
+    return results
+
+
+def main():
+    if len(sys.argv) < 2:
+        print(
+            "Usage: python3 scripts/validate_prompt.py tests/fixtures/ep42_*.json",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    fixture_paths = sys.argv[1:]
+
+    for p in fixture_paths:
+        if not Path(p).exists():
+            print(f"ERROR: Fixture not found: {p}", file=sys.stderr)
+            sys.exit(1)
+
+    from zorkburr.config import GameConfig
+    from zorkburr.llm.client import create_llm_client
+
+    config = GameConfig()
+    client = create_llm_client(config)
+
+    print(f"Validating {len(fixture_paths)} fixtures...")
+    results = validate_fixtures(fixture_paths, client, config)
+
+    # Summary
+    struct_passed = sum(1 for r in results if r["structural_passed"])
+    total = len(results)
+    failed = [r for r in results if not r["structural_passed"]]
+
+    print(f"\nSTRUCTURAL RESULTS: {struct_passed}/{total} passed", end="")
+    if failed:
+        print(f", {len(failed)} FAILED")
+        for r in failed:
+            print(f"  FAILED: {Path(r['fixture']).name} [{r['role']}] — {r['detail']}")
+        sys.exit(1)
+    else:
+        print(" — all structural checks passed")
+        print("\nReview the comparison output above to judge whether the prompt change")
+        print("genuinely addresses the diagnosed problem and doesn't degrade healthy turns.")
+        sys.exit(0)
+
+
+if __name__ == "__main__":
+    main()
