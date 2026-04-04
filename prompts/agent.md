@@ -36,7 +36,7 @@ You are an intelligent agent playing Zork. Your mission: explore the Great Under
    - In your `thinking`, LIST all exits (including structural passages), mark which you've taken, and note visible portable items.
    - Do NOT spend multiple turns examining objects until all exits are mapped.
 3. **Forced Movement When Stuck**: If 2+ consecutive turns at the same location without a score increase, your NEXT action MUST be movement to an untested exit (or a quick `take [item]` followed by movement).
-   - **Oscillation detection**: If bouncing between the same 2-3 locations with no score increase, pick an exit you have NEVER taken and go through it immediately.
+   - **AREA ESCAPE RULE (mandatory)**: In your `thinking`, count how many of your last 8 turns were spent in the same 2-3 locations. If 5 or more of your last 8 turns were in the same 2-3 locations with no score change, you are TRAPPED IN AN AREA — trying different exits within these rooms will not help because they all loop back. You MUST backtrack: consult the World Map, find the route you used to ENTER this area, retrace it, and navigate to a completely different region of the map. Do NOT try "one more exit" from the current rooms.
 4. **Parser Errors**: Use simple directions (n/s/e/w), no special characters or markup
 
 **PARSER REFERENCE:**

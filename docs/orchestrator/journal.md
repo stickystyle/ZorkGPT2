@@ -224,3 +224,90 @@ Started: 2026-03-30
 **Result:** PENDING
 
 ---
+
+## Episode 59 — COMPLETE (killed at turn 70)
+**Turns:** 70
+**Final score:** 40/350 (peak 40, achieved at turn 19 — FASTEST EVER)
+**Locations visited:** 19 unique
+**Objectives found:** 15
+**End reason:** early_stop (manual kill — 28-turn navigation loop + hallucinated combat)
+**Improvement dispatched:** yes
+
+**Key achievements:**
+  - FASTEST SCORING EVER: 40 points by turn 19 (house t6, cellar t15, troll t18)
+  - "turn bolt with wrench" attempted at t41 (correct command, 2nd time across all episodes) — but no wrench in inventory
+  - Took wrench at t44 — first time agent acquired wrench
+  - 19 locations visited (strong exploration turns 1-40)
+
+**Key issues:**
+  1. **Dam Lobby ↔ Maintenance oscillation (28 turns, t42-70)**: Agent has wrench, wants to reach Dam, but every direction from Dam Lobby (north, south, east, west) leads to Maintenance_. Map says south→Dam but game disagrees. Agent never tried backtracking to approach Dam from Reservoir_South (northeast→Dam). Permanent obstacle rule doesn't cover MOVEMENT oscillation — only same-target interaction.
+  2. **Hallucinated combat (turns 64-70)**: Agent interpreted sword glow as "active enemy" and started attacking air in Maintenance Room. Spent 7 turns on combat verbs against nonexistent enemy. Critic gave 0.80 to first "attack enemy with sword" (combat gate failed).
+  3. **KB update**: Not evaluated — episode killed before KB update turn.
+
+**Root cause analysis:**
+The permanent obstacle rule (ep35→36) caps attempts on the same OBJECT at 5. But the Dam Lobby oscillation involves different DIRECTIONS (north, south, east, west) — each looks like a new approach, so the cap never triggers. The agent also doesn't recognize when it's been bouncing between 2 locations for 10+ turns and should abandon the AREA entirely. Need a location-oscillation escape heuristic in the agent prompt.
+
+| Episode | Score | vs Prev | Best So Far | Turns to 1st Score | Locations | KB Quality | End Reason |
+|---------|-------|---------|-------------|-------------------|-----------|------------|------------|
+| ep48 | 40 | +40 | 54 | 7 | 19 | clean | max_turns! |
+| ep49 | 10 | -30 | 54 | 11 | 14 | degraded | killed t50 |
+| ep50 | 10 | 0 | 54 | 22 | 10 | degraded | killed t38 |
+| ep51 | 25(35) | +15 | 54 | 5 | 10 | restored | death t24 |
+| ep52 | 30(40) | +5 | 54 | 7 | 15 | clean | death t38 |
+| ep53 | 25(35) | -5 | 54 | 5 | 7 | clean | death t22 |
+| ep54 | 30(40) | +5 | 54 | 6 | 16 | clean | death t80 |
+| ep55 | 15 | -15 | 54 | 6 | 11 | clean | killed t50 |
+| ep56 | 0 | -15 | 54 | — | 5 | clean | killed t30 |
+| ep57 | 0 | 0 | 54 | — | 4 | clean | killed t14 |
+| ep58 | 30(40) | +30 | 54 | 5 | 21 | clean | death t94 |
+| ep59 | 40 | +10 | 54 | 6 | 19 | clean | killed t70 |
+
+**Trend:** ep59 had the fastest early game ever (40 by t19) and confirms the critic fix holds. Score ceiling remains at 40 — agent reliably reaches this within 25 turns now. The bottleneck is post-40: agent gets stuck in navigation loops instead of progressing. Dam Lobby oscillation is a new failure mode not covered by the permanent obstacle rule. Best score unchanged at 54 (ep37, API model).
+
+---
+
+## Episode 59 — Turn 50 Checkpoint
+**Type:** CONCERN — score stagnant, agent stuck in Dam Lobby ↔ Maintenance oscillation
+**Score:** 40/350 (delta: 0 since turn 25 — stagnant)
+**Locations visited (t26-50):** 10 unique (Loud_, Damp_Cave, White_Cliffs_Beach, Round_, North-South_Passage, Chasm, Reservoir_South, Dam, Dam_Lobby, Maintenance_)
+**Avg critic score:** 0.66 (HEALTHY — best turn 26-50 block ever)
+**Rejection rate:** 6/25 (24%) — HEALTHY
+**Gameplay quality:** DRIFTING
+  - Memory use: Agent references memories for underground navigation, moderate
+  - KB alignment: KB says "turn bolt with wrench operates sluice gate mechanism". Agent tried at t41 (correct verb!) but didn't have wrench yet. Took wrench at t44. Then oscillated instead of returning to Dam.
+  - Objective quality: 15 total, some well-formed ("Turn the bolt with the wrench at the Dam"), some vague/duplicate (2× Chasm lantern). 10/15 well-formed.
+  - Objective pursuit: Agent has objective "turn bolt with wrench at Dam" but can't find Dam from Dam Lobby — goes north (→Maintenance) instead of south (→Dam). 9-turn oscillation.
+  - Learning system quality: KB good, agent reads it. Problem is navigation reasoning, not KB.
+  - Pathfinding: MISREADING MAP — Agent at Dam Lobby keeps going north (→Maintenance) thinking it leads to Dam. Map shows Dam Lobby south→Dam. Agent never tries south. 9-turn oscillation (t42-50). Also: Damp Cave ↔ White Cliffs Beach oscillation t27-33 (7 turns).
+**Triggers:** Score stagnant (first checkpoint, need 2 consecutive). Approaching stuck loop threshold (9 turns, threshold 10). Pathfinding misreading (agent states nav goal but movement goes wrong direction).
+**Notes:** "turn bolt with wrench" attempted at t41 — correct command, SECOND time across all episodes. But agent didn't have wrench (took at t44). Now has wrench but can't navigate Dam Lobby→Dam (south exit). Agent's reasoning at t45-49 shows it keeps trying "north" from Dam Lobby. The map shows south→Dam but agent's reasoning says "move north to Dam." Two oscillation episodes (Damp Cave 7 turns, Dam Lobby 9 turns) suggest the permanent obstacle rule doesn't trigger for movement oscillation — only for same-target interaction. Monitoring to t75.
+
+---
+
+## Episode 59 — Turn 25 Checkpoint
+**Type:** HEALTHY — fastest scoring ever (40 by turn 19)
+**Score:** 40/350 (delta: +40 from start — best turn-25 score ever)
+**Locations visited:** 11 unique (West_House, North_House, Behind_House, Kitchen, Living_, Cellar, Troll_, East-West_Passage, Chasm, Reservoir_South, Deep_Canyon)
+**Avg critic score:** 0.60 (HEALTHY)
+**Rejection rate:** 7/25 (28%) — below 30% threshold
+**Gameplay quality:** LEARNING
+  - Memory use: Agent reasoning explicitly references memories at Cellar ("Memories confirm troll can be defeated using elvish sword"), Chasm ("sword is glowing faintly blue, Memories indicate danger or treasure nearby"). Strong.
+  - KB alignment: Agent followed KB path exactly: house entry→sword+lantern→move rug→trap door→cellar→light lantern→troll→underground. Perfect sequence.
+  - Objective quality: 8 total, all well-formed with specific locations and items (8/8 well-formed)
+  - Objective pursuit: Agent pursuing underground exploration objectives, reached Reservoir South and Deep Canyon
+  - Learning system quality: KB rich with score changes and puzzle mechanics. Strategic content >80%. Agent explicitly reading KB before acting.
+  - Pathfinding: NAVIGATING (with map data issues) — Agent followed correct route house→cellar→troll→underground. 8+ MAP_MISMATCH tags in pathfinding trace suggest location ID tracking issues in map graph, but agent navigates correctly despite them.
+**Triggers:** None — all metrics healthy. MAP_MISMATCH count (8+) meets the 3+ threshold but is NOT causing navigation failures — agent reaches all intended destinations.
+**Notes:** BEST TURN-25 EVER. Score 40 by t19 (house t6, cellar t15, troll killed t18). Previous best: 40 by t25 (ep54) or 15 by t14 (ep35). "move rug" still gets -0.70/3 rejections (t13) — known residual issue. Agent now in Deep Canyon heading toward Dam area — monitoring for "turn bolt with wrench" attempt and KB update success.
+
+---
+
+## Episode 59 → 60 — IMPROVEMENT
+**Trigger:** Agent oscillated between Dam Lobby and Maintenance for 28 turns (t42-70) with no score change, then hallucinated combat for 7 turns (t64-70). Existing oscillation detection (line 39 of agent.md) says "pick an exit you have NEVER taken" — but when all exits from a 2-room cluster loop back to the same rooms, there is no untaken exit. The permanent obstacle rule only covers same-object interaction, not movement oscillation.
+**Hypothesis:** The agent lacks a threshold-based area escape heuristic. It detects oscillation but its only remedy ("try an untaken exit") fails in tight room clusters where all exits are circular. The agent needs to recognize when it's trapped in an AREA (not just a room) and backtrack to a completely different region using the World Map. The 28-turn oscillation would have been broken at turn 5-6 if the agent had counted recent location visits and triggered a backtrack.
+**Change:** Modified `prompts/agent.md` — replaced the weak "Oscillation detection" sub-rule with a stronger "AREA ESCAPE RULE (mandatory)". The new rule instructs the agent to count, in its `thinking`, how many of its last 8 turns were spent in the same 2-3 locations. If 5+ of the last 8 turns are in the same cluster with no score change, the agent must consult the World Map, find the route it used to enter the area, retrace it, and navigate to a completely different region. Explicitly prohibits "trying one more exit" from the trapped rooms.
+**Reasoning:** The counting mechanism gives the agent a concrete, verifiable threshold (5/8 turns) instead of the vague "if bouncing between." Requiring backtrack via World Map instead of "try untaken exit" addresses the root cause: all local exits are circular, so the solution must be non-local. The rule is game-agnostic (applies to any text adventure with room clusters) and teaches reasoning (how to detect and escape loops) rather than strategy (what to do at the Dam).
+**Target metric:** Agent should escape 2-room oscillation loops within 5 turns (currently 28+). Score should not stagnate for 25+ consecutive turns due to navigation loops.
+**Result:** PENDING
+
+---
