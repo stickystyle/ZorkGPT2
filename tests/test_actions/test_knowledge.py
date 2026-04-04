@@ -10,6 +10,19 @@ def _mock_config(**kwargs):
     return MagicMock(**defaults)
 
 
+def _mock_client_with_raw(response_content="insights"):
+    """Create a mock client that supports raw_client_for()."""
+    mock_client = MagicMock()
+    mock_raw = MagicMock()
+    mock_response = MagicMock()
+    mock_response.choices = [MagicMock()]
+    mock_response.choices[0].message.content = response_content
+    mock_raw.chat.completions.create.return_value = mock_response
+    # raw_client_for returns (raw_openai_client, stripped_model_name)
+    mock_client.raw_client_for.return_value = (mock_raw, "test")
+    return mock_client, mock_raw
+
+
 def _base_state():
     return State({
         S.KNOWLEDGE_BASE: "",
@@ -21,13 +34,7 @@ def _base_state():
 
 
 def test_update_knowledge_synthesizes():
-    mock_client = MagicMock()
-    mock_raw = MagicMock()
-    mock_client.client = mock_raw
-    mock_response = MagicMock()
-    mock_response.choices = [MagicMock()]
-    mock_response.choices[0].message.content = "## Strategic Insights\n- The mailbox contains a leaflet\n"
-    mock_raw.chat.completions.create.return_value = mock_response
+    mock_client, _ = _mock_client_with_raw("## Strategic Insights\n- The mailbox contains a leaflet\n")
 
     _, new_state = update_knowledge.run(
         _base_state(), client=mock_client, config=_mock_config(), use_thinking=False
@@ -37,7 +44,10 @@ def test_update_knowledge_synthesizes():
 
 def test_update_knowledge_fallback_on_error():
     mock_client = MagicMock()
-    mock_client.client.chat.completions.create.side_effect = Exception("API error")
+    mock_raw = MagicMock()
+    mock_raw.chat.completions.create.side_effect = Exception("API error")
+    mock_client.raw_client_for.return_value = (mock_raw, "test")
+
     state = State({
         S.KNOWLEDGE_BASE: "existing",
         S.ACTION_HISTORY: [], S.DISCOVERED_OBJECTIVES: [],
@@ -52,13 +62,7 @@ def test_update_knowledge_fallback_on_error():
 
 
 def test_update_knowledge_extra_body_for_local():
-    mock_client = MagicMock()
-    mock_raw = MagicMock()
-    mock_client.client = mock_raw
-    mock_response = MagicMock()
-    mock_response.choices = [MagicMock()]
-    mock_response.choices[0].message.content = "insights"
-    mock_raw.chat.completions.create.return_value = mock_response
+    mock_client, mock_raw = _mock_client_with_raw()
 
     update_knowledge.run(
         _base_state(), client=mock_client, config=_mock_config(use_local_models=True), use_thinking=True
@@ -69,13 +73,7 @@ def test_update_knowledge_extra_body_for_local():
 
 
 def test_update_knowledge_no_extra_body_on_openrouter():
-    mock_client = MagicMock()
-    mock_raw = MagicMock()
-    mock_client.client = mock_raw
-    mock_response = MagicMock()
-    mock_response.choices = [MagicMock()]
-    mock_response.choices[0].message.content = "insights"
-    mock_raw.chat.completions.create.return_value = mock_response
+    mock_client, mock_raw = _mock_client_with_raw()
 
     update_knowledge.run(
         _base_state(), client=mock_client, config=_mock_config(use_local_models=False), use_thinking=True

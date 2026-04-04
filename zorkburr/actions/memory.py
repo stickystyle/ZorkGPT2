@@ -8,7 +8,7 @@ from zorkburr.actions import action
 from zorkburr.actions.episode import persist_memories
 from burr.core import State
 from zorkburr.config import GameConfig
-from zorkburr.llm.client import effective_model, thinking_kwargs
+from zorkburr.llm.client import thinking_kwargs
 from zorkburr.llm.models import MemorySynthesisResponse
 from zorkburr.llm.prompts import load_prompt
 from zorkburr.state import S
@@ -76,14 +76,14 @@ def record_memory(state: State, client: instructor.Instructor, config: GameConfi
 
     try:
         response: MemorySynthesisResponse = client.create(
-            model=effective_model(config, config.memory_model),
+            model=config.memory_model,
             response_model=MemorySynthesisResponse,
             messages=[
                 {"role": "system", "content": _get_synthesis_prompt()},
                 {"role": "user", "content": context},
             ],
             temperature=0.5, max_tokens=512, max_retries=2,
-            **thinking_kwargs(config, False),
+            **thinking_kwargs(config, config.memory_model, False),
         )
         if response.should_remember:
             all_mems = dict(state[S.MEMORIES_BY_LOCATION])

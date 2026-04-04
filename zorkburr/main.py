@@ -9,7 +9,7 @@ from zorkburr.actions.episode import finalize_episode, initialize_episode
 from zorkburr.app import build_turn_app
 from zorkburr.config import GameConfig
 from zorkburr.game.jericho_interface import JerichoInterface
-from zorkburr.llm.client import create_llm_client
+from zorkburr.llm.client import create_llm_client, _has_remote_roles
 from zorkburr.llm.llama_server import LlamaServer
 from zorkburr.state import S
 
@@ -95,6 +95,12 @@ def main():
         not config.openrouter_api_key or config.openrouter_api_key == "your-key-here"
     ):
         print("Set OPENROUTER_API_KEY in .env (or set use_local_models = true)")
+        sys.exit(1)
+
+    if config.use_local_models and _has_remote_roles(config) and (
+        not config.openrouter_api_key or config.openrouter_api_key == "your-key-here"
+    ):
+        print("Hybrid mode: remote/ models need OPENROUTER_API_KEY in .env")
         sys.exit(1)
 
     if config.use_local_models:

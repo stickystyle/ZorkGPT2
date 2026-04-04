@@ -9,7 +9,7 @@ from zorkburr.actions.episode import persist_knowledge
 from burr.core import State
 from zorkburr.config import GameConfig
 from zorkburr.state import S
-from zorkburr.llm.client import effective_model, thinking_kwargs
+from zorkburr.llm.client import thinking_kwargs
 from zorkburr.llm.prompts import load_prompt
 
 logger = logging.getLogger(__name__)
@@ -128,13 +128,13 @@ def update_knowledge(state: State, client: instructor.Instructor, config: GameCo
         f"Existing knowledge:\n{existing or '(none yet)'}\n\nRecent gameplay:\n{action_summary}"
     )
     try:
-        raw_client = client.client
+        raw_client, model = client.raw_client_for(config.analysis_model)
         response = raw_client.chat.completions.create(
-            model=effective_model(config, config.analysis_model),
+            model=model,
             messages=[{"role": "system", "content": _get_knowledge_prompt()}, {"role": "user", "content": user_msg}],
             temperature=0.7, max_tokens=1024,
             timeout=config.llm_request_timeout,
-            **thinking_kwargs(config, False),
+            **thinking_kwargs(config, config.analysis_model, False),
         )
         llm_output = response.choices[0].message.content or ""
 

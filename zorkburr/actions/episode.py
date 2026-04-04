@@ -259,7 +259,7 @@ def consolidate_location(
     config: GameConfig,
 ) -> tuple[list[dict], dict]:
     """Run consolidation LLM on one location's memories. Returns (updated_memories, stats)."""
-    from zorkburr.llm.client import effective_model, thinking_kwargs
+    from zorkburr.llm.client import thinking_kwargs
 
     # Build context: all memories with status markers
     mem_lines = []
@@ -274,14 +274,14 @@ def consolidate_location(
     )
 
     response: ConsolidationResponse = client.create(
-        model=effective_model(config, config.analysis_model),
+        model=config.analysis_model,
         response_model=ConsolidationResponse,
         messages=[
             {"role": "system", "content": _get_consolidation_prompt()},
             {"role": "user", "content": context},
         ],
         temperature=0.3, max_tokens=2048, max_retries=2,
-        **thinking_kwargs(config, False),
+        **thinking_kwargs(config, config.analysis_model, False),
     )
 
     return apply_consolidation_actions(memories, response.actions)

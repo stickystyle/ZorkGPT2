@@ -5,7 +5,7 @@ import instructor
 from burr.core import action, State
 from langfuse import observe
 from zorkburr.config import GameConfig
-from zorkburr.llm.client import effective_model, thinking_kwargs
+from zorkburr.llm.client import thinking_kwargs
 from zorkburr.llm.models import AgentResponse
 from zorkburr.llm.prompts import load_prompt
 from zorkburr.state import S
@@ -54,13 +54,13 @@ def generate_action(state: State, client: instructor.Instructor, config: GameCon
 
     try:
         response: AgentResponse = client.create(
-            model=effective_model(config, config.agent_model),
+            model=config.agent_model,
             response_model=AgentResponse,
             messages=messages,
             temperature=config.default_temperature,
             max_tokens=1024,
             max_retries=3,
-            **thinking_kwargs(config, use_thinking),
+            **thinking_kwargs(config, config.agent_model, use_thinking),
         )
         action_text = clean_action(response.action)
         reasoning = response.thinking

@@ -4,8 +4,8 @@ from zorkburr.config import GameConfig
 def test_load_config_from_toml():
     config = GameConfig()
     assert config.max_turns_per_episode == 1000
-    # agent_model comes from pyproject.toml [tool.zorkburr] when use_local_models=true
-    assert config.agent_model == "mistralai/ministral-3-14b-reasoning"
+    # agent_model comes from pyproject.toml [tool.zorkburr]
+    assert config.agent_model == "remote/google/gemma-4-31b-it"
     assert config.enable_critic is True
     assert config.critic_rejection_threshold == 0.3
     assert config.game_file == "roms/zork1.z5"
