@@ -455,6 +455,36 @@ When an improvement is needed:
    ```
    This shows every pipeline step for that turn: what the agent saw, thought, proposed, what the critic scored, what Jericho returned, what was learned. Use this before dispatching an improvement subagent to build precise evidence.
 
+2.5. **Extract validation fixtures** — Before dispatching the subagent, extract turn state for the problematic turns plus 2-3 healthy turns. Select the action type based on which prompt needs changing:
+
+   | Prompt file | Action to extract |
+   |---|---|
+   | `agent.md` | `generate_action` |
+   | `critic.md` | `evaluate_action` |
+   | `memory_synthesis.md` | `record_memory` |
+   | `knowledge.md` | `update_knowledge` |
+   | `extractor.md` | `extract_info` |
+   | `objective_discovery.md` | `update_objectives` |
+   | `objective_completion.md` | `check_objective_completion` |
+
+   ```bash
+   # Problem turns (3-5 from your diagnosis — the specific turns exhibiting the problem)
+   python3 scripts/extract_fixtures.py {app_id} --turns {problem_turns} \
+     --action {action_type} --role problem \
+     --description "{one-line problem description}"
+
+   # Healthy turns (2-3 turns with critic score > 0.6 and zero rejections)
+   python3 scripts/extract_fixtures.py {app_id} --turns {healthy_turns} \
+     --action {action_type} --role healthy
+   ```
+
+   Verify extraction succeeded (fixture files printed to stdout). If Burr tracker is down or turns are missing, you MUST get fixtures before dispatching — restart Burr or use a different episode's data.
+
+   **Fixture cleanup:** Before extracting, remove fixtures from old episodes:
+   ```bash
+   find tests/fixtures -name "*.json" -mtime +7 -delete 2>/dev/null
+   ```
+
 3. **Dispatch a general-purpose subagent using Opus** (prompt engineering requires judgment — use the most capable model) with this brief (fill in all `<>` placeholders):
 
    ```
@@ -535,6 +565,37 @@ When an improvement is needed:
 
    Return a 2-3 sentence summary: what file you changed, what you changed, and what
    improvement you expect to see.
+
+   VALIDATION REQUIREMENT (HARD BLOCK):
+   After making your change, you MUST validate it against recorded game data
+   before committing.
+
+   Fixture files have been extracted to tests/fixtures/. Run:
+
+     python3 scripts/validate_prompt.py tests/fixtures/{episode}_*.json
+
+   This replays the problematic turns (and healthy regression anchors) through
+   your updated prompt with a live LLM call, then checks the output.
+
+   The script performs two checks:
+   1. STRUCTURAL CHECKS (automated): Verifies outputs are valid, non-fallback,
+      and different from the original for problem fixtures. If these fail, the
+      script exits with code 1 — iterate on your change and re-run.
+   2. COMPARISON OUTPUT (you judge): The script prints original vs new output
+      side-by-side. YOU must evaluate whether the new outputs genuinely address
+      the diagnosed problem and don't degrade healthy turns.
+
+   Rules:
+   - ALL structural checks must pass (exit code 0) for you to commit.
+   - You must read the comparison output and confirm the change is an improvement.
+   - If validation fails: iterate on your change and re-run. You have up to
+     3 attempts. If all 3 fail, revert your change and report back with the
+     full validation output so the orchestrator can reassess the diagnosis.
+   - Do NOT skip validation. Do NOT commit with failures.
+   - Include the validation output summary in your journal IMPROVEMENT entry
+     as a new field:
+       **Validation:** PASSED (5/5 structural) — <your quality judgment summary>
+       or: FAILED (3/5 structural) — <details>
    ```
 
 4. **Escalation rule — 3 strikes on the same root cause:**
@@ -565,6 +626,7 @@ When an improvement is needed:
    | Authorized files only | Only `prompts/`, `pyproject.toml` config, and `docs/orchestrator/journal.md` should be modified — unless the brief explicitly authorized Python fixes (escalation rule). |
    | Journal entry written | An IMPROVEMENT entry was appended with all required fields (Trigger, Hypothesis, Change, Reasoning, Target metric, Result: PENDING). |
    | Commit message follows convention | `feat(orchestrator): ep<N>→<N+1> — <description>` |
+   | Validation passed | `validate_prompt.py` structural checks exited 0, journal entry shows **Validation:** with pass count and quality judgment. If validation missing or failed → revert and re-dispatch. |
 
    **If any check fails:** `git revert HEAD --no-edit`, note the failure in the journal, and re-dispatch with a corrected brief that explicitly calls out what went wrong.
 
