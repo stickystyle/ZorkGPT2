@@ -16,8 +16,6 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from burr.core import State
 from extract_fixtures import ACTION_SCHEMA
-from zorkburr.llm.client import effective_model, thinking_kwargs
-
 
 def _get_action_runner(action_type):
     """Import and return the .run() method for an action type."""
@@ -143,55 +141,44 @@ def structural_check(fixture, new_output):
     return {"passed": True, "detail": "No structural checks for this action type"}
 
 
-JUDGE_SYSTEM_PROMPT = """\
-You are evaluating whether a prompt change improved an AI game agent's output.
+def format_comparison(fixture, new_output):
+    """Format original vs new output for human/LLM review.
 
-You will be given:
-- PROBLEM DESCRIPTION: What was wrong with the original output
-- ORIGINAL OUTPUT: What the agent produced before the prompt change
-- NEW OUTPUT: What the agent produced after the prompt change
-- ROLE: "problem" (this turn was broken and should improve) or "healthy" (this turn was fine and should not degrade)
-
-For PROBLEM turns: Did the new output address the diagnosed problem? Is it meaningfully better?
-For HEALTHY turns: Is the new output at least as good as the original? Did quality degrade?
-
-Respond with exactly one line starting with PASS or FAIL, followed by a colon and a brief justification (one sentence).
-Examples:
-  PASS: The new output references location memories and avoids redundant exploration.
-  FAIL: The agent still ignores available memories despite the prompt change.
-"""
-
-
-def judge_fixture(fixture, new_output, client, config):
-    """Use an LLM to judge whether the new output is better than the original.
-
-    Returns {"passed": bool, "detail": str}.
+    Returns a readable string the calling subagent (Claude) can evaluate.
     """
     meta = fixture["meta"]
     original = fixture["original_output"]
+    action_type = fixture["action_type"]
 
-    user_msg = (
-        f"ROLE: {meta['role']}\n\n"
-        f"PROBLEM DESCRIPTION: {meta.get('problem_description', 'N/A')}\n\n"
-        f"ORIGINAL OUTPUT:\n{json.dumps(original, indent=2, default=str)}\n\n"
-        f"NEW OUTPUT:\n{json.dumps(new_output, indent=2, default=str)}"
-    )
+    lines = [
+        f"  Role: {meta['role'].upper()}",
+    ]
+    if meta.get("problem_description"):
+        lines.append(f"  Problem: {meta['problem_description']}")
 
-    try:
-        raw_client = client.client
-        response = raw_client.chat.completions.create(
-            model=effective_model(config, config.analysis_model),
-            messages=[
-                {"role": "system", "content": JUDGE_SYSTEM_PROMPT},
-                {"role": "user", "content": user_msg},
-            ],
-            temperature=0.0,
-            max_tokens=128,
-            timeout=config.llm_request_timeout,
-            **thinking_kwargs(config, False),
-        )
-        verdict = (response.choices[0].message.content or "").strip()
-        passed = verdict.upper().startswith("PASS")
-        return {"passed": passed, "detail": verdict}
-    except Exception as e:
-        return {"passed": False, "detail": f"Judge error: {e}"}
+    # Show the most relevant fields based on action type
+    if action_type == "generate_action":
+        lines.append(f"  Original action: {original.get('proposed_action', '?')}")
+        lines.append(f"  New action:      {new_output.get('proposed_action', '?')}")
+        orig_reason = (original.get("agent_reasoning") or "")[:300]
+        new_reason = (new_output.get("agent_reasoning") or "")[:300]
+        lines.append(f"  Original reasoning: {orig_reason}")
+        lines.append(f"  New reasoning:      {new_reason}")
+    elif action_type == "evaluate_action":
+        lines.append(f"  Original score: {original.get('critic_score', '?')}")
+        lines.append(f"  New score:      {new_output.get('critic_score', '?')}")
+        lines.append(f"  Original justification: {(original.get('critic_justification') or '')[:200]}")
+        lines.append(f"  New justification:      {(new_output.get('critic_justification') or '')[:200]}")
+    elif action_type == "record_memory":
+        lines.append(f"  Original memories: {json.dumps(original.get('memories_by_location', {}), default=str)[:300]}")
+        lines.append(f"  New memories:      {json.dumps(new_output.get('memories_by_location', {}), default=str)[:300]}")
+    elif action_type == "update_knowledge":
+        orig_kb = (original.get("knowledge_base") or "")[:300]
+        new_kb = (new_output.get("knowledge_base") or "")[:300]
+        lines.append(f"  Original KB ({len(original.get('knowledge_base', ''))} chars): {orig_kb}")
+        lines.append(f"  New KB ({len(new_output.get('knowledge_base', ''))} chars):      {new_kb}")
+    else:
+        lines.append(f"  Original: {json.dumps(original, default=str)[:300]}")
+        lines.append(f"  New:      {json.dumps(new_output, default=str)[:300]}")
+
+    return "\n".join(lines)
