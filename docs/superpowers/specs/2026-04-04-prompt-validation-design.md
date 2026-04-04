@@ -114,27 +114,35 @@ python3 scripts/validate_prompt.py tests/fixtures/ep42_*.json
 - `extract_info`: exits list is present.
 - All types: no exception/fallback occurred during replay.
 
-*LLM judge* (one call per fixture):
-- Input: `problem_description` (from meta), `original_output`, `new_output`, `role`
-- For **problem** fixtures: "Given this diagnosed problem, did the new output address it? Is it better than the original?"
-- For **healthy** fixtures: "Is the new output at least as good as the original? Did quality degrade?"
-- Output: PASS or FAIL with a one-sentence justification
-- The judge uses the same local LLM client
+*Quality judgment* (by the improvement subagent — Claude):
+The script prints structured comparison output (original vs new) for each fixture. The improvement subagent (which is a Claude Opus instance) reads this output and judges whether the change genuinely addresses the diagnosed problem. This is better than having the local model judge its own output quality.
 
 **Output format:**
 ```
 FIXTURE ep42_t37_generate_action.json [PROBLEM]
-  Structural: PASS (action changed from 'examine mailbox' to 'go north')
-  Judge: PASS — new output references location memories and avoids redundant exploration
+  Replaying ep42_t37 generate_action... done (2.3s)
+  Structural: PASS (Action: 'go north')
+  Comparison:
+    Role: PROBLEM
+    Problem: Agent ignored location memories
+    Original action: examine mailbox
+    New action:      go north
+    Original reasoning: check the mailbox
+    New reasoning:      I recall from prior visits that the mailbox has been opened...
 
 FIXTURE ep42_t12_generate_action.json [HEALTHY]
-  Structural: PASS
-  Judge: PASS — output quality maintained
+  Replaying ep42_t12 generate_action... done (1.8s)
+  Structural: PASS (Action: 'open window')
+  Comparison:
+    Role: HEALTHY
+    Original action: open window
+    New action:      open window
+    ...
 
-RESULT: 5/5 PASSED — validation successful
+STRUCTURAL RESULTS: 5/5 passed — all structural checks passed
 ```
 
-**Exit code:** 0 = all pass, 1 = any failure.
+**Exit code:** 0 = all structural checks pass, 1 = any structural failure. The subagent evaluates quality from the comparison output.
 
 **Special case — critic:** `evaluate_action` also uses Jericho for object-tree validation. The validation script passes a mock Jericho that auto-passes object-tree checks (returns `(True, "mock auto-pass")` from `validate_against_object_tree`). This isolates the LLM critic evaluation, which is the part affected by prompt changes. Object-tree validation is deterministic Python code — not affected by prompt edits.
 
