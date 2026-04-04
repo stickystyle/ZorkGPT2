@@ -101,3 +101,52 @@ def test_structural_check_replay_error():
     result = structural_check(fixture, new_output)
     assert result["passed"] is False
     assert "Connection refused" in result["detail"]
+
+
+def test_judge_problem_pass():
+    from validate_prompt import judge_fixture
+
+    mock_client = MagicMock()
+    mock_response = MagicMock()
+    mock_response.choices = [MagicMock()]
+    mock_response.choices[0].message.content = "PASS: The new output addresses the memory issue."
+    mock_client.client.chat.completions.create.return_value = mock_response
+
+    fixture = _make_fixture(role="problem")
+    new_output = {"proposed_action": "north", "agent_reasoning": "I recall this area", "next_steps": "", "new_objective": ""}
+    mock_config = MagicMock(analysis_model="test", use_local_models=False, local_model="test", llm_request_timeout=60)
+
+    result = judge_fixture(fixture, new_output, client=mock_client, config=mock_config)
+    assert result["passed"] is True
+
+
+def test_judge_problem_fail():
+    from validate_prompt import judge_fixture
+
+    mock_client = MagicMock()
+    mock_response = MagicMock()
+    mock_response.choices = [MagicMock()]
+    mock_response.choices[0].message.content = "FAIL: The agent still ignores location memories."
+    mock_client.client.chat.completions.create.return_value = mock_response
+
+    fixture = _make_fixture(role="problem")
+    new_output = {"proposed_action": "north", "agent_reasoning": "go north", "next_steps": "", "new_objective": ""}
+    mock_config = MagicMock(analysis_model="test", use_local_models=False, local_model="test", llm_request_timeout=60)
+
+    result = judge_fixture(fixture, new_output, client=mock_client, config=mock_config)
+    assert result["passed"] is False
+
+
+def test_judge_error_returns_fail():
+    from validate_prompt import judge_fixture
+
+    mock_client = MagicMock()
+    mock_client.client.chat.completions.create.side_effect = Exception("timeout")
+
+    fixture = _make_fixture(role="problem")
+    new_output = {"proposed_action": "north"}
+    mock_config = MagicMock(analysis_model="test", use_local_models=False, local_model="test", llm_request_timeout=60)
+
+    result = judge_fixture(fixture, new_output, client=mock_client, config=mock_config)
+    assert result["passed"] is False
+    assert "timeout" in result["detail"]

@@ -16,6 +16,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from burr.core import State
 from extract_fixtures import ACTION_SCHEMA
+from zorkburr.llm.client import effective_model, thinking_kwargs
 
 
 def _get_action_runner(action_type):
@@ -140,3 +141,57 @@ def structural_check(fixture, new_output):
         return {"passed": True, "detail": "Objectives step completed"}
 
     return {"passed": True, "detail": "No structural checks for this action type"}
+
+
+JUDGE_SYSTEM_PROMPT = """\
+You are evaluating whether a prompt change improved an AI game agent's output.
+
+You will be given:
+- PROBLEM DESCRIPTION: What was wrong with the original output
+- ORIGINAL OUTPUT: What the agent produced before the prompt change
+- NEW OUTPUT: What the agent produced after the prompt change
+- ROLE: "problem" (this turn was broken and should improve) or "healthy" (this turn was fine and should not degrade)
+
+For PROBLEM turns: Did the new output address the diagnosed problem? Is it meaningfully better?
+For HEALTHY turns: Is the new output at least as good as the original? Did quality degrade?
+
+Respond with exactly one line starting with PASS or FAIL, followed by a colon and a brief justification (one sentence).
+Examples:
+  PASS: The new output references location memories and avoids redundant exploration.
+  FAIL: The agent still ignores available memories despite the prompt change.
+"""
+
+
+def judge_fixture(fixture, new_output, client, config):
+    """Use an LLM to judge whether the new output is better than the original.
+
+    Returns {"passed": bool, "detail": str}.
+    """
+    meta = fixture["meta"]
+    original = fixture["original_output"]
+
+    user_msg = (
+        f"ROLE: {meta['role']}\n\n"
+        f"PROBLEM DESCRIPTION: {meta.get('problem_description', 'N/A')}\n\n"
+        f"ORIGINAL OUTPUT:\n{json.dumps(original, indent=2, default=str)}\n\n"
+        f"NEW OUTPUT:\n{json.dumps(new_output, indent=2, default=str)}"
+    )
+
+    try:
+        raw_client = client.client
+        response = raw_client.chat.completions.create(
+            model=effective_model(config, config.analysis_model),
+            messages=[
+                {"role": "system", "content": JUDGE_SYSTEM_PROMPT},
+                {"role": "user", "content": user_msg},
+            ],
+            temperature=0.0,
+            max_tokens=128,
+            timeout=config.llm_request_timeout,
+            **thinking_kwargs(config, False),
+        )
+        verdict = (response.choices[0].message.content or "").strip()
+        passed = verdict.upper().startswith("PASS")
+        return {"passed": passed, "detail": verdict}
+    except Exception as e:
+        return {"passed": False, "detail": f"Judge error: {e}"}
