@@ -610,25 +610,57 @@ When an improvement is needed:
      code in zorkburr/ that produces the broken behavior." Include the 3 failed hypotheses
      as evidence that the problem is upstream of prompts.
 
-5. **Review the change** before proceeding. After the subagent returns, read the full diff:
+5. **Review the change with a separate evaluator subagent.** The orchestrator should not judge its own dispatched work — the same context that formed the hypothesis biases the review. After the improvement subagent returns, dispatch a **second** general-purpose subagent (the evaluator) with this brief:
 
-   ```bash
-   git diff HEAD~1
+   ```
+   You are a skeptical code reviewer for the ZorkBurr project. Your ONLY job is to
+   evaluate a change made by another agent. You have no stake in this change succeeding.
+
+   THE CHANGE (run `git diff HEAD~1` to see the full diff):
+
+   IMPROVEMENT TYPE: <BLOCKER or INCREMENTAL>
+
+   ORIGINAL PROBLEM BRIEF (paste the problem description and evidence you gave to the
+   improvement subagent — so the reviewer knows what the change was supposed to fix):
+   <paste>
+
+   THE IMPROVEMENT SUBAGENT'S SUMMARY:
+   <paste the 2-3 sentence summary the improvement subagent returned>
+
+   Review the diff against this checklist. For each check, give a PASS/FAIL verdict
+   with a one-line justification:
+
+   1. NO GAME-SPECIFIC KNOWLEDGE — Prompt changes must teach reasoning strategies,
+      not game solutions. Any mention of specific items, locations, puzzle steps, or
+      walkthrough actions → FAIL.
+   2. ONE LOGICAL CHANGE (INCREMENTAL only) — Exactly one conceptual change. Multiple
+      lines/sections serving a single hypothesis is fine. Two unrelated tweaks → FAIL.
+   3. ALL CHANGES ARE INFRASTRUCTURE (BLOCKER only) — Every change must fix broken
+      infrastructure. Strategic prompt tweaks bundled into a BLOCKER fix → FAIL.
+   4. AUTHORIZED FILES ONLY — Only `prompts/`, `pyproject.toml` config, and
+      `docs/orchestrator/journal.md` should be modified — unless the brief explicitly
+      authorized Python fixes. Other files touched → FAIL.
+   5. JOURNAL ENTRY WRITTEN — An IMPROVEMENT entry was appended (not overwritten) with
+      all required fields: Trigger, Hypothesis, Change, Reasoning, Target metric,
+      Validation, Result: PENDING.
+   6. COMMIT MESSAGE FOLLOWS CONVENTION — `feat(orchestrator): ep<N>→<N+1> — <desc>`
+   7. VALIDATION PASSED — Journal entry shows **Validation:** with structural pass
+      count and quality judgment. Missing or failed → FAIL.
+   8. CHANGE ACTUALLY ADDRESSES THE PROBLEM — Does the diff plausibly fix what was
+      diagnosed? Or is it tangential / cargo-cult / a different change dressed up as
+      a fix? Be skeptical.
+
+   Return your verdict as:
+   - VERDICT: ACCEPT or REJECT
+   - Failed checks (if any): list them
+   - One-sentence rationale
+
+   If REJECT: do NOT revert anything — just report. The orchestrator will handle it.
    ```
 
-   Check against this list:
+   **If the evaluator returns REJECT:** `git revert HEAD --no-edit`, note the failure and the evaluator's rationale in the journal, and re-dispatch the improvement subagent with a corrected brief that explicitly calls out what went wrong.
 
-   | Check | What to look for |
-   |-------|-----------------|
-   | No game-specific knowledge | Prompt changes must teach reasoning strategies, not game solutions. Any mention of specific items, locations, puzzle steps, or walkthrough actions → **revert immediately**. |
-   | One logical change (INCREMENTAL) | If the improvement is INCREMENTAL, there should be exactly one conceptual change. Touching multiple lines/sections is fine if they serve a single hypothesis. Two unrelated tweaks → revert and re-dispatch with tighter scope. |
-   | All changes are infrastructure (BLOCKER) | If the improvement is BLOCKER, every change must genuinely fix broken infrastructure. Strategic prompt tweaks bundled into a BLOCKER fix → revert the strategic parts and re-dispatch them as a separate INCREMENTAL change next episode. |
-   | Authorized files only | Only `prompts/`, `pyproject.toml` config, and `docs/orchestrator/journal.md` should be modified — unless the brief explicitly authorized Python fixes (escalation rule). |
-   | Journal entry written | An IMPROVEMENT entry was appended with all required fields (Trigger, Hypothesis, Change, Reasoning, Target metric, Result: PENDING). |
-   | Commit message follows convention | `feat(orchestrator): ep<N>→<N+1> — <description>` |
-   | Validation passed | `validate_prompt.py` structural checks exited 0, journal entry shows **Validation:** with pass count and quality judgment. If validation missing or failed → revert and re-dispatch. |
-
-   **If any check fails:** `git revert HEAD --no-edit`, note the failure in the journal, and re-dispatch with a corrected brief that explicitly calls out what went wrong.
+   **If the evaluator returns ACCEPT:** proceed to the next episode.
 
 6. **Start the next episode** (increment episode counter, go to Phase 1).
 
