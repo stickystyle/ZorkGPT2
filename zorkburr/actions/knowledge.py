@@ -133,6 +133,7 @@ def update_knowledge(state: State, client: instructor.Instructor, config: GameCo
             model=effective_model(config, config.analysis_model),
             messages=[{"role": "system", "content": _get_knowledge_prompt()}, {"role": "user", "content": user_msg}],
             temperature=0.7, max_tokens=1024,
+            timeout=config.llm_request_timeout,
             **thinking_kwargs(config, False),
         )
         llm_output = response.choices[0].message.content or ""

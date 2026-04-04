@@ -1712,3 +1712,13 @@ The agent takes lantern but skips sword because:
 **Summary:** This session fixed the critic over-rejection problem that had been accumulating since ep7. Added positive score anchoring for fundamental actions (take, drop, light, examine) and mandatory combat state verification. Result: rejection rate dropped from 72% to 20% (best ever), agent took items with 0 rejections, combat approval now requires evidence. ep58 was the best exploration episode: 21 locations, 94 turns survived, first correct dam verb attempt. Score ceiling remains at 40 — dam puzzle and Loud Room are the next frontier. KB update timeout persists (5 episodes).
 
 ---
+
+## Episode 58 → 59 — IMPROVEMENT (BLOCKER)
+**Trigger:** KB update has timed out for 8 consecutive episodes (ep51-58). The `update_knowledge` function bypasses the `_TimedInstructor` wall-clock timeout wrapper and calls `raw_client.chat.completions.create()` directly — falling through to the httpx default socket timeout of 60s. Local model KB synthesis takes 5-15 minutes, so it always times out. Additionally, the KB contained poisoned entries recording "turn bolt with wrench" as a failed approach, when it is actually the correct dam puzzle command.
+**Hypothesis:** The KB update call has no explicit timeout parameter, so it inherits the httpx client default of 60s. This is insufficient for the local model to synthesize 25 turns of action history + existing KB. Passing `timeout=config.llm_request_timeout` (now 1200s) to the raw API call will allow the model enough time to complete.
+**Change:** (1) `zorkburr/actions/knowledge.py` — added `timeout=config.llm_request_timeout` to the `raw_client.chat.completions.create()` call. (2) `pyproject.toml` — increased `llm_request_timeout` from 600 to 1200 seconds. (3) `data/knowledge.md` — corrected poisoned KB entries: "turn bolt with wrench fails" → "operates sluice gate mechanism"; removed incorrect failed approach entries for wrench verbs; updated Unexplored Leads to note correct command.
+**Reasoning:** The timeout fix addresses the root cause (no timeout parameter on raw call). The KB cleanup removes poisoned data that would prevent the agent from retrying the correct dam puzzle command. Both are BLOCKER fixes — one prevents KB updates entirely, the other actively harms gameplay.
+**Target metric:** KB update should succeed (no "Request timed out" in next episode). Agent should attempt "turn bolt with wrench" when it reaches the Dam.
+**Result:** PENDING
+
+---
