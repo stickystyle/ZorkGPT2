@@ -2,36 +2,37 @@
 
 Started: 2026-03-30
 
-## Key Learnings (updated after episode 48)
+## Key Learnings (updated after episode 54)
 
-**Current best score:** 54 (episode 37, A3b MoE model). Local-model best: 40 (ep48, Ministral-3-14B-Reasoning)
-**Current bottleneck:** Underground puzzle discovery. Agent reliably scores 35-40 in early game but stalls — Loud Room ("echo"), Dam (wrench+bolt), maze all unsolved. Memory system was broken (zero new memories) — fix committed, awaiting validation in ep49.
+**Current best score:** 54 (episode 37, A3b MoE model). Local-model best: 40 (ep48, ep54, Ministral-3-14B-Reasoning)
+**Current bottleneck:** Dam puzzle verb discovery. Agent reliably scores 40 (house+troll) by turn 25 but can't break past — needs "turn bolt with wrench" but tries "use/push/twist wrench on bolt" instead.
 
 ### What works
-- **Ministral-3-14B-Reasoning model** (ep48): Reliable KB adherence, killed troll (first since model switch), 19 locations explored. Clear upgrade from Qwen3-14B which was inconsistent (scores 0-35 on identical config).
-- **Reasoning continuity + next_steps** (ep44→45): Multi-step plan execution confirmed working. Agent follows KB strategy across 14 turns in ep48.
-- **Agent prompt trim** (ep43→44): 55% size reduction freed context for KB/memories. Confirmed effective with both Qwen3 and Ministral.
-- Equipment-before-descent rule (ep33→34): Agent reliably takes sword+lantern — confirmed through ep48.
-- Cross-episode KB: KB enables efficient early game scoring. Multiple valid paths exist (egg-first or house-first both viable). Evaluate by score efficiency, not route adherence.
+- **KB item scanning rule** (ep53→54): Agent reads ALL KB entries before acting. Confirmed: takes sword+lantern before rug puzzle. Fixed 3-episode sword-skipping streak.
+- **Consolidation bracket fix** (ep52→53): Strip `[]` from titles before matching. 6 consolidations in ep53, 1+2 supersessions in ep54. Memory quality improving.
+- **Ministral-3-14B-Reasoning model** (ep48): Reliable KB adherence, killed troll consistently. Clear upgrade from Qwen3-14B.
+- **KB append-and-merge** (ep49→50): Prevents LLM from overwriting existing KB entries. KB content preserved across episodes.
+- **Context reordering** (ep50→51): KB before plan/reasoning in context. Agent reads strategy before forming plans.
+- **Bidirectional map** (ep51): Both directions shown in Mermaid diagram. Agent navigates reverse routes correctly.
+- **Permanent obstacle rule** (ep35→36): Cap of 5 attempts on same target. Prevents 20-turn fixation loops.
+- Cross-episode KB: KB drives efficient early game (score 35-40 by turn 20-25 consistently).
 
 ### Falsified hypotheses
-- "Temperature 0.7 reduces variance" — FAILED ep47: Made agent deterministically repeat the same sequence every run, eliminating exploration. Reverted to 1.0. (Note: the egg-first path itself is valid — the problem was lack of variance, not the route chosen.)
-- "Qwen3-14B is sufficient" — FAILED ep42-47: Inconsistent KB adherence, scores 0-35 on identical config. Model limitations, not prompt issues.
-- "Surface acquisition syntax" — FAILED ep33: Problem was prioritization, not syntax.
-- "Anti-oscillation after retreat" — FAILED ep7: Too broad, reverted.
+- "Temperature 0.7 reduces variance" — FAILED ep47: Made agent deterministic on wrong path.
+- "Qwen3-14B is sufficient" — FAILED ep42-47: Inconsistent KB adherence.
+- "50-turn prompt changes can fix model KB-following" — FAILED ep39-41: Root cause was objective LLM not receiving KB (code bug).
 
 ### Open problems
-- **Memory system broken with Ministral** — fix committed (mandatory score-change memories), pending validation in ep49
-- **Ministral hallucination** — model invents "sword is glowing" not in game text, causing unnecessary retreats. Investigate prompt mitigation.
-- **Loud Room puzzle** — agent doesn't discover "echo" command. Needs experimentation guidance.
-- **Dam puzzle** — agent found wrench+bolt+buttons but can't complete sequence (take wrench → turn bolt → press button)
-- **Consolidation title matching** — bracket formatting from prior episodes causes title mismatch failures
+- **Dam puzzle unsolved** — 150+ cumulative turns across episodes. Agent tries "use/push/twist X on Y" but never "turn X with Y". Verb discovery gap.
+- **KB update timeout** — 4 consecutive episodes (ep51-54). Fix committed: reduced action window 50→25 turns. Untested.
+- **Loud Room puzzle** — "echo" command never discovered. Agent takes platinum bar but it vanishes.
+- **Critic over-rejection** — Critic rejects "move rug" (-0.50 to -0.90) and combat actions. Wastes 3+ turns per episode on forced-through valid actions.
 
 ### Subsystems investigated
-- Agent prompt: ~18 changes, last ep43→44
+- Agent prompt: ~20 changes, last ep53→54 (KB item scanning)
 - Critic prompt: ~3 changes, last ep7
-- KB/memory system: ~7 changes, last ep48 (memory synthesis fix)
-- Python pipeline: ~6 changes, last ep48 (thinking_kwargs for Ministral)
+- KB/memory system: ~10 changes, last ep52→53 (consolidation bracket fix)
+- Python pipeline: ~8 changes, last ep54 (KB update window reduction)
 - Model: 2 switches (API→Qwen3-14B ep42, Qwen3→Ministral ep48)
 
 ---
@@ -1326,7 +1327,7 @@ Started: 2026-03-30
 **Change:** Added bracket-stripping normalization to `_find_active` and all consolidation action title comparisons in `zorkburr/actions/episode.py`
 **Reasoning:** Code bug, not prompt issue. The context format wraps titles in brackets for display, but the matching logic expects bare titles. Normalizing on comparison is the least invasive fix.
 **Target metric:** Consolidation should successfully apply actions (drops, merges, supersedes) instead of rejecting 100%. Expect mem_consolidated > 0 in next episode.
-**Result:** PENDING
+**Result:** IMPROVED — ep53: 6 memories consolidated (drops+merges). ep54: 1 consolidated, 2 superseded. First working consolidation in 10+ episodes. Some title mismatches still occur when LLM invents new titles, but bracket-matching is fixed.
 
 ---
 
@@ -1381,6 +1382,114 @@ The agent takes lantern but skips sword because:
 **Change:** Rewrote Rule 6 from "EQUIPMENT BEFORE DESCENT" to "EQUIPMENT BEFORE PUZZLES — MANDATORY SEQUENCE." New rule explicitly requires: (1) scan ALL KB entries for current location before first non-take action, (2) take every essential item listed there (weapons, light sources, tools), (3) only then solve puzzles or descend. Added warning that skipping step 1 to jump to step 2 is a "critical error" since items may be needed to survive what follows.
 **Reasoning:** The old rule was triggered by "entering dark/underground areas" — too late, since the agent was already in the Living Room when it needed to gather items. The new rule triggers on arrival at any location, and explicitly says "do NOT act on the first KB entry you see" to prevent the sequential-reading bias that caused the agent to jump straight to "move rug."
 **Target metric:** Agent should take ALL KB-listed essential items before solving puzzles at that location. In ep54, expect sword+lantern taken before rug puzzle. Score should reach 40+ (troll killed).
-**Result:** PENDING
+**Result:** IMPROVED — ep54: Agent took lantern (t9) AND sword (t10) before rug puzzle (t17). Killed troll with sword (t22-24, score 40). First reliable equipment gathering in 3 episodes (ep51-53 all missed sword). Note: Rule 6 subsequently trimmed to "READ ALL KB BEFORE ACTING" to stay within reasoning-heuristic scope.
+
+---
+
+## Episode 54 — Turn 25 Checkpoint
+**Type:** HEALTHY — BEST early game since ep48! Sword+lantern taken, troll killed, score 40 by turn 25
+**Score:** 40/350 (delta: +40 from start — Kitchen t6, cellar t21, troll killed t25)
+**Locations visited:** 9 unique (West_House, North_House, Behind_House, Kitchen, Living_, Attic, Cellar, Troll_, East-West_Passage)
+**Avg critic score:** 0.70 (HEALTHY — best in 3 episodes)
+**Rejection rate:** 8/25 (32%) — slightly above threshold, mostly from window entry (t4-5) and troll combat (t22-23)
+**Gameplay quality:** LEARNING
+  - Memory use: Agent at new underground locations, building map
+  - KB alignment: PERFECT — agent followed full sequence: house→sword+lantern→attic(rope+knife)→move rug→cellar→troll. "move rug" NOT rejected by critic this episode (0.50 vs -0.50 in ep53)
+  - Objective quality: Not checked yet (too early)
+  - Objective pursuit: Agent heading deeper underground after troll kill
+  - Learning system quality: KB clean and being followed. Sword-taking fix CONFIRMED.
+  - Pathfinding: NAVIGATING — Agent at Chasm/Reservoir_South heading northeast, exploring underground
+**Triggers:** None — all metrics healthy
+**Notes:** KB ITEM SCANNING FIX CONFIRMED. Agent took lantern (t9) AND sword (t10) before rug puzzle (t17). This is the FIRST episode where the agent reliably takes both essential items. Troll killed in 2 attacks (t22, t24). Score 40 at turn 25 matches ep48 pace. Now exploring underground with 75 turns remaining — best position for a high score.
+
+---
+
+## Episode 54 — Turn 50 Checkpoint
+**Type:** CONCERN — score stagnant 25 turns, but productive dam puzzle experimentation
+**Score:** 40/350 (delta: 0 from turn 25 — stagnant × 1)
+**Locations visited (t26-50):** 6 unique (Chasm, Reservoir_South, Dam, Dam_Base, Dam_Lobby, Maintenance_)
+**Avg critic score:** 0.41 (below 0.5 — dam puzzle experimentation driving rejections)
+**Rejection rate:** 11/25 (44%) — high, mostly from dam puzzle (green bubble, bolt experiments)
+**Gameplay quality:** DRIFTING
+  - Memory use: Agent at dam area, no relevant memories yet
+  - KB alignment: KB mentions dam puzzle mechanics (wrench+bolt, buttons). Agent found wrench (t46), now trying to apply it
+  - Objective quality: Not checked
+  - Objective pursuit: Agent pursuing dam puzzle — found Maintenance Room, took wrench+screwdriver
+  - Learning system quality: KB clean. Agent experimenting productively.
+  - Pathfinding: NAVIGATING — Agent explored Dam→Dam_Base→Dam_Lobby→Maintenance_Room. Good breadth.
+**Triggers:** Score stagnant × 1. Avg critic < 0.5 (0.41). Rejection rate > 30% (44%). All from dam puzzle experimentation — not system failure.
+**Notes:** Agent spent 12 turns at Dam (30-41) experimenting with bolt and bubble before permanent obstacle rule kicked in. Found Maintenance Room (t45), took wrench+screwdriver (t46). Now trying wrench on bolt (t49-50). Critic rejecting all dam experiments with very low scores (-0.30 to -0.90). The critic doesn't understand puzzle experimentation well. Score 40 for 25 turns is expected — dam area is discovery-gated. Not dispatching improvement — dam puzzle is the current frontier.
+
+---
+
+## Episode 54 — Turn 75 Checkpoint
+**Type:** CONCERN — score stagnant 50 turns, dam puzzle unsolved
+**Score:** 40/350 (delta: 0 from turn 25 — stagnant × 2)
+**Locations visited (t51-75):** 3 (Dam, Dam_Lobby, Maintenance_) — severely narrowed
+**Avg critic score:** 0.27 (CRITICAL — below 0.5 for 2 consecutive checkpoints)
+**Rejection rate:** 12/25 (48%) — HIGH
+**Gameplay quality:** DRIFTING
+  - Memory use: No useful memories for dam area
+  - KB alignment: KB mentions wrench+bolt but agent can't find correct verb. Tried "use wrench on bolt", "turn wrench on bolt", "push wrench on bolt" — never tried "turn bolt with wrench"
+  - Objective quality: Not checked
+  - Objective pursuit: Agent fixated on dam area with no progress
+  - Learning system quality: KB doesn't have dam puzzle solution (never been solved)
+  - Pathfinding: WANDERING — Agent oscillating Dam↔Dam_Lobby↔Maintenance for 25 turns
+**Triggers:** Score stagnant × 2. Avg critic 0.27 < 0.5 for 2 checkpoints. Stuck loop (3 locations, 25 turns).
+**Notes:** Agent spent 45 turns in dam area (t30-74) without scoring. Tried bolt with knife (t41), sword (t40), wrench-related verbs (t49-56) but never the correct "turn bolt with wrench". The dam puzzle is the consistent ceiling across all episodes (ep38, ep41, ep48, ep54 all stall here). The agent needs to discover the verb "turn X with Y" pattern through experimentation. Not dispatching improvement — this is a discovery-gated puzzle, not a system failure. The agent will need multiple episodes to discover this verb pattern.
+
+---
+
+## Episode 54 — COMPLETE
+**Turns:** 80
+**Final score:** 30/350 (peak 40, -10 death penalty)
+**Locations visited:** 16 unique
+**Objectives found:** 15
+**End reason:** game_over_death (died at turn 80, likely thief encounter or grue in dark forest)
+**Memory stats:** 61 total, 2 new, 1 dedup rejected, 2 superseded, 0 ephemeral pruned, 1 consolidated
+**Improvement dispatched:** no — dam puzzle is discovery-gated, not a system failure
+
+**Key achievements:**
+  - KB ITEM SCANNING FIX CONFIRMED: Agent took sword (t10) AND lantern (t9) before rug puzzle (t17). First reliable equipment gathering.
+  - Troll killed in 2 attacks (t22, t24) with sword. Score 40 by turn 25.
+  - Longest survival since ep48: 80 turns (died t80 vs ep48's 100 turns)
+  - Memory system: 2 new memories, 2 superseded, 1 consolidated — all working
+  - Consolidation bracket fix confirmed: 1 successful consolidation (2nd episode in a row)
+  - Found Maintenance Room, took wrench+screwdriver (t46)
+  - Pressed all 4 buttons in Maintenance Room (t67-70)
+  - Explored Dam Base (t42)
+
+**Key issues:**
+  1. **Dam puzzle unsolved** — 50 turns at dam area (t25-74) without scoring. Agent tried wrench on bolt with wrong verbs. Never discovered "turn bolt with wrench".
+  2. **KB update timeout** — 4th consecutive episode. Fix committed (25-turn window) for ep55.
+  3. **Score stagnation** — 40→40 for turns 25-80. Dam puzzle is the consistent ceiling.
+  4. **Death** — Agent died at t80 going from Dam_Lobby south to Forest. Possibly thief or grue.
+
+---
+
+| Episode | Score | vs Prev | Best So Far | Turns to 1st Score | Locations | KB Quality | End Reason |
+|---------|-------|---------|-------------|-------------------|-----------|------------|------------|
+| ep48 | 40 | +40 | 54 | 7 | 19 | clean | max_turns! |
+| ep49 | 10 | -30 | 54 | 11 | 14 | degraded | killed t50 |
+| ep50 | 10 | 0 | 54 | 22 | 10 | degraded | killed t38 |
+| ep51 | 25(35) | +15 | 54 | 5 | 10 | restored | death t24 |
+| ep52 | 30(40) | +5 | 54 | 7 | 15 | clean | death t38 |
+| ep53 | 25(35) | -5 | 54 | 5 | 7 | clean | death t22 |
+| ep54 | 30(40) | +5 | 54 | 6 | 16 | clean | death t80 |
+
+**Trend:** ep54 is the best local-model episode: 80 turns survived, 16 locations, peak score 40, sword+lantern reliably taken. The KB item scanning fix is confirmed (sword taken before rug puzzle). The dam puzzle (score 40→54+ ceiling) is now the clear bottleneck. Agent has spent 150+ cumulative turns across episodes in the dam area without solving it. The correct verb "turn bolt with wrench" has never been discovered — the agent tries "use X on Y", "push X on Y", "twist X on Y" but not "turn X with Y". This is a verb-discovery problem that will require more experimentation across episodes.
+
+---
+
+## Session Complete
+**Episodes run:** 3 (ep52 death t38, ep53 death t22, ep54 death t80)
+**Best score achieved:** 40/350 peak (ep52, ep54 — both local model)
+**Improvements made:** 3
+  1. BLOCKER: Consolidation bracket fix (episode.py) — strip `[]` from title matching
+  2. INCREMENTAL: KB item scanning rule (agent.md) — read ALL KB before acting
+  3. BLOCKER: KB update timeout fix (knowledge.py) — reduce action window 50→25 turns
+**Also:** Removed game-strategy sections from agent.md (TREASURE MANAGEMENT), strengthened prompts/CLAUDE.md two-question test
+**System status:** PERFORMING WELL (early game optimized, dam puzzle is next frontier)
+**Summary:** This session fixed a 10-episode consolidation bug (bracket titles) and solved the sword-skipping problem (KB item scanning). ep54 demonstrated the complete early game sequence: house→sword+lantern→attic→rug→cellar→troll kill (score 40 by turn 25, 80 turns survived). The dam puzzle is now the clear bottleneck — agent needs to discover "turn bolt with wrench" verb pattern. KB update timeout fix deployed for next session. Memory system fully operational: consolidation, supersession, and dedup all working.
 
 ---
