@@ -221,7 +221,7 @@ Started: 2026-03-30
 **Change:** (1) `zorkburr/actions/knowledge.py` — added `timeout=config.llm_request_timeout` to the `raw_client.chat.completions.create()` call. (2) `pyproject.toml` — increased `llm_request_timeout` from 600 to 1200 seconds. (3) `data/knowledge.md` — corrected poisoned KB entries: "turn bolt with wrench fails" → "operates sluice gate mechanism"; removed incorrect failed approach entries for wrench verbs; updated Unexplored Leads to note correct command.
 **Reasoning:** The timeout fix addresses the root cause (no timeout parameter on raw call). The KB cleanup removes poisoned data that would prevent the agent from retrying the correct dam puzzle command. Both are BLOCKER fixes — one prevents KB updates entirely, the other actively harms gameplay.
 **Target metric:** KB update should succeed (no "Request timed out" in next episode). Agent should attempt "turn bolt with wrench" when it reaches the Dam.
-**Result:** PENDING
+**Result:** PARTIALLY IMPROVED — ep62 confirms bolt attempt: agent tried "turn bolt with wrench" at t47 (without wrench) and t54 (with wrench). KB cleanup worked (agent follows KB guidance). KB update timeout: 0 KB updates in 76 turns — unclear if timeout fix helped or if update never triggered. KB poisoned entry cleanup: CONFIRMED working (agent attempted correct command).
 
 ---
 
@@ -308,7 +308,8 @@ The permanent obstacle rule (ep35→36) caps attempts on the same OBJECT at 5. B
 **Change:** Modified `prompts/agent.md` — replaced the weak "Oscillation detection" sub-rule with a stronger "AREA ESCAPE RULE (mandatory)". The new rule instructs the agent to count, in its `thinking`, how many of its last 8 turns were spent in the same 2-3 locations. If 5+ of the last 8 turns are in the same cluster with no score change, the agent must consult the World Map, find the route it used to enter the area, retrace it, and navigate to a completely different region. Explicitly prohibits "trying one more exit" from the trapped rooms.
 **Reasoning:** The counting mechanism gives the agent a concrete, verifiable threshold (5/8 turns) instead of the vague "if bouncing between." Requiring backtrack via World Map instead of "try untaken exit" addresses the root cause: all local exits are circular, so the solution must be non-local. The rule is game-agnostic (applies to any text adventure with room clusters) and teaches reasoning (how to detect and escape loops) rather than strategy (what to do at the Dam).
 **Target metric:** Agent should escape 2-room oscillation loops within 5 turns (currently 28+). Score should not stagnate for 25+ consecutive turns due to navigation loops.
-**Result:** PENDING
+**Result:** NEUTRAL/INCONCLUSIVE — ep62: Dam_Lobby ↔ Maintenance_ oscillation recurred (14 turns, t62-75). Area escape rule NOT referenced in agent reasoning at t65 or t70 — 14B model not following counting instruction. HOWEVER: false combat state from extractor (BLOCKER) may have prevented escape attempts from being accepted by critic. Cannot isolate area escape rule effect from combat state interference. Need to retest after extractor fix.
+**Hypothesis verdict:** INCONCLUSIVE — confounded by extractor combat bug
 
 ---
 
@@ -457,6 +458,191 @@ The permanent obstacle rule (ep35→36) caps attempts on the same OBJECT at 5. B
 **Change:** Modified `prompts/extractor.md` — replaced "Combat State Persistence Rules" (lines 74-92) with "Combat State Detection Rules". Key changes: (1) combat state is determined from current game text only, never inherited from previous turns; (2) location changes automatically reset combat to false; (3) `in_combat: true` requires direct evidence of a hostile creature actively present and threatening; (4) key principle reversed from "maintain when ambiguous" to "default to false when ambiguous — a missed detection is less harmful than a false positive that persists for dozens of turns."
 **Reasoning:** The root cause is the persistence heuristic — "maintain when ambiguous" is always true for non-combat rooms because they never explicitly say "combat is over." By requiring positive evidence in the current text and resetting on location change, combat can only be true when the game text actually describes an active hostile encounter. This is game-agnostic (applies to any text adventure) and teaches the extractor how to reason about combat evidence rather than encoding game-specific knowledge.
 **Target metric:** Combat state should be false at non-combat locations (Dam Lobby, Maintenance Room, etc.). This should eliminate false combat-based critic rejections, reducing rejection rate at post-combat locations from ~48-60% to <30%. Agent should be able to press buttons and navigate without combat-related rejection.
+**Result:** IMPROVED — ep63 confirms: (1) ZERO combat mentions in critic justifications at Dam_Lobby/Maintenance (ep62: every rejection cited "active combat"). (2) Dam_Lobby got 0.70 critic (ep62: -0.50 to -0.90). (3) Maintenance got 0.70 critic (ep62: -0.80). (4) No Dam_Lobby ↔ Maintenance oscillation (ep62: 14 turns). (5) Agent freely took wrench, screwdriver, navigated Dam→Lobby→Maintenance→Dam without false combat rejections. (6) Overall rejection rate 25% (ep62: 38%). All targets met.
+
+---
+
+## Episode 63 — Turn 25 Checkpoint
+**Type:** CONCERN — slow start, score 10, no underground progress
+**Score:** 10/350 (house entry t10, no further scoring)
+**Locations visited:** 8 unique (West_House, South_House, Behind_House, Kitchen, Living_, Attic, Clearing, CanyView)
+**Avg critic score:** 0.43 (below 0.50)
+**Rejection rate:** 9/25 (36%) — borderline
+**Gameplay quality:** DRIFTING
+  - Memory use: Not evaluated yet
+  - KB alignment: Agent took lantern but NOT sword from Living Room. KB says sword essential for troll.
+  - Objective quality: Not checked
+  - Objective pursuit: Agent exploring canyon (CanyView t25) instead of pursuing rug/cellar
+  - Learning system quality: Not evaluated at this stage
+  - Pathfinding: WANDERING — Kitchen↔Behind_House loop (t15-17), then surface exploration to Canyon
+**Triggers:** None urgent — score stagnation is only 1 checkpoint (need 2 consecutive). Extractor fix cannot be tested until agent reaches post-combat areas.
+**Notes:** Agent missed sword in Living Room, only took lantern. Compound commands still rejected: "take sack, take bottle" (-1.00 x3), "light lantern, up" (-1.00 x3). Same parsing bug as ep62. Agent exploring canyon area (t24-25) — may find items there before returning to house. Extractor combat fix untestable at this stage. Monitoring.
+
+---
+
+## Episode 63 — Turn 50 Checkpoint
+**Type:** HEALTHY — agent recovered from canyon, entered cellar, exploring new underground areas
+**Score:** 35/350 (delta: +25 since t25 — cellar entry t48). By t54: 39 (painting +4)
+**Locations visited (t26-50):** 12 unique (Rocky_Ledge, CanyBottom, End_Rainbow, CanyView, Clearing, Behind_House, Kitchen, Attic, Living_, Cellar, East_Chasm + Gallery at t51)
+**Avg critic score:** 0.54 (HEALTHY — above 0.50)
+**Rejection rate:** 6/25 (24%) — EXCELLENT (best block this session)
+**Gameplay quality:** LEARNING
+  - Memory use: Agent reasoning references KB for house entry sequence
+  - KB alignment: Agent took sword+moved rug in single command (t46), opened trap door (t47), entered cellar (t48). Correct KB sequence.
+  - Objective quality: Not checked yet
+  - Objective pursuit: Agent pursuing underground exploration — reached Gallery (new!) and took painting
+  - Learning system quality: Not evaluated at this stage
+  - Pathfinding: WANDERING then NAVIGATING — Canyon oscillation t26-38 (13 turns), then efficient house→cellar→underground route t39-50
+**Triggers:** None — all metrics healthy. Canyon oscillation (13 turns) was broken at t38.
+**Notes:** Agent took a different underground route: East_Chasm→Gallery (east) instead of going to Troll Room (north). Took painting (+4 points) at t52-54. Reached Studio (t55, new area). No combat yet — extractor fix untestable. "light lantern" got 0.90 (critic fix holding). "take sword, move rug" compound worked at t46 (0.30 critic but accepted). Rejection rate 24% = best block this session. Monitoring for combat encounter to test extractor fix.
+
+---
+
+## Episode 63 — Turn 75 Checkpoint
+**Type:** HEALTHY — extractor combat fix confirmed, score 44 (new session high)
+**Score:** 44/350 (delta: +9 since t50 — painting +4 at t54, troll kill +5 at t70)
+**Locations visited (t51-75):** 7 unique (Gallery, Studio, East_Chasm, Cellar, Troll_, East-West_Passage, Chasm)
+**Avg critic score:** 0.45 (borderline — crack experimentation driving negatives)
+**Rejection rate:** 7/25 (28%) — HEALTHY, below 30%
+**Gameplay quality:** LEARNING
+  - Memory use: Agent navigated to Troll Room using KB path. Moderate.
+  - KB alignment: Agent killed troll with sword (correct KB approach). Explored Gallery/Studio (new territory). Now at Chasm trying crack.
+  - Objective quality: Not checked
+  - Objective pursuit: Agent pursuing underground exploration — new areas discovered
+  - Learning system quality: Not evaluated at this stage
+  - Pathfinding: NAVIGATING — Gallery→Studio→Chasm path is efficient. No oscillation.
+**Triggers:** None — all metrics within thresholds.
+**EXTRACTOR FIX EVALUATION:** CONFIRMED WORKING
+  - ep62 post-troll (same areas): Critic cited "active combat" in non-combat rooms. Rejection rate 48%. Avg critic 0.29.
+  - ep63 post-troll (t70-75): ZERO combat mentions in critic justifications. Critic evaluates actions on merits: "exploration", "creative problem-solving", "environmental feature". Rejection rate 28%. Avg critic 0.45.
+  - The combat state is correctly resetting after location changes. Agent freely exploring post-combat without false combat rejections.
+**Notes:** Score 44 = new session high (prev 40). Agent took different route than ep62: Gallery→painting, Studio, then troll, then Chasm. 5 turns at Chasm trying crack interaction — natural puzzle exploration, not stuck. Agent using creative verbs (tie rope, wrap rope, cut crack) — model exploring game parser. Monitoring for Dam area progress.
+
+---
+
+## Episode 63 — COMPLETE
+**Turns:** 100 (max_turns — survived full episode!)
+**Final score:** 44/350 (NEW LOCAL-MODEL SESSION HIGH — was 40)
+**Locations visited:** 23 unique (most this session)
+**Objectives found:** 15
+**End reason:** max_turns
+**Memory stats:** 65 total, 2 new, 2 dedup rejected, 1 superseded, 0 consolidated
+**Improvement dispatched:** no — extractor fix confirmed working
+
+**Key achievements:**
+  - EXTRACTOR FIX CONFIRMED: Zero false combat rejections in Dam area (ep62: 14-turn oscillation from false combat)
+  - New local-model high: 44 (painting +4, troll +5, cellar +25, house +10)
+  - 100 turns survived — first max_turns episode this session
+  - 23 locations — broadest exploration (Gallery, Studio = new territory)
+  - Agent took wrench AND screwdriver from Maintenance — purposeful tool collection
+  - "turn bolt with wrench" at t87: 0.80 critic, 0 rejections (ep62: -0.60, rejected)
+  - Agent tried "turn bolt with screwdriver" (t97) — creative experimentation
+
+**Key issues:**
+  1. **Bolt won't turn** — 3 attempts with wrench (t81, t87, t98), 1 with screwdriver (t97). Game says "won't turn." Unknown prerequisite.
+  2. **Canyon oscillation** (t26-38, 13 turns) — area escape rule not working for 14B model
+  3. **Slow first 25 turns** — score 10, canyon exploration wasted time
+  4. **Score ceiling at 44** — dam puzzle and bolt prerequisite gating further progress
+
+| Episode | Score | vs Prev | Best So Far | Turns to 1st Score | Locations | KB Quality | End Reason |
+|---------|-------|---------|-------------|-------------------|-----------|------------|------------|
+| ep54 | 30(40) | +5 | 54 | 6 | 16 | clean | death t80 |
+| ep55 | 15 | -15 | 54 | 6 | 11 | clean | killed t50 |
+| ep56 | 0 | -15 | 54 | — | 5 | clean | killed t30 |
+| ep57 | 0 | 0 | 54 | — | 4 | clean | killed t14 |
+| ep58 | 30(40) | +30 | 54 | 5 | 21 | clean | death t94 |
+| ep59 | 40 | +10 | 54 | 6 | 19 | clean | killed t70 |
+| ep60 | 10 | -30 | 54 | 19 | 9 | clean | killed t42 |
+| ep61 | 0 | -10 | 54 | — | 7 | clean | killed t18 |
+| ep62 | 40 | +40 | 54 | 5 | 16 | clean | killed t76 |
+| ep63 | 44 | +4 | 54 | 10 | 23 | clean | max_turns! |
+
+**Trend:** ep63 = new local-model session high (44, prev 40). Extractor combat fix eliminated the Dam oscillation — agent freely navigated post-combat areas. 100 turns survived (first this session). Score improvement (+4) comes from painting in Gallery (new territory). Bolt puzzle remains unsolved despite correct verb and tool — unknown prerequisite blocks further scoring. Next frontier: discovering bolt prerequisite, or exploring new areas for additional items/puzzles.
+
+---
+
+## Session Complete
+**Episodes run:** 2 (ep62 killed t76, ep63 max_turns t100)
+**Best score achieved:** 44/350 (ep63 — NEW local-model session high)
+**Improvements made:** 1
+  1. BLOCKER: Extractor combat state persistence fix (prompts/extractor.md) — reversed "maintain when ambiguous" to "default false when ambiguous", location changes reset combat state
+**System status:** PERFORMING WELL (extractor fix confirmed, new high score, 100 turns survived)
+**Summary:** This session diagnosed and fixed a critical extractor bug: combat state persisted through 40+ room changes after the troll fight, causing the critic to reject valid non-combat actions in Dam_Lobby and Maintenance Room. The fix (reversing the combat persistence default) eliminated false combat rejections completely — ep63 showed zero combat mentions in post-troll critic justifications, Dam area navigation scored 0.70 (was -0.50 to -0.90), and the 14-turn oscillation from ep62 did not recur. ep63 achieved a new local-model high of 44 (painting from Gallery) and survived all 100 turns. Bolt puzzle remains unsolved (correct verb+tool but "won't turn"). Canyon area escape rule still not working for 14B model.
+
+---
+
+## Config Change — max_turns 100 → 125
+**Rationale:** ep63 hit max_turns at 100 while still actively experimenting (bolt at t97-98, green bubble at t100). Agent consistently spends 25-40 turns on early game, leaving insufficient time for underground exploration. Score was stagnant t70-100 but agent was productively experimenting, not oscillating.
+**Change:** `.claude/commands/zork-orchestrator.md` — `--max-turns 100` → `--max-turns 125`
+
+---
+
+## Episode 64 — Turn 25 Checkpoint
+**Type:** CONCERN — score 0 at turn 25, agent stuck on surface
+**Score:** 0/350 (delta: 0 from start — never entered house)
+**Locations visited:** 6 unique (West_House, North_House, Forest_Path, Clearing, Up_a_Tree, Forest) — all surface
+**Avg critic score:** 0.56 (HEALTHY)
+**Rejection rate:** 6/25 (24%) — HEALTHY
+**Gameplay quality:** IGNORING
+  - Memory use: Agent has memories for Clearing/Forest_Path including "Behind House Window Found" but reasoning never references house entry path
+  - KB alignment: KB clearly states "Entered house via kitchen window from Behind House (score +10)" at top of Score Changes. Agent reasoning at t20-25 shows ZERO references to KB house entry — fixated on egg/grating puzzle
+  - Objective quality: 0/7 well-formed for progression. All 7 objectives are about tree/leaves/forest exploration. None mention house entry, sword, or lantern
+  - Objective pursuit: Agent pursuing tree/grating objectives with "pile of leaves" — complete dead end
+  - Learning system quality: Memories contain hallucinated content ("Leaves Enable Egg Opening", "Grating and Egg Puzzle Link" — both wrong). KB is clean but agent not reading it
+  - Pathfinding: WANDERING — Agent went West_House→North_House→Forest_Path and never explored east to Behind_House. Behind_House not on discovered map. Oscillating Forest_Path↔Clearing↔Up_a_Tree for 20+ turns
+**Triggers:** KB contradiction (KB visible in context but agent takes 25 actions ignoring house entry guidance). Objective quality (0/7 aligned with KB strategy).
+**Notes:** Same pattern as ep56 (score 0, surface loop), ep60 (slow start), ep61 (score 0, canyon). Agent's map doesn't include Behind_House — it went north from North_House instead of east. KB is in the formatted context but agent never references it in reasoning. The 14B model sometimes follows KB (ep58, ep59, ep62 all scored 35-40 by t20) and sometimes ignores it. This is ~50% failure rate on early game KB adherence across recent episodes. Monitoring to t50 for 2-consecutive-checkpoint stagnation trigger.
+
+---
+
+## Episode 64 (during) — IMPROVEMENT: Memory Quality Overhaul
+**Trigger:** Research into multi-room puzzle support revealed memory quality issues: hallucinated item locations ("Forest Path Has Screwdriver" — screwdriver is in Maintenance Room), navigation noise memories ("Entered dimly lit forest", "Move South to Forest Path"), and duplicate memories surviving dedup ("Behind House Window Found" + "Behind House Window Discovered"). Root cause: memory synthesis LLM received no inventory context, so it confused carried items with room-native items. Consolidation prompt lacked rules for navigation noise and misattributed items.
+**Hypothesis:** Memory synthesis hallucinates item locations because it can't distinguish items the agent was CARRYING from items FOUND at a location. Consolidation fails to clean these because it has no rules targeting these patterns. Fixing both prevents new bad memories and cleans existing ones.
+**Change:** Three files modified:
+  1. `zorkburr/actions/memory.py` — inject `PRE_INVENTORY` into synthesis context as "Inventory (items agent was CARRYING, not found here): ..."
+  2. `prompts/memory_synthesis.md` — added rule: do not attribute carried items to a location; only record items as "found here" if the game response describes them in the room
+  3. `prompts/memory_consolidation.md` — added two DROP rules: (a) drop memories that attribute portable items to locations where they don't spawn, (b) drop navigation-only memories (map system tracks connections)
+  Applied consolidation with new prompts against all 27 locations. Results: 9 dropped (nav noise + hallucinated mechanics), 1 superseded ("Forest Path Has Screwdriver"), 18 rejected (merge title-matching failures — cosmetic, not harmful). Active memories: 49 → 45. Backup at `data/memories.json.pre_consolidation_bak`.
+**Reasoning:** Clean memories are prerequisite for planned global memory index (showing all location summaries in agent context). Surfacing hallucinated facts globally would poison the agent everywhere instead of just at one location.
+**Target metric:** Zero new hallucinated item-location memories in ep65+. Consolidation should catch remaining duplicates as merge title-matching improves.
+**Result:** PENDING — consolidation applied, synthesis/consolidation prompts updated. Will take effect from ep65 onward (ep64 currently running with old prompts).
+
+---
+
+## Episode 64 — Turn 50 Checkpoint
+**Type:** URGENT — score 5 at turn 50, agent trapped at Clearing for 16+ turns
+**Score:** 5/350 (delta: +5 since t25 — egg pickup at t33, then stagnant)
+**Locations visited (t26-50):** 3 unique (Clearing, Forest_Path, Up_a_Tree) — VERY LOW
+**Avg critic score:** 0.30 (BELOW 0.50 threshold)
+**Rejection rate:** 10/25 (40%) — ABOVE 30% threshold
+**Gameplay quality:** IGNORING
+  - Memory use: Agent actively references memories — but they're WRONG. Hallucinated memories ("Leaves Enable Egg Opening", "Grating and Egg Puzzle Link") drive 15+ turns of dead-end experimentation
+  - KB alignment: KB Score Changes visible in context ("enter house via Behind House = +10") but agent reasoning at t40-50 shows ZERO KB references. Entire reasoning loop is about egg/leaves puzzle
+  - Objective quality: 6 active, 0/6 aligned with KB strategy. All about tree/leaves/forest/grating
+  - Objective pursuit: Agent pursuing dead-end local objectives derived from hallucinated memories
+  - Learning system quality: CRITICAL — hallucinated memories at Forest_Path/Up_a_Tree (5 bad memories about leaves-egg interaction) actively poisoning gameplay. KB is clean but unread
+  - Pathfinding: STUCK — Clearing for 16 consecutive turns (t35-50). Never reached Behind_House
+**Triggers:** Score stagnant (0→5 across 2 checkpoints = effectively stagnant). Low critic (0.30). High rejection rate (40%). Stuck loop (16 turns at Clearing). KB contradiction (agent ignoring KB scoring strategy for 50 turns).
+**Notes:** Two concurrent problems: (1) BLOCKER: Hallucinated memories driving dead-end experimentation (ep64 improvement already addresses this — consolidation fixes committed). (2) INCREMENTAL: Agent never reads KB Score Changes section to form strategic navigation plan. Rule 6 ("READ ALL KB") scoped to "this location" — agent reads KB items for current room but doesn't use Score Changes to decide WHERE to go. This is the ~50% KB failure rate: ep56,60,61,64 all failed to enter house early, while ep58,59,62,63 succeeded. Need global KB strategic review rule.
+
+---
+
+## Episode 64 — COMPLETE (killed at turn 50)
+**Turns:** 50
+**Final score:** 5/350 (peak 5 — egg only)
+**Locations visited:** 6 unique (all surface — West_House, North_House, Forest_Path, Clearing, Up_a_Tree, Forest)
+**Objectives found:** 6 (all surface-level, none from KB)
+**End reason:** early_stop (manual kill — 16-turn stuck loop, KB completely ignored)
+**Improvement dispatched:** yes — KB strategic review rule
+
+---
+
+## Episode 64 → 65 — IMPROVEMENT
+**Trigger:** Agent spent 50 turns ignoring KB Score Changes section in ep64 (score 5/350). KB clearly documented "enter house via kitchen window from Behind House (score +10)" but agent reasoning referenced zero KB scoring entries across all 50 turns. Instead, the agent pursued locally-invented objectives (egg/leaves puzzle) derived from hallucinated memories. Same pattern in ep56, ep60, ep61 — ~50% early-game KB failure rate.
+**Hypothesis:** Rule 6 ("READ ALL KB BEFORE ACTING") is scoped to "this location" — "scan ALL KB entries for this location before choosing your action." The agent interprets this literally: it reads KB entries relevant to its current room only. Since the KB's Score Changes section references Behind House, Living Room, and Cellar — locations the agent hasn't visited yet in early game — the agent never uses Score Changes to plan navigation. The per-location rule (ep53→54 fix) works once the agent arrives at a documented location, but it provides no mechanism for the agent to choose WHERE to go based on global KB data.
+**Change:** Modified `prompts/agent.md` Rule 6 — added a "GLOBAL STRATEGIC REVIEW" sub-rule that triggers mandatorily at turn 1 and when score has not increased for 10+ turns. The rule instructs the agent to read the ENTIRE Score Changes section (not just current-location entries), identify the highest-value unachieved scoring opportunity, determine which location it requires, plan a navigation route via the World Map, and prioritize movement toward that destination over locally-invented goals.
+**Reasoning:** The rule is a reasoning heuristic (HOW to process KB information globally) not game-specific strategy (WHAT to do). It tells the agent to cross-reference Score Changes with its current score and plan navigation accordingly — the same instruction would apply to any text adventure with accumulated KB data. The mandatory triggers (turn 1, 10+ turns without score) ensure the agent performs this review at the critical moments when it's most likely to drift into local dead ends.
+**Target metric:** Agent should reference KB Score Changes in thinking within the first 5 turns and form a navigation plan toward documented scoring opportunities. The ~50% early-game KB failure rate (ep56,60,61,64 failed vs ep58,59,62,63 succeeded) should decrease. Score at turn 25 should be >0 in most episodes. Turns-to-first-score should be <10 consistently.
 **Result:** PENDING
 
 ---
