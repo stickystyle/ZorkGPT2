@@ -386,3 +386,77 @@ The permanent obstacle rule (ep35→36) caps attempts on the same OBJECT at 5. B
 **Summary:** ep59 confirmed the KB timeout fix works and achieved the fastest early game ever (40 by t19). However, a 28-turn Dam Lobby ↔ Maintenance oscillation exposed a gap in the permanent obstacle rule — it doesn't cover movement loops. Added area escape rule (5/8 turns in same 2-3 locations → backtrack). ep60 and ep61 didn't reach the Dam area to test it (stochastic model variation — trap door fixation in ep60, surface wandering in ep61). The area escape rule remains PENDING evaluation. The critic still over-rejects structural passage actions (open/descend/enter trap door).
 
 ---
+
+## Episode 62 — Turn 25 Checkpoint
+**Type:** HEALTHY — efficient early game, score 35 by t17
+**Score:** 35/350 (delta: +35 from start — house t5, cellar t17)
+**Locations visited:** 8 unique (North_House, Behind_House, Kitchen, Living_, Attic, Cellar, East_Chasm, Troll_)
+**Avg critic score:** 0.55 (HEALTHY)
+**Rejection rate:** 9/25 (36%) — borderline, driven by parsing bug and "move rug"
+**Gameplay quality:** LEARNING
+  - Memory use: Agent references memories at Behind_House (window entry method), Cellar (troll location). Strong.
+  - KB alignment: Agent followed KB path exactly: house→sword+lantern→attic for rope/knife→rug→trap door→cellar. Perfect sequence.
+  - Objective quality: 9 discovered, 1 completed. Well-formed (8/9 with specific locations).
+  - Objective pursuit: Agent pursuing underground exploration, reached Troll Room at t25.
+  - Learning system quality: KB rich with cross-episode data. 1 new memory (trap door bars). No KB updates yet.
+  - Pathfinding: NAVIGATING with minor oscillation — Cellar↔East_Chasm 7 turns (t18-24). Agent confused Cellar with Troll Room (tried "attack troll" in Cellar). Broke out at t25 going north to Troll_.
+**Triggers:** None — all metrics within thresholds. Cellar↔East_Chasm oscillation (7 turns) below 10-turn stuck loop threshold.
+**Notes:** Efficient early game — house entry t5, sword+lantern t8, rug puzzle t14-16, cellar t17 (score 35). Two critic issues: (1) "take sack, take bottle" rejected 3x at -1.00 — critic parses comma-separated commands as single invalid object. (2) "move rug" rejected at -0.80 — known residual. Cellar↔East_Chasm oscillation caused by agent confusing room names (thought Cellar was Troll Room). Agent at Troll_ t25 — troll kill expected next block.
+
+---
+
+## Episode 62 — Turn 50 Checkpoint
+**Type:** CONCERN — high rejection rate, Maze wandering, wrench missing from inventory
+**Score:** 40/350 (delta: +5 since t25 — troll kill at t40)
+**Locations visited (t26-50):** 9 unique (Troll_, Maze, Dead_End, East-West_Passage, Chasm, Reservoir_South, Dam, Dam_Lobby, Maintenance_)
+**Avg critic score:** 0.41 (BELOW 0.50 threshold)
+**Rejection rate:** 15/25 (60%) — ABOVE 30% threshold
+**Gameplay quality:** DRIFTING
+  - Memory use: Agent reasoning references KB for Dam bolt puzzle. Moderate.
+  - KB alignment: Agent attempted "turn bolt with wrench" at t47 (correct!) but wrench not in inventory. KB says wrench in Maintenance — agent went there at t50.
+  - Objective quality: 15 discovered, 1 completed. 12/15 well-formed.
+  - Objective pursuit: Pursuing Dam puzzle — tried bolt t47, went to Maintenance t50. Good intent, bad execution.
+  - Learning system quality: 0 memories, 0 KB updates this block. KB rich from cross-episode data.
+  - Pathfinding: WANDERING then NAVIGATING — Maze 12 turns (t27-38), then correct Dam→Lobby→Maintenance route.
+**Triggers:** Low critic (0.41 < 0.50), high rejection rate (60% > 30%). Maze navigation and Chasm interaction drive most rejections — not systemic.
+**Notes:** KEY: "turn bolt with wrench" at t47 — 3rd time across all episodes. Failed: "You don't have that!" (wrench not in inventory). Sword also missing (thief stole in Maze). Agent at Maintenance t50 — wrench available there. Monitoring whether agent picks up wrench and returns to Dam. Critic rejected "i" (inventory) 3x at t48 ��� basic command wrongly penalized.
+
+---
+
+## Episode 62 — Turn 75 Checkpoint
+**Type:** URGENT — Dam_Lobby ↔ Maintenance_ oscillation for 14 turns, false combat state from extractor
+**Score:** 40/350 (delta: 0 since t50 — STAGNANT for 35 turns since t40)
+**Locations visited (t51-75):** 3 unique (Dam, Dam_Lobby, Maintenance_) — VERY LOW
+**Avg critic score:** 0.29 (FAR below 0.50 threshold)
+**Rejection rate:** 12/25 (48%) — above 30%
+**Gameplay quality:** IGNORING
+  - Memory use: Agent reasoning references KB for bolt puzzle. But stuck in oscillation.
+  - KB alignment: Agent took wrench (t51), navigated to Dam (t53), tried "turn bolt with wrench" (t54) — correct command! Got "The bolt won't turn with your best effort." Wrench IS in inventory this time. Game prerequisite not met (likely need button state in Maintenance first).
+  - Objective quality: 15 total, many duplicates (3x crawlway, 2x Private doors). Already-completed objectives still listed.
+  - Objective pursuit: Agent trying to solve bolt but can't — oscillating instead of exploring alternatives.
+  - Learning system quality: 0 KB updates. Agent recorded bolt failure but KB still says command "works."
+  - Pathfinding: MISREADING MAP — Dam_Lobby ↔ Maintenance_ oscillation 14 turns (t62-75). SAME pattern as ep59.
+**Triggers:** Score stagnant (0 delta across 2 checkpoints). Low critic (0.29). Stuck loop (14 turns). FALSE COMBAT STATE from extractor causing critic to reject escape attempts.
+**Notes:** ROOT CAUSE: extractor reports "in_combat: true" at Dam_Lobby (t65) and Maintenance_ (t70) — NO combat happening. Extractor prompt's "maintain combat when ambiguous" principle (line 92) keeps combat=true after troll fight through 40+ rooms. Critic uses false combat state to reject button experimentation ("unrelated to active combat") and navigation ("not appropriate for combat"). This PREVENTS the agent from: (1) pressing buttons that might be bolt prerequisites, (2) escaping the oscillation loop. Area escape rule from ep59-60 NOT referenced in agent reasoning — 14B model not following it. Killing episode and dispatching extractor combat fix.
+
+---
+
+## Episode 62 — COMPLETE (killed at turn 76)
+**Turns:** 76
+**Final score:** 40/350 (peak 40 at t40)
+**Locations visited:** 16 unique
+**Objectives found:** 15
+**End reason:** early_stop (manual kill — 14-turn oscillation + false combat state)
+**Improvement dispatched:** yes — extractor combat state fix
+
+---
+
+## Episode 62 → 63 — IMPROVEMENT (BLOCKER)
+**Trigger:** Extractor reported "in_combat: true" at Dam Lobby (t65) and Maintenance Room (t70) — rooms with zero enemies, 40+ turns after the troll fight ended. Critic used false combat state to reject button presses ("unrelated to active combat") and navigation ("not appropriate for combat"), causing a 14-turn Dam_Lobby ↔ Maintenance_ oscillation. Avg critic score dropped to 0.29. Previous fix (ep55→56 critic combat verification gate) was insufficient because the critic treats the extractor's combat flag as evidence of combat.
+**Hypothesis:** The extractor's "Combat State Persistence Rules" tell it to maintain combat when the current text is "ambiguous" (line 92: "maintain the combat state rather than defaulting to false"). Since room descriptions that simply describe scenery are "ambiguous" about combat (they don't say "combat is over"), the extractor never clears the flag after the troll fight. The fix must be on the extractor side: require positive evidence of combat in the current game text, and treat location changes as a hard reset.
+**Change:** Modified `prompts/extractor.md` — replaced "Combat State Persistence Rules" (lines 74-92) with "Combat State Detection Rules". Key changes: (1) combat state is determined from current game text only, never inherited from previous turns; (2) location changes automatically reset combat to false; (3) `in_combat: true` requires direct evidence of a hostile creature actively present and threatening; (4) key principle reversed from "maintain when ambiguous" to "default to false when ambiguous — a missed detection is less harmful than a false positive that persists for dozens of turns."
+**Reasoning:** The root cause is the persistence heuristic — "maintain when ambiguous" is always true for non-combat rooms because they never explicitly say "combat is over." By requiring positive evidence in the current text and resetting on location change, combat can only be true when the game text actually describes an active hostile encounter. This is game-agnostic (applies to any text adventure) and teaches the extractor how to reason about combat evidence rather than encoding game-specific knowledge.
+**Target metric:** Combat state should be false at non-combat locations (Dam Lobby, Maintenance Room, etc.). This should eliminate false combat-based critic rejections, reducing rejection rate at post-combat locations from ~48-60% to <30%. Agent should be able to press buttons and navigate without combat-related rejection.
+**Result:** PENDING
+
+---

@@ -71,25 +71,25 @@ Extract the following with equal attention to detail:
 3. **visible_characters**: Any creatures, people, or characters present
 4. **in_combat**: Boolean indicating active combat or immediate threat
 
-### Combat State Persistence Rules
-Combat is a **persistent state** that continues across multiple turns until explicitly resolved. Follow these guidelines:
+### Combat State Detection Rules
+Combat state is determined from the **current game text only**. Never inherit combat state from previous turns.
 
-**Combat Continues When:**
-- Brief parser responses like ">You don't have that!" or ">I don't understand that."
-- Failed action attempts during ongoing combat situations
-- Any response that doesn't explicitly resolve the combat encounter
-- Previous context indicates active combat with no clear resolution
+**Set `in_combat: true` ONLY when the current game text contains:**
+- An enemy or hostile creature actively present and threatening (e.g., "A troll swings a bloody axe at you")
+- Explicit attack language directed at or from the player (e.g., "The thief lunges!", "You parry the blow")
+- A creature blocking passage with hostile intent (e.g., "A menacing troll bars the way")
 
-**Combat Ends When:**
-- Explicit resolution text indicates combat conclusion (death, victory, escape)
-- Clear location change away from the combat area
-- Explicit narrative indicating the threat has passed
+**Set `in_combat: false` when:**
+- The current game text is a room description with no enemies or threats mentioned
+- The player has moved to a new location (room descriptions after movement = fresh state)
+- The text is a parser response ("Taken.", "I don't understand that.", "You don't have that!")
+- The text describes objects, scenery, or puzzles with no hostile creatures
+- The text is ambiguous about whether combat is happening
 
-**Combat Starts When:**
-- New threats or hostile encounters are introduced
-- Clear combat or threatening language appears
+**Location Change = Combat Reset:**
+Any room description or location change text automatically resets combat to false. Combat in a previous room does NOT carry to a new room. The new room must contain its own evidence of active threats.
 
-**Key Principle**: If previous context indicates combat and current response is ambiguous, **maintain the combat state** rather than defaulting to false.
+**Key Principle**: If the current game text does not contain **direct, concrete evidence** of an active hostile encounter, set `in_combat: false`. When in doubt, default to false — a missed combat detection is less harmful than a false positive that persists for dozens of turns.
 
 ## Room Description Detection
 
