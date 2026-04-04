@@ -118,7 +118,7 @@ def _merge_kb(existing_kb: str, new_kb: str) -> str:
 )
 @observe()
 def update_knowledge(state: State, client: instructor.Instructor, config: GameConfig, use_thinking: bool = False) -> tuple[dict, State]:
-    recent = state[S.ACTION_HISTORY][-50:]
+    recent = state[S.ACTION_HISTORY][-25:]
     action_summary = "\n".join(
         f"Turn {a['turn']}: {a['action']} -> {a.get('response', '')[:150]}" for a in recent
     )
