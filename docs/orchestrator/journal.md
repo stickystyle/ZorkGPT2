@@ -1493,3 +1493,55 @@ The agent takes lantern but skips sword because:
 **Summary:** This session fixed a 10-episode consolidation bug (bracket titles) and solved the sword-skipping problem (KB item scanning). ep54 demonstrated the complete early game sequence: house→sword+lantern→attic→rug→cellar→troll kill (score 40 by turn 25, 80 turns survived). The dam puzzle is now the clear bottleneck — agent needs to discover "turn bolt with wrench" verb pattern. KB update timeout fix deployed for next session. Memory system fully operational: consolidation, supersession, and dedup all working.
 
 ---
+
+## Session Start — 2026-04-03
+**Continuing from:** ep54. KB update timeout fix (25-turn window) deployed but untested.
+**Focus:** Verify KB timeout fix, push past dam puzzle ceiling (score 40→54+).
+
+---
+
+## Episode 55 — Turn 25 Checkpoint
+**Type:** CONCERN — score 10 vs ep54's 40 at same point, high rejection rate
+**Score:** 10/350 (delta: +10 from start)
+**Locations visited:** 11 unique (surface-heavy exploration)
+**Avg critic score:** 0.52
+**Rejection rate:** 15/25 (60%) — 3 rejection spirals at turns 13, 15, 17
+**Gameplay quality:** DRIFTING
+  - Memory use: Agent has 60 memories across 27 locations but didn't use them at Attic (left without taking items)
+  - KB alignment: KB clearly says "move rug", "kill troll", "take egg from tree" — agent took sword but skipped rug, heading to Forest Path instead
+  - Objective quality: 7 total, 2 duplicate ("move rug"), some well-formed (rope from Attic), some vague
+  - Objective pursuit: Agent at Forest Path (t25) possibly pursuing tree egg (KB-aligned). But skipped rug puzzle and Attic items entirely
+  - Learning system quality: KB is rich with score changes and puzzle mechanics. Agent partially following it (house entry, sword) but not optimal path
+  - Pathfinding: WANDERING — Agent went Attic→Kitchen→Living Room→Kitchen→Behind House→surface exploration. No clear plan to return for lantern
+**Triggers:** Rejection rate 60% > 30%. Three rejection spirals (3+ rejections at turns 13, 15, 17). Critic rejected "take sword" at -0.50 — a clearly correct action.
+**Notes:** Major regression from ep54 at same turn count (10 vs 40 score). Agent has no lantern — can't go underground. Critic over-rejected at turns 13 (-0.50 for take sword), 15 (-0.90 for movement), 17 (-0.70 for movement). Same prompts/model as ep54 which scored 40. Likely stochastic variation but monitoring closely. Will evaluate at turn 50 — if score still 10, will dispatch critic improvement.
+
+---
+
+## Episode 55 — Turn 50 Checkpoint (KILLED)
+**Type:** URGENT — score 15 at turn 50, critic catastrophically over-rejecting
+**Score:** 15/350 (delta: +5 since turn 25 — egg only)
+**Locations visited (t26-50):** 8 unique (Forest_Path, Up_a_Tree, Clearing, Forest, Behind_House, Kitchen, Living_, Attic)
+**Avg critic score:** 0.32 (CRITICAL — below 0.5 for 2 consecutive checkpoints)
+**Rejection rate:** 18/25 (72%) — CRITICAL
+**Gameplay quality:** DRIFTING
+  - Memory use: Agent references KB plan in reasoning (take lantern, rug, Attic) — good
+  - KB alignment: Agent's REASONING is KB-aligned but critic blocks execution. Agent planned: lantern→Attic→rope→rug→cellar. Correct sequence.
+  - Objective quality: 15 objectives, 3 duplicates ("move rug"), many vague. Poor quality.
+  - Objective pursuit: Agent pursuing lantern→Attic plan at t45-50, but critic rejecting each step
+  - Learning system quality: KB is good. Agent reads it. Critic ignores it.
+  - Pathfinding: NAVIGATING (when not blocked by critic) — Agent returned to house, got lantern, heading to Attic
+**Triggers:** Score stagnant (15 for 19 turns). Avg critic 0.32 < 0.5 (2 consecutive). Rejection rate 72% > 30%. Critic hallucinating combat state.
+**Notes:** ROOT CAUSE IS CRITIC. Agent reasoning at turns 45-49 shows clear KB-aligned plan (lantern→Attic→rope→rug→cellar). But critic rejected: "take sword" (-0.50), "take egg" (-0.80), "drop sack" (-0.90), "light lantern" (-0.50, "risky without clear immediate reward"), "west" (-0.90, "risks stalling combat"). Critic hallucinated "active combat" at turns 47-48 when no enemy was present. Critic last updated ep7 (48 episodes ago). Dispatching critic prompt improvement.
+
+---
+
+## Episode 55 → 56 — IMPROVEMENT
+**Trigger:** Critic rejection rate 72% at turn 50, avg score 0.32. Critic rejected fundamental actions (take sword -0.50, take egg -0.80, drop sack -0.90, light lantern -0.50) and hallucinated combat state at turns 47-48 when no enemy was present.
+**Hypothesis:** The critic prompt (last updated ep7, 48 episodes ago) has extensive penalization rules but no explicit positive-scoring rules for fundamental actions. The local model (Ministral-3-14B) sees many negative-scoring examples and defaults to negative scores. Additionally, the combat evaluation section has no verification step, so the model applies combat-related penalties (e.g., "risks stalling combat") even when no combat is happening.
+**Change:** Modified `prompts/critic.md` — (1) Added "FUNDAMENTAL ACTIONS" section at the top of Evaluation Criteria that explicitly scores item pickup (+0.5 to +0.8), inventory management (+0.3 to +0.6), light source management (+0.7 to +0.9), and examination (+0.3 to +0.6) as positive by default, with priority over other rules. (2) Added "COMBAT STATE VERIFICATION (MANDATORY)" gate requiring concrete evidence of combat (combat feedback in recent responses, enemy explicitly present) before applying any combat-related scoring. If no evidence, combat rules do not apply.
+**Reasoning:** Giving the local model explicit positive anchoring for common good actions counterbalances the many penalization rules. The combat verification gate prevents hallucinated combat state from triggering inappropriate rejections. Both changes are game-agnostic reasoning heuristics (apply to any text adventure).
+**Target metric:** Rejection rate below 40% (from 72%). Avg critic score above 0.45 (from 0.32). Specifically: TAKE, DROP, LIGHT actions should receive positive scores.
+**Result:** PENDING
+
+---

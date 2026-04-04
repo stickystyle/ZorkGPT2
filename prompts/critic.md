@@ -69,6 +69,20 @@ Your justifications will be shown to the agent when actions are rejected. You ha
 
 **Evaluation Criteria:**
 
+**FUNDAMENTAL ACTIONS — Score Positive Before Checking Other Rules:**
+
+Before applying any penalization rules below, check if the proposed action is a fundamental gameplay action. These actions are almost always productive and should receive positive scores unless there is a specific, verifiable reason to reject:
+
+- **Picking up items** (TAKE/GET visible objects): Score **+0.5 to +0.8**. Collecting items is a core gameplay mechanic. If the item is mentioned in the room description or is known to be present, approve it. Only reject if the exact same TAKE command just received a hard rejection ("can't see any such thing").
+
+- **Managing inventory** (DROP/PUT items the agent is carrying): Score **+0.3 to +0.6**. Dropping or storing items to free carry capacity or organize inventory is valid resource management. Only reject if the agent is dropping the same item repeatedly in a loop.
+
+- **Light source management** (LIGHT/TURN ON a light source in inventory): Score **+0.7 to +0.9**. Activating a light source is a prerequisite for exploring dark areas. This is always a high-value action when the agent has a light source.
+
+- **Examining objects or surroundings** (EXAMINE/LOOK/READ): Score **+0.3 to +0.6**. Information gathering is always productive in a new or unfamiliar situation.
+
+These fundamentals take PRIORITY over other evaluation criteria. Do not let anti-repetition rules, risk assessment, or combat evaluation override a positive score for a fundamental action unless you have verified evidence (from recent action history) of a specific problem.
+
 1. **Context Relevance**: Does action match current state? Objects mentioned in descriptions ARE present and interactable.
 
 2. **Progress Potential**: Will it advance gameplay, solve puzzles, or increase score?
@@ -113,6 +127,15 @@ Your justifications will be shown to the agent when actions are rejected. You ha
    **Creative use of inventory:** Reward using items to modify environment or solve prerequisites.
 
    **Combat Action Evaluation:**
+
+   **COMBAT STATE VERIFICATION (MANDATORY):** Before applying ANY combat-related scoring (positive or negative), you MUST verify that combat is actually happening by checking recent action history for CONCRETE evidence:
+   - Recent responses contain combat feedback (hits, misses, wounds, dodges, strikes)
+   - An enemy creature is explicitly mentioned as PRESENT in the current room description or recent responses
+   - The agent has recently used attack commands and received combat responses
+
+   If NONE of these indicators are present in recent action history, combat is NOT happening. Do NOT apply combat scoring rules. Do NOT penalize non-combat actions for "stalling combat" or "risking combat". Do NOT reference combat in your justification. Evaluate the action using the other criteria instead.
+
+   **When combat IS verified as active:**
    - **High Score (+0.7 to +0.9):**
      - Repeated "attack X with Y" during active combat (each turn has different combat feedback)
      - Using appropriate weapon for combat situation
@@ -123,11 +146,11 @@ Your justifications will be shown to the agent when actions are rejected. You ha
      - Switching weapons during combat (tactical adjustment)
 
    - **Low Score (-0.3 to -0.6):**
-     - Non-combat actions during active combat (checking inventory, examining items)
+     - Non-combat actions during verified active combat (checking inventory, examining items)
      - Fleeing from winnable combat without attempting attack
      - Note: Agent guidance prioritizes combat actions during fights
 
-   **Combat Recognition:** Check recent responses for combat feedback (hits/misses/wounds), enemy names, or weapon/combat verbs.
+   **Combat Recognition:** Check recent responses for combat feedback (hits/misses/wounds), enemy names, or weapon/combat verbs. The absence of these indicators means combat is NOT happening — do not assume or hallucinate combat state.
 
 6. **Anti-Repetition (CRITICAL - Distinguish Loops from Experimentation)**:
 
