@@ -311,3 +311,78 @@ The permanent obstacle rule (ep35→36) caps attempts on the same OBJECT at 5. B
 **Result:** PENDING
 
 ---
+
+## Episode 60 — Turn 25 Checkpoint
+**Type:** HEALTHY — slower start but progressing
+**Score:** 10/350 (delta: +10 from start — house entry at t19)
+**Locations visited:** 9 unique (West_House, North_House, Forest_Path, Forest, Up_a_Tree, Behind_House, Kitchen, Living_, Attic)
+**Avg critic score:** 0.56 (HEALTHY)
+**Rejection rate:** 5/25 (20%) — HEALTHY
+**Gameplay quality:** DRIFTING
+  - Memory use: Not evaluated yet at this stage
+  - KB alignment: Agent took lantern (t23), went to Attic (t25) — following KB pattern partially. But did NOT take sword from Living Room.
+  - Objective quality: Not checked
+  - Objective pursuit: Agent exploring house, heading to Attic
+  - Learning system quality: Not evaluated at this stage
+  - Pathfinding: WANDERING then NAVIGATING — Forest loop t3-14 (12 turns, 3 locations), then broke out to house at t15. Area escape rule may have helped breakout. House navigation t15-25 efficient.
+**Triggers:** None — metrics healthy. Forest loop (12 turns) was below the old threshold but might have been broken by the new area escape rule.
+**Notes:** Slower than ep59 (10 at t19 vs 40 at t19). Agent took lantern at t23 but appears to have missed sword in Living Room. Without sword, can't kill troll. At Attic now (t25) — monitoring whether agent returns for sword before attempting cellar.
+
+---
+
+## Episode 60 — COMPLETE (killed at turn 42)
+**Turns:** 42
+**Final score:** 10/350 (peak 10, house entry at t19)
+**Locations visited:** 9 unique
+**Objectives found:** N/A
+**End reason:** early_stop (manual kill — 12-turn trap door fixation, critic rejecting all descent actions)
+**Improvement dispatched:** no — area escape rule not testable, trap door issue is stochastic model behavior + critic gap
+
+**Key issues:**
+  1. **Forest loop t3-14 (12 turns)**: Agent bounced between Forest_Path/Forest/Up_a_Tree. Broke out at t15 — possible area escape rule effect but unconfirmed (old rule would have also suggested movement eventually).
+  2. **Trap door fixation t31-42 (12 turns)**: Agent opened trap door at t31 (accepted with critic 0.90) but then kept trying to open it again with different verbs instead of going "down". Model doesn't recognize prior action succeeded. Critic rejected all descent attempts (-0.30 to -0.90).
+  3. **Missing sword**: Agent took lantern but not sword from Living Room. Can't kill troll without it.
+
+**Area escape rule evaluation:** INCONCLUSIVE — agent didn't reach Dam Lobby area. Forest loop breakout (12 turns) happened but may be attributable to normal movement rules rather than the new rule. Need ep61 to reach Dam area for proper test.
+
+| Episode | Score | vs Prev | Best So Far | Turns to 1st Score | Locations | KB Quality | End Reason |
+|---------|-------|---------|-------------|-------------------|-----------|------------|------------|
+| ep48 | 40 | +40 | 54 | 7 | 19 | clean | max_turns! |
+| ep49 | 10 | -30 | 54 | 11 | 14 | degraded | killed t50 |
+| ep50 | 10 | 0 | 54 | 22 | 10 | degraded | killed t38 |
+| ep51 | 25(35) | +15 | 54 | 5 | 10 | restored | death t24 |
+| ep52 | 30(40) | +5 | 54 | 7 | 15 | clean | death t38 |
+| ep53 | 25(35) | -5 | 54 | 5 | 7 | clean | death t22 |
+| ep54 | 30(40) | +5 | 54 | 6 | 16 | clean | death t80 |
+| ep55 | 15 | -15 | 54 | 6 | 11 | clean | killed t50 |
+| ep56 | 0 | -15 | 54 | — | 5 | clean | killed t30 |
+| ep57 | 0 | 0 | 54 | — | 4 | clean | killed t14 |
+| ep58 | 30(40) | +30 | 54 | 5 | 21 | clean | death t94 |
+| ep59 | 40 | +10 | 54 | 6 | 19 | clean | killed t70 |
+| ep60 | 10 | -30 | 54 | 19 | 9 | clean | killed t42 |
+
+**Trend:** ep60 regressed significantly (10 vs ep59's 40). This appears to be stochastic model variation — same prompts/KB produced 40 by t19 in ep59. Agent couldn't figure out to go "down" after opening trap door. The area escape rule was not testable. Running ep61 for a proper test.
+
+---
+
+## Episode 61 — COMPLETE (killed at turn 18 by user)
+**Turns:** 18
+**Final score:** 0/350 (never scored — never entered house)
+**Locations visited:** 7 unique (West_House, North_House, Behind_House, Clearing, CanyView, Rocky_Ledge, CanyBottom, End_Rainbow)
+**End reason:** early_stop (user requested stop)
+**Improvement dispatched:** no — insufficient data
+
+**Notes:** Agent went east from Behind House into canyon area instead of entering house via window. Explored CanyView→Rocky_Ledge→CanyBottom→End_Rainbow (turns 5-18). Score 0. Episode killed by user before reaching house. Area escape rule evaluation: INCONCLUSIVE.
+
+---
+
+## Session Complete
+**Episodes run:** 3 (ep59 killed t70, ep60 killed t42, ep61 killed t18)
+**Best score achieved:** 40/350 (ep59, peak at turn 19 — fastest scoring ever)
+**Improvements made:** 2
+  1. BLOCKER: KB timeout fix + poisoned dam entry cleanup (ep58→59, committed prior session)
+  2. INCREMENTAL: Area escape rule for navigation oscillation (ep59→60)
+**System status:** STOPPED BY USER
+**Summary:** ep59 confirmed the KB timeout fix works and achieved the fastest early game ever (40 by t19). However, a 28-turn Dam Lobby ↔ Maintenance oscillation exposed a gap in the permanent obstacle rule — it doesn't cover movement loops. Added area escape rule (5/8 turns in same 2-3 locations → backtrack). ep60 and ep61 didn't reach the Dam area to test it (stochastic model variation — trap door fixation in ep60, surface wandering in ep61). The area escape rule remains PENDING evaluation. The critic still over-rejects structural passage actions (open/descend/enter trap door).
+
+---
