@@ -67,14 +67,15 @@ def _has_remote_roles(config: GameConfig) -> bool:
 # ---------------------------------------------------------------------------
 
 def thinking_kwargs(config: GameConfig, role_model: str, use_thinking: bool) -> dict:
-    """Return extra_body kwargs to control thinking for local llama-server.
+    """Return extra_body kwargs to control thinking/reasoning mode.
 
-    For remote models, returns empty dict.
+    For remote models (OpenRouter), uses the reasoning API parameter.
     For local Ministral models, returns empty dict (native reasoning_content).
     For other local models, passes chat_template_kwargs.enable_thinking via extra_body.
     """
     if is_remote_model(role_model, config):
-        # TODO: Investigate OpenRouter thinking mechanism for Gemma 4
+        if use_thinking:
+            return {"extra_body": {"reasoning": {"enabled": True}}}
         return {}
     # Ministral uses native reasoning_content — no chat_template control needed
     if "ministral" in (config.local_model or "").lower():

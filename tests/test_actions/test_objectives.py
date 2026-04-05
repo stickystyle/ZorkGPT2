@@ -25,6 +25,7 @@ def test_update_objectives_discovers_new():
         S.ACTION_HISTORY: [{"action": "look", "response": "forest", "turn": 1}],
         S.GAME_RESPONSE: "You are in a forest.", S.SCORE: 0,
         S.LOCATION_NAME: "Forest", S.LOCATION_ID: 42, S.TURN_COUNT: 10, S.KNOWLEDGE_BASE: "",
+        S.MAP_DATA: {"rooms": {"42": "Forest"}},
     })
     _, new_state = update_objectives.run(
         state, client=mock_client, config=_mock_config(), use_thinking=False
@@ -80,6 +81,7 @@ def test_update_objectives_extra_body_for_local():
         S.DISCOVERED_OBJECTIVES: [], S.COMPLETED_OBJECTIVES: [],
         S.ACTION_HISTORY: [], S.GAME_RESPONSE: "test", S.SCORE: 0,
         S.LOCATION_NAME: "Forest", S.LOCATION_ID: 42, S.TURN_COUNT: 10, S.KNOWLEDGE_BASE: "",
+        S.MAP_DATA: {},
     })
     update_objectives.run(
         state, client=mock_client, config=_mock_config(use_local_models=True), use_thinking=True
@@ -89,19 +91,20 @@ def test_update_objectives_extra_body_for_local():
     assert call_kwargs["extra_body"] == {"chat_template_kwargs": {"enable_thinking": True}}
 
 
-def test_update_objectives_no_extra_body_on_openrouter():
+def test_update_objectives_reasoning_on_openrouter():
     mock_client = MagicMock()
     mock_client.create.return_value = ObjectiveDiscoveryResponse(objectives=[], completed=[])
     state = State({
         S.DISCOVERED_OBJECTIVES: [], S.COMPLETED_OBJECTIVES: [],
         S.ACTION_HISTORY: [], S.GAME_RESPONSE: "test", S.SCORE: 0,
         S.LOCATION_NAME: "Forest", S.LOCATION_ID: 42, S.TURN_COUNT: 10, S.KNOWLEDGE_BASE: "",
+        S.MAP_DATA: {},
     })
     update_objectives.run(
         state, client=mock_client, config=_mock_config(use_local_models=False), use_thinking=True
     )
     call_kwargs = mock_client.create.call_args.kwargs
-    assert "extra_body" not in call_kwargs
+    assert call_kwargs["extra_body"] == {"reasoning": {"enabled": True}}
 
 
 def test_update_objectives_deduplicates():
@@ -118,6 +121,7 @@ def test_update_objectives_deduplicates():
         S.ACTION_HISTORY: [{"action": "look", "response": "forest", "turn": 1}],
         S.GAME_RESPONSE: "forest", S.SCORE: 0,
         S.LOCATION_NAME: "Forest", S.LOCATION_ID: 42, S.TURN_COUNT: 10, S.KNOWLEDGE_BASE: "",
+        S.MAP_DATA: {"rooms": {"42": "Forest"}},
     })
     _, new_state = update_objectives.run(
         state, client=mock_client, config=_mock_config(), use_thinking=False

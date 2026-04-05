@@ -661,7 +661,7 @@ The permanent obstacle rule (ep35→36) caps attempts on the same OBJECT at 5. B
   Tested prompt through 3 iterations (hallucination control, nav noise filtering, character limits). Final output: ~333 tokens for 25 locations. Seeded `data/summaries.json` with initial summaries for all explored locations.
 **Reasoning:** The agent can now see "wrench + screwdriver in Dam Lobby" when standing at the Dam, or "brown sack with lunch + garlic" at Behind House when underground. This bridges the information horizon gap without expanding the Mermaid map depth (which testing showed doesn't help — the 14B model can't pathfind on graphs, but handles next-step navigation fine with the 2-hop local view).
 **Target metric:** Agent should reference distant location contents in reasoning when planning multi-step goals. Cross-map item transport puzzles (e.g., rope from Attic to Dome Room, wrench from Maintenance to Dam) should become solvable once the agent can see what's where globally.
-**Result:** PENDING — will take effect from ep65 onward.
+**Result:** PENDING — will take effect from ep66 onward (ep65 invalid).
 
 ---
 
@@ -689,6 +689,395 @@ The permanent obstacle rule (ep35→36) caps attempts on the same OBJECT at 5. B
   Zero LLM cost — pure Python BFS on a 50-room graph (microseconds). No new state keys, config, or models needed. Verified against real map data: Living Room → Troll Room (2 moves), Kitchen → Dam (7 moves), Attic → Dam Base (9 moves) all correct.
 **Reasoning:** Routes are computed for the agent's own declared objectives — not injected strategy. The agent decides WHERE to go (via objectives); pathfinding tells it HOW. This is a reasoning tool (like the map itself) not game knowledge. Analogous to giving a player a compass — it doesn't tell them what to do, just how to get where they've already decided to go.
 **Target metric:** Agent should follow injected routes when navigating to objective targets. Multi-hop navigation to distant objectives (e.g., "return to Living Room from Dam area") should complete in near-optimal moves instead of random wandering.
-**Result:** PENDING — will take effect from ep65 onward.
+**Result:** PENDING — will take effect from ep66 onward (ep65 invalid).
+
+---
+
+## Episode 65 — ABORTED
+**Turns:** 50 (incomplete — rate limited then manually stopped)
+**Final score:** 15/350 (egg +5 at t6, house entry +10 at t18)
+**Locations visited:** 11 unique (surface + house interior)
+**End reason:** manual stop — memory system improvement was reverted during ep65; data invalid
+**Improvement dispatched:** no
+**Notes:** Post-reset episode (KB empty, memories wiped). Memory synthesis fix was missing during this run. Agent got stuck in Living Room 19 turns (t20-38) without KB to guide rug puzzle. Then abandoned to canyon before 429 rate limits killed the process. Memory fix restored after stop. Ep65 not evaluable for PENDING improvements. Two clean memories retained (egg, window entry).
+
+---
+
+## Episode 66 → 67 — IMPROVEMENT (BLOCKER)
+**Trigger:** All objectives have `location_id: 0` despite having correct `location_name` strings. The LLM model has no name→ID mapping for rooms other than the current one, so it defaults to 0. This breaks auto-pathfinding (BFS routes require numeric IDs). Discovered during ep66 — all 5 initial objectives showed R0.
+**Hypothesis:** The LLM can't produce numeric IDs it hasn't seen. Post-processing in Python should resolve `location_name` → `location_id` using the map graph's room registry after each LLM call.
+**Change:** Added `_resolve_location_id()` helper to `zorkburr/actions/objectives.py`. Uses 3-tier matching: current location shortcut, exact case-insensitive, fuzzy substring. Added `S.MAP_DATA` to reads. Post-processes all new objectives after LLM call.
+**Reasoning:** Pure infrastructure fix — the LLM output is correct (names), the data pipeline was missing the resolution step.
+**Target metric:** Objectives should have non-zero location_id matching their location_name. Pathfinding routes should appear in agent context for objectives at distant locations.
+**Validation:** N/A — code fix, not prompt change. Tests pass (174/174).
+**Result:** PENDING — takes effect from ep67 onward (ep66 continuing with old code).
+
+---
+
+## Episode 66 — Turn 25 Checkpoint
+**Type:** HEALTHY — post-reset exploration, expected slow start
+**Score:** 15/350 (egg +5 at t6, house entry +10 at t17)
+**Locations visited:** 10 unique (West_House, North_House, Forest_Path, Up_a_Tree, Clearing, Forest, Behind_House, Kitchen, Living_, Attic)
+**Avg critic score:** 0.50
+**Rejection rate:** 5/25 (20%) — HEALTHY
+**Gameplay quality:** DRIFTING
+  - Memory use: Agent referenced memories at t5 ("nearby memories suggest jewel-encrusted egg"). Good for available data.
+  - KB alignment: KB empty (post-reset) — Global Strategic Review rule has nothing to work with. Expected.
+  - Objective quality: 4/4 objectives at location_id 0 (BLOCKER — fix committed above). Objectives mediocre: "examine table", "search passage".
+  - Objective pursuit: Completed 6 objectives from first batch. Current 4 are Living Room tasks.
+  - Learning system quality: 4 memories across 3 locations. 1 duplicate at loc 88 (dedup miss). KB empty. Content clean.
+  - Pathfinding: NAVIGATING — house→egg→forest→house entry→kitchen→living→attic. No oscillation.
+**Triggers:** None — post-reset expected slow start.
+**Notes:** First valid post-reset episode. Agent has all essential items (sword, lantern, rope, knife). Needs to discover rug/trap door on its own. Heading east from Behind_House at t30.
+
+---
+
+## Episode 66 — Turn 50 Checkpoint
+**Type:** HEALTHY — score stagnant but agent just discovered rug, post-reset exploration expected
+**Score:** 15/350 (delta: 0 since t25 — stagnant, but see notes)
+**Locations visited (t26-50):** 10 unique (Attic, Behind_House, CanyBottom, CanyView, Clearing, End_Rainbow, Forest, Kitchen, Living_, Rocky_Ledge)
+**Avg critic score:** 0.56 (HEALTHY)
+**Rejection rate:** 6/25 (24%) — HEALTHY
+**Gameplay quality:** DRIFTING
+  - Memory use: Memories still sparse (4 total). Agent references them when available.
+  - KB alignment: KB empty (post-reset). No guidance available. Expected.
+  - Objective quality: 4 objectives, all at R0 (BLOCKER fix committed, takes effect ep67). Mediocre quality.
+  - Objective pursuit: Agent explored canyon (t30-38, 9 turns) mapping new territory, then returned to house (t39-50). Door fixation t44-48 (5 turns), then examined rug at t49.
+  - Learning system quality: KB empty. Memories clean. No new memories this block (no score changes).
+  - Pathfinding: WANDERING then NAVIGATING — Canyon exploration was productive (mapped 4 new rooms). Living Room door fixation was mild (5 turns). Agent found rug at t49 — potential breakthrough.
+**Triggers:** Score stagnant (0 delta across 2 checkpoints). BUT: post-reset context — KB empty, agent relearning from scratch. Agent discovered rug at t49, suggesting imminent progress.
+**Notes:** Not dispatching improvement — this is post-reset relearning, not a system problem. Agent explored canyon (4 new rooms), returned to house, fixated on door briefly, then found the rug. The critical question for the next block is whether the agent figures out "move rug" → "open trap door" → "down" on its own. This is the first real test of the agent's puzzle-solving without KB guidance.
+
+---
+
+## Episode 66 → 67 — IMPROVEMENT (BLOCKER)
+**Trigger:** KB synthesis hallucinated extensively. Model fabricated: "Lit brass lantern (score +10)" (actually 0), "Took rope (score +5)" (actually 0), "Pushing the rug revealed a trap door" (agent only EXAMINED rug, never pushed it). Also massive navigation noise in Unexplored Leads (paths belong in map). Root cause: action history sent to KB synthesis had no score-per-turn data, so model guessed using Zork training data.
+**Hypothesis:** Without explicit score delta tags, the 14B model can't distinguish scoring actions from non-scoring ones and falls back on its Zork training data. Adding [SCORE: X→Y, +N] tags to turns with actual score changes, plus stronger anti-hallucination instructions, will ground the model in observed data.
+**Change:** (1) `zorkburr/actions/knowledge.py` — action summary now includes `[SCORE: X→Y, +N]` tags for turns with score deltas, plus location name per turn. (2) `prompts/knowledge.md` — added SCORE VERIFICATION (only record tagged score changes) and HALLUCINATION CHECK (verify exact verbs from log) sections. Updated Unexplored Leads to exclude navigation paths. (3) Wiped `data/knowledge.md` — will re-wipe after ep66 ends since running process has poisoned data in memory.
+**Reasoning:** Score tags give the model ground truth. Anti-hallucination rules provide explicit checkpoints. Both are game-agnostic reasoning aids.
+**Target metric:** Zero fabricated score changes in KB. Zero "puzzle mechanics" not backed by actual agent actions. Unexplored Leads should contain only notable features, not path directions.
+**Validation:** PASSED — fixture ep66_t50: Score Changes now contains ONLY "take egg (+5)" and "enter window (+10)". Zero hallucinated scores. Zero "pushing rug" fabrication. Post-processing guardrail (`_enforce_verified_scores`) strips any surviving hallucinations.
+**Result:** PENDING — takes effect from ep67 onward.
+
+---
+
+## Episode 66 — Turn 75 Checkpoint / COMPLETE (killed by user)
+**Type:** CONCERN — score stagnant 60 turns, agent trapped in house↔canyon loop
+**Score:** 15/350 (delta: 0 since t17 — stagnant for 58 turns)
+**Locations visited (t51-75):** 9 unique (canyon re-exploration + house revisit)
+**Avg critic score (t51-75):** 0.59 (HEALTHY)
+**Rejection rate (t51-75):** 2/25 (8%) — EXCELLENT
+**Gameplay quality:** IGNORING
+  - Memory use: 4 memories, sparse. Agent not referencing memories for puzzle solving.
+  - KB alignment: KB hallucinated (see BLOCKER fix above). Agent got poisoned guidance.
+  - Objective quality: All at R0 (BLOCKER fix committed). Quality poor.
+  - Objective pursuit: Agent re-explored canyon 3 times without progress.
+  - Learning system quality: KB hallucinated. Memories clean but too few. Memory quality fix untestable — no new memories created.
+  - Pathfinding: WANDERING — 3 full canyon loops (t30-38, t52-60, t70-75). Agent never discovered "move rug". House→canyon→house→canyon cycle.
+**Triggers:** Score stagnant (0 delta across 3 checkpoints). Canyon oscillation pattern.
+**Notes:** Killed by user at t75. Post-reset episode with empty KB was expected to be slow. The main data point: agent examined rug at t49 but never tried "move rug" — the puzzle remains undiscovered. KB hallucination contaminated ep66 data. Data wiped (KB, memories, summaries) for clean ep67.
+
+**Turns:** 75
+**Final score:** 15/350 (egg +5, house entry +10)
+**Locations visited:** 14 unique
+**End reason:** early_stop (user killed — canyon looping, KB hallucinated)
+**Improvement dispatched:** yes — 3 BLOCKER fixes (objective location_id, KB hallucination, KB temperature)
+
+| Episode | Score | vs Prev | Best So Far | Turns to 1st Score | Locations | KB Quality | End Reason |
+|---------|-------|---------|-------------|-------------------|-----------|------------|------------|
+| ep58 | 30(40) | +30 | 54 | 5 | 21 | clean | death t94 |
+| ep59 | 40 | +10 | 54 | 6 | 19 | clean | killed t70 |
+| ep60 | 10 | -30 | 54 | 19 | 9 | clean | killed t42 |
+| ep61 | 0 | -10 | 54 | — | 7 | clean | killed t18 |
+| ep62 | 40 | +40 | 54 | 5 | 16 | clean | killed t76 |
+| ep63 | 44 | +4 | 54 | 10 | 23 | clean | max_turns! |
+| ep64 | 5 | -39 | 54 | 33 | 6 | poisoned | killed t50 |
+| ep65 | 15 | +10 | 54 | 6 | 11 | n/a | aborted |
+| ep66 | 15 | 0 | 54 | 6 | 14 | hallucinated | killed t75 |
+
+**Trend:** ep66 was the first valid post-reset episode. Score 15 (house entry only) is expected — agent needs to rediscover rug/cellar/troll without KB. KB hallucination was a BLOCKER (model fabricated scores and puzzle mechanics from training data). Fixed with pre-computed verified scores + programmatic guardrail + temperature 0.2. Three BLOCKER fixes committed for ep67: objective location_id resolution, KB hallucination prevention, KB temperature reduction.
+
+---
+
+## Episode 67 — Turn 25 Checkpoint
+**Type:** HEALTHY — post-reset exploration, house entry at t26 (just past checkpoint)
+**Score:** 5/350 at t25, 15/350 at t26 (egg +5 at t20, house entry +10 at t26)
+**Locations visited:** 7 unique (West_House, North_House, Forest_Path, Clearing, Forest, Up_a_Tree, Behind_House)
+**Avg critic score:** 0.60 (HEALTHY)
+**Rejection rate:** 1/25 (4%) — EXCELLENT
+**Gameplay quality:** DRIFTING
+  - Memory use: No memories at start (clean reset). Agent exploring from scratch.
+  - KB alignment: KB empty. Expected post-reset.
+  - Objective quality: Not evaluated yet (new episode).
+  - Objective pursuit: Agent found egg (t20) and house entry (t26) through natural exploration.
+  - Learning system quality: KB empty. Memories building from scratch.
+  - Pathfinding: WANDERING then NAVIGATING — Forest/Clearing loop t5-17 (13 turns), then broke out to tree/egg (t18-20), then efficient house entry (t22-26).
+**Triggers:** None — post-reset expected pace. 13-turn Forest loop was slow but agent broke out naturally.
+**Notes:** Similar to ep66 first 25 turns (house entry at t17 in ep66, t26 here). Slightly slower due to longer forest loop. Agent just entered Kitchen at t26 — watching for sword/lantern pickup and cellar discovery. BLOCKER fixes (objective location_id, KB hallucination) will be tested once KB update fires.
+
+---
+
+## Episode 67 — Turn 50 Checkpoint
+**Type:** CONCERN — score stagnant 2 consecutive checkpoints, same house↔surface loop
+**Score:** 15/350 (delta: 0 since t26 — stagnant 24 turns)
+**Locations visited (t26-50):** 8 unique (all previously visited — no new territory)
+**Avg critic score:** 0.56 (HEALTHY)
+**Rejection rate:** 3/25 (12%) — EXCELLENT
+**Gameplay quality:** DRIFTING
+  - Memory use: Memories building (egg, window entry). Agent not referencing for puzzle solving.
+  - KB alignment: **KB HALLUCINATION FIX CONFIRMED** — Score Changes now contains ONLY real events (egg +5, window +10). No fabricated scores. No "pushing rug" hallucination. `_enforce_verified_scores()` guardrail working. Verbose formatting (R? instead of IDs) but data is factually correct.
+  - Objective quality: Not checked (objectives have location_id fix — will verify next KB update).
+  - Objective pursuit: Agent cycling house→surface→house without clear objective progress.
+  - Learning system quality: KB clean and factual (major improvement from ep66). Failed Approaches correctly notes "examine rug revealed nothing special." Unexplored Leads mentions "dark staircase" and "gothic door" — both valid.
+  - Pathfinding: WANDERING — house↔surface cycle (t37-52). Same pattern as ep66. Agent examines rug but never tries "move rug."
+**Triggers:** Score stagnant (0 delta across 2 consecutive checkpoints). But post-reset expected — agent needs to discover rug puzzle from scratch.
+**Notes:** KB hallucination fix is the major success here. Agent still stuck at 15 — can't discover "move rug" without prior KB guidance. Enabling thinking for Gemma 4-31B (INCREMENTAL, slated for ep68) may improve puzzle verb discovery. Letting ep67 continue to build KB/memory data.
+
+---
+
+## Episode 67 — Turn 75 Checkpoint / COMPLETE (killed)
+**Type:** URGENT — score stagnant 3 consecutive checkpoints, agent cannot discover rug puzzle
+**Score:** 15/350 (delta: 0 since t26 — stagnant 49 turns)
+**Locations visited (t51-75):** 7 unique (all previously visited)
+**Avg critic score (t51-75):** 0.38 (BELOW 0.50)
+**Rejection rate (t51-75):** 6/25 (24%)
+**Gameplay quality:** IGNORING
+  - Memory use: 3 memories (egg, window, egg). Too sparse to drive behavior.
+  - KB alignment: KB clean and factual (hallucination fix confirmed). But KB has no rug/cellar info — agent can't learn what it hasn't done.
+  - Objective quality: Not evaluated.
+  - Objective pursuit: Agent cycling house→surface→house with door fixation each visit.
+  - Learning system quality: KB hallucination fix CONFIRMED — only real score events, no fabricated mechanics. Major improvement. But KB lacks actionable strategy because agent hasn't made progress.
+  - Pathfinding: STUCK — 3 full house↔surface cycles (t37-52, t59-72, t73-78). Door fixation 2x (t54-58, t74-78). Never tried "move rug."
+**Triggers:** Score stagnant 3 consecutive checkpoints. Low critic (0.38). Agent cannot discover rug puzzle without extended thinking.
+
+**Turns:** 78
+**Final score:** 15/350 (egg +5, house entry +10)
+**Locations visited:** 8 unique
+**End reason:** early_stop (score stagnant 3 checkpoints, agent cannot break 15)
+**Improvement dispatched:** yes — enable thinking for agent model
+
+**KB hallucination fix results (BLOCKER from ep66→67):**
+- Score Changes: ONLY real events (egg +5, window +10). Zero fabricated. PASS.
+- Puzzle Mechanics: No "pushing rug" hallucination. PASS.
+- Items Found: All items the agent actually took. PASS.
+- Failed Approaches: Correctly notes "examine rug revealed nothing special." PASS.
+- Minor issue: location IDs showing "R?" instead of actual IDs.
+- **VERDICT: KB hallucination fix CONFIRMED WORKING.**
+
+---
+
+## Episode 67 → 68 — IMPROVEMENT (INCREMENTAL)
+**Trigger:** Agent stuck at score 15 for 49 turns across ep67 (and all 75 turns of ep66). Agent examines rug but never tries "move rug" — cannot discover the verb without extended reasoning. Same door fixation pattern repeats twice per episode (5 turns each). Without thinking, Gemma 4-31B doesn't explore manipulation verbs beyond examine/take/use.
+**Hypothesis:** Enabling thinking (chain-of-thought) for the Gemma 4-31B agent model will give it internal reasoning space to consider alternative verbs after "examine" fails to reveal interactive elements. The model's training data includes verb exploration strategies that thinking mode can surface — currently suppressed by direct response mode.
+**Change:** `zorkburr/app.py` line 58 — change `use_thinking=False` to `use_thinking=True` for `generate_action`.
+**Reasoning:** The agent's response format already has a `thinking` field for chain-of-thought. Enabling thinking in the chat template gives the model access to its internal reasoning before producing the structured response. This is a model capability setting, not a prompt change — game-agnostic.
+**Target metric:** Agent should try manipulation verbs (move, push, pull, lift) on interactive objects, not just examine/take. Score should exceed 15 within 50 turns. Rug puzzle discovery expected.
+**Result:** NO-OP — `thinking_kwargs()` returns `{}` for remote models (OpenRouter). Gemma 4-31B has always been remote, so setting `use_thinking=True` in app.py had no effect. The flag was passed through but silently ignored. Actual fix applied in ep71→72.
+
+---
+
+## Episode 68 — Turn 25 Checkpoint
+**Type:** HEALTHY — fastest house entry ever (t7), all items by t15
+**Score:** 10/350 (house entry +10 at t7, skipped egg)
+**Locations visited:** 6 unique (West_House, South_House, Behind_House, Kitchen, Living_, Attic)
+**Avg critic score:** 0.52
+**Rejection rate:** 3/25 (12%) — HEALTHY
+**Gameplay quality:** DRIFTING
+  - Memory use: KB has "Entered window at Behind House (score +10)" — agent used it, entered house by t7 (fastest ever).
+  - KB alignment: Agent followed KB guidance for house entry. KB doesn't mention rug/cellar (hasn't been discovered).
+  - Objective quality: Not evaluated yet.
+  - Objective pursuit: Door fixation t18-22 (5 turns), then left house. Same pattern as ep66/67.
+  - Learning system quality: KB clean from ep67 carrying over. New memories being built.
+  - Pathfinding: NAVIGATING then WANDERING — Efficient house entry (4 turns from start). Door fixation. Then canyon exploration (t26-28).
+**Triggers:** None yet — first checkpoint. Thinking mode hasn't changed door fixation pattern but produced fastest house entry.
+**Notes:** Thinking mode effect so far: faster house entry (t7 vs t17/t26), higher initial critic scores (0.70-0.80). But door fixation pattern persists (5 turns, same as without thinking). Agent heading to canyon — watching whether it discovers rug on return to house.
+
+---
+
+## Episode 68 — Turn 50 Checkpoint
+**Type:** CONCERN — score stagnant, door fixation persists, KB discouraging rug interaction
+**Score:** 10/350 (delta: 0 since t7 — stagnant 43 turns)
+**Locations visited (t26-50):** 10 unique (good exploration breadth)
+**Avg critic score:** 0.64 (HEALTHY — best t26-50 block of post-reset episodes)
+**Rejection rate:** 3/25 (12%) — EXCELLENT
+**Gameplay quality:** DRIFTING
+  - Memory use: Memories sparse but clean.
+  - KB alignment: **KB actively harming gameplay** — "Failed Approaches" section says "Examine rug in Living Room revealed nothing special." Agent reads this and skips rug entirely (t46-50: straight to door, never examined rug). In ep66/67 without this KB entry, agent at least examined the rug.
+  - Objective quality: Not checked.
+  - Objective pursuit: Door fixation t47-50 (4 turns). Same pattern.
+  - Learning system quality: KB clean but Failed Approaches entry is misleading. "Examine X = nothing special" discourages ALL interaction with that object, not just re-examining.
+  - Pathfinding: NAVIGATING — Canyon exploration (t28-39) efficient, return to house (t40-43) efficient. Then door fixation.
+**Triggers:** Score stagnant (2 checkpoints). KB "Failed Approaches" entry actively preventing rug discovery.
+**Notes:** Thinking mode improved: house entry speed (t7, fastest ever), critic scores (0.64 avg), exploration breadth (10 locations). But door fixation persists — the bottleneck is not reasoning quality, it's that the KB marks the rug as "nothing special." Fix needed: KB should not list single "examine" attempts as "Failed Approaches" — examining is information-gathering, not a manipulation attempt. Failed Approaches should only track repeated failed manipulation verbs (use, move, push, open, etc.).
+
+---
+
+## Episode 68 — COMPLETE (killed at turn 65)
+**Turns:** 65
+**Final score:** 10/350 (house entry +10 at t7, skipped egg)
+**Locations visited:** 11 unique
+**End reason:** early_stop — score stagnant 58 turns, Kitchen↔Attic loop t54-65
+**Improvement dispatched:** yes — KB Failed Approaches classification fix
+
+**Thinking mode evaluation (INCREMENTAL from ep67→68):**
+- **RETRACTED** — thinking was never actually enabled. `thinking_kwargs()` returns `{}` for remote models, and Gemma 4-31B has always been remote (OpenRouter). The `use_thinking=True` flag in app.py was a no-op. Improvements observed in ep68 (faster house entry, higher critic scores) were coincidental, not caused by thinking mode. See ep71→72 for the actual fix.
+
+**Root cause analysis — rug puzzle failure across ep66/67/68:**
+The agent never discovers "move rug" because:
+1. KB "Failed Approaches" says "Examine rug = nothing special" → agent skips rug entirely
+2. The boarded door is a more obvious puzzle (visible, described prominently) → attracts all manipulation attempts
+3. The rug is described as scenery, not as interactive → agent treats it as decoration
+4. Without explicit "try physical manipulation on room features" reasoning, the agent defaults to examine→give up
+
+| Episode | Score | vs Prev | Best So Far | Turns to 1st Score | Locations | KB Quality | End Reason |
+|---------|-------|---------|-------------|-------------------|-----------|------------|------------|
+| ep66 | 15 | 0 | 54 | 6 | 14 | hallucinated | killed t75 |
+| ep67 | 15 | 0 | 54 | 20 | 8 | clean | killed t78 |
+| ep68 | 10 | -5 | 54 | 7 | 11 | clean | killed t65 |
+
+**Trend:** Thinking mode improved early game speed (first score at t7, all items by t15) but didn't break the rug puzzle barrier. Score ceiling at 10-15 across 3 post-reset episodes. The bottleneck is KB data quality: "examine X = failed" prevents the agent from trying other verbs on the same object.
+
+---
+
+## Episode 68 → 69 — IMPROVEMENT (BLOCKER)
+**Trigger:** KB "Failed Approaches" lists "Examine rug in Living Room revealed nothing special" — this entry actively prevents rug puzzle discovery. Agent reads it and skips rug entirely (ep68: straight to door at t47, never examined rug). In ep66/67 without this entry, agent at least examined the rug. The KB classification treats "examine" (information-gathering) the same as "move/push/open" (manipulation) — a single examine failure shouldn't discourage all further interaction with an object.
+**Hypothesis:** The KB prompt defines Failed Approaches as "Actions attempted 2+ times that consistently failed" — too broad. "Examine rug" is classified as a failed approach even though examining is just looking, not manipulating. The fix: restrict Failed Approaches to manipulation verbs only, and explicitly exclude examine/look.
+**Change:** Modified `prompts/knowledge.md` — Updated Failed Approaches definition to: "Manipulation actions (use, move, push, pull, open, cut, pry, turn, etc.) attempted 2+ times that consistently failed." Added: "Do NOT list 'examine' or 'look' as failed approaches — examining is information-gathering, not a manipulation attempt."
+**Reasoning:** Game-agnostic: in any text adventure, examining an object is distinct from manipulating it. A failed examine should never discourage physical manipulation attempts.
+**Target metric:** Agent should interact with rug using manipulation verbs (move, push, pull, lift) after examining it. "Examine rug" should NOT appear in Failed Approaches. Score should exceed 15 within 50 turns (rug puzzle → cellar).
+**Validation:** Prompt-only change. KB wiped (had poisoned entry). Memories retained (3 clean entries).
+**Result:** NEUTRAL — agent examined rug at t38 but still went to door fixation (t39-43). KB fix necessary but insufficient — agent doesn't consider manipulation verbs even without KB discouragement. Root cause is deeper: agent has no verb exploration heuristic.
+
+---
+
+## Episode 69 — COMPLETE (killed at turn 59)
+**Turns:** 59
+**Final score:** 15/350 (egg +5 at t6, house entry +10 at t27)
+**Locations visited:** 11 unique
+**End reason:** early_stop — same pattern: examine rug → door fixation → surface loop
+**Improvement dispatched:** yes — verb exploration heuristic
+
+**KB Failed Approaches fix evaluation (BLOCKER from ep68→69):**
+- Agent examined rug at t38 (ep68: didn't examine rug at all). Fix removed KB discouragement → agent willing to examine rug again. PARTIAL SUCCESS.
+- But agent STILL went to door fixation after examining, never tried move/push/pull. INSUFFICIENT alone.
+- Root cause is not KB — it's that the agent has no prompt instruction to try manipulation verbs on examined objects.
+
+| Episode | Score | vs Prev | Best So Far | Turns to 1st Score | Locations | KB Quality | End Reason |
+|---------|-------|---------|-------------|-------------------|-----------|------------|------------|
+| ep66 | 15 | 0 | 54 | 6 | 14 | hallucinated | killed t75 |
+| ep67 | 15 | 0 | 54 | 20 | 8 | clean | killed t78 |
+| ep68 | 10 | -5 | 54 | 7 | 11 | clean | killed t65 |
+| ep69 | 15 | +5 | 54 | 6 | 11 | clean | killed t59 |
+
+**Trend:** 4 post-reset episodes all ceiling at 10-15. The system reliably enters the house and collects items but NEVER discovers the rug puzzle. This is the single blocking problem. Attempted fixes: thinking mode (faster but no verb exploration), KB Failed Approaches fix (allowed re-examination but no manipulation). Next: explicit verb exploration heuristic in agent prompt.
+
+---
+
+## Episode 69 → 70 — IMPROVEMENT (INCREMENTAL)
+**Trigger:** Agent examines rug across 4 episodes (ep66 t49, ep67 t30, ep69 t38) but never tries manipulation verbs (move, push, pull, lift). Consistently fixates on the boarded door (5+ turns per visit) because door explicitly invites manipulation ("boarded", "nails"). Rug is described as scenery → agent treats as decoration. Without a verb exploration heuristic, the agent's only strategy is examine → give up → try obvious puzzles.
+**Hypothesis:** The agent prompt has no instruction for systematic verb exploration on room objects. After "examine X" reveals a non-trivial object, the agent should try physical manipulation verbs before concluding the object is inert. This is a reasoning heuristic (applies to any text adventure) — "objects that are described may be interactive; try more than just examining them."
+**Change:** Add to `prompts/agent.md` — a VERB EXPLORATION rule: When you examine an object and it's described as a physical feature of the room (furniture, fixture, covering, container), try at least one physical manipulation verb (move, push, pull, lift, open, turn) before moving on. "Examine" only tells you what something looks like — it does NOT test whether it can be physically interacted with. This is especially important for objects that could conceal something (rugs, paintings, furniture).
+**Reasoning:** Game-agnostic reasoning heuristic. In any text adventure, examination and manipulation are distinct verb categories. Instructing the agent to systematically try manipulation after examination teaches HOW to explore, not WHAT to do. Passes both questions of the two-question test: (1) applies to any text adventure, (2) teaches how to think, not what to do.
+**Target metric:** Agent should try at least one manipulation verb (move/push/pull/lift) on the rug after examining it. Score should exceed 15 within 50 turns.
+**Result:** IMPROVED — Agent examined rug (t46) then "move rug" (t47, verb exploration rule fired!). Score 15→40 in 3 turns (rug→trap door→cellar). Then killed troll (t53, score 45). Rule also generalized: "move painting" at t87 after examining painting. First rug puzzle discovery in 4 post-reset episodes.
+
+---
+
+## Episode 70 — Turn 50 Checkpoint
+**Type:** HEALTHY — BREAKTHROUGH: rug puzzle solved, score 40, underground
+**Score:** 40/350 (egg +5, house +10, cellar +25) → 45 by t54 (troll +5)
+**Locations visited:** 11 unique (West_House through Cellar)
+**Avg critic score:** ~0.55
+**Rejection rate:** moderate — "move rug" rejected 3x at -0.90 (critic still penalizes structural actions)
+**Gameplay quality:** LEARNING
+  - Memory use: Window entry memory used for house access. Building new underground memories.
+  - KB alignment: KB empty at start. Agent discovered rug puzzle through verb exploration rule alone.
+  - Objective quality: Not checked.
+  - Objective pursuit: Agent efficiently progressed: house→items→rug→cellar→troll. Clear goal-oriented play.
+  - Learning system quality: Building clean data from fresh exploration.
+  - Pathfinding: NAVIGATING — efficient progression through house to underground.
+**Triggers:** None — all metrics healthy. Score increasing.
+**Notes:** VERB EXPLORATION RULE CONFIRMED WORKING. T46: examine rug → T47: move rug → T48: open trap door → T49: score 40 (cellar). 3-turn puzzle solve. Then troll killed at t53 (score 45). Agent underground with all equipment. Best post-reset episode by far.
+
+---
+
+## Episode 70 — Turn 75 Checkpoint
+**Type:** HEALTHY — broad underground exploration, score 45
+**Score:** 45/350 (delta: 0 since t54 — expected, underground is puzzle-gated)
+**Locations visited (t51-75):** 6 unique (Loud_, Damp_Cave, White_Cliffs_Beach, Round_, East-West_Passage, Troll_)
+**Avg critic score:** 0.41 (below 0.50 — driven by platinum bar attempts and inventory management)
+**Rejection rate:** 8/25 (32%) — borderline, driven by "take bar" and inventory actions
+**Gameplay quality:** LEARNING
+  - Memory use: Building underground memories. Agent exploring systematically.
+  - KB alignment: KB will update soon with rug/cellar/troll data — first clean KB with real discoveries.
+  - Objective quality: Not checked.
+  - Objective pursuit: Explored Loud Room (platinum bar — needs "echo"), Damp Cave, White Cliffs Beach. Broad mapping.
+  - Learning system quality: Verb exploration rule generalized — "move painting" at t87.
+  - Pathfinding: NAVIGATING — Loud Room circuit (t56-65), then south to Gallery/Studio (t81-87). Systematic.
+**Triggers:** None — score stagnation expected underground (puzzle-gated).
+**Notes:** Agent found painting at Gallery (t85, +4 points if brought to trophy case). Tried "move painting" (t87) — verb exploration rule generalizing beyond rug. Throughput slow (~50s/turn with thinking) but quality high. Let episode continue for KB update and further exploration.
+
+---
+
+## Episode 70 — COMPLETE
+**Turns:** 125 (max_turns — survived full episode!)
+**Final score:** 45/350 (NEW POST-RESET HIGH — egg +5, house +10, cellar +25, troll +5)
+**Locations visited:** 22 unique (BEST post-reset)
+**Objectives found:** 12
+**End reason:** max_turns
+**Memory stats:** 8 total, 3 new, 1 dedup rejected
+**KB update:** Clean and factual — all 4 score events correct, "move rug" recorded as puzzle mechanic, no hallucinations, "examine rug" NOT in Failed Approaches
+
+**Key achievements:**
+  - VERB EXPLORATION RULE CONFIRMED: t46 examine rug → t47 "move rug" → t48 open trap door → t49 score 40. First rug puzzle discovery in 5 post-reset episodes.
+  - Rule GENERALIZED: "move painting" at t87 after examining painting.
+  - Troll killed at t53 (score 45). Agent had sword ready.
+  - 22 locations explored: house, cellar, troll room, east-west passage, round room, loud room, damp cave, white cliffs beach, gallery, studio, maze (brief), east chasm.
+  - 125 turns survived — no death!
+  - KB clean: all entries factual, no hallucinations, correct score verification.
+
+**Key issues:**
+  1. **Throughput:** ~50s/turn with thinking on Gemma 4-31B. 125 turns took ~1.7 hours.
+  2. **Score stagnant t54-125** (71 turns at 45): Underground is puzzle-gated. Agent tried platinum bar (Loud Room, needs "echo"), crawlway (Cellar), chasm rope — all failed.
+  3. **Critic still rejects structural actions:** "move rug" (-0.90, 3 rejections), "move painting" (-0.80, 3 rejections). Force-accepted but wastes time.
+  4. **Forest loop t10-20** (11 turns) before finding house — slower than ep68.
+
+| Episode | Score | vs Prev | Best So Far | Turns to 1st Score | Locations | KB Quality | End Reason |
+|---------|-------|---------|-------------|-------------------|-----------|------------|------------|
+| ep66 | 15 | 0 | 54 | 6 | 14 | hallucinated | killed t75 |
+| ep67 | 15 | 0 | 54 | 20 | 8 | clean | killed t78 |
+| ep68 | 10 | -5 | 54 | 7 | 11 | clean | killed t65 |
+| ep69 | 15 | +5 | 54 | 6 | 11 | clean | killed t59 |
+| ep70 | 45 | +30 | 54 | 7 | 22 | clean | max_turns! |
+
+**Trend:** ep70 broke through the 10-15 ceiling that held for 4 episodes. Verb exploration rule is the key innovation — directly caused rug puzzle discovery (+25) and troll progression (+5). Score 45 approaches the pre-reset local-model high of 44 (ep63). KB is clean and accumulating real discoveries. System is LEARNING again.
+
+---
+
+## Episode 71 — Turn 26 Checkpoint
+**Type:** HEALTHY — BEST TURN-25 EVER across all episodes. Score 45 by turn 24.
+**Score:** 45/350 (egg +5 t6, house +10 t12, cellar +25 t20, troll +5 t24)
+**Locations visited:** 13 unique (West_House, North_House, Forest_Path, Up_a_Tree, Behind_House, Kitchen, Attic, Living_, Cellar, Troll_, East-West_Passage, Round_, Loud_)
+**Avg critic score:** 0.56 (HEALTHY)
+**Rejection rate:** 2/26 (8%) — BEST EVER (only "take sack,bottle" -1.00 and "move rug" -0.70)
+**Gameplay quality:** LEARNING
+  - Memory use: Agent reasoning explicitly references KB Score Changes at turns 1, 4, 6, 16, 20, 22, 24. Every navigation decision cites KB data. Excellent.
+  - KB alignment: Agent followed KB Score Changes sequence exactly: egg (+5) → window (+10) → cellar (+25) → troll (+5). Perfect KB-driven play.
+  - Objective quality: 8 discovered, 2 completed. Location_id resolution working (objectives have R79, R193, R49, R72). Some duplicates (2× cellar passage, 2× gothic door). 6/8 well-formed.
+  - Objective pursuit: Agent completed 2 objectives (window entry, lantern illumination). Pursuing underground exploration.
+  - Learning system quality: KB clean and factual (4 score changes, all correct). Memories: 10 total but heavy duplication (6 egg memories across 2 locations). Dedup catching some (4 rejected, 2 superseded) but not all.
+  - Pathfinding: NAVIGATING — perfect route: mailbox→egg→house→items→rug→cellar→troll→east. Zero wasted turns. Agent referenced World Map connections in reasoning at t4, t8, t9.
+**Triggers:** None — all metrics healthy. Best performance ever.
+**Notes:** MILESTONE: Score 45 by turn 24 is the fastest scoring across ALL 71 episodes. Previous best: 40 by t19 (ep59). Agent reasoning shows flawless Global Strategic Review usage — every turn explicitly references KB Score Changes to prioritize actions. The verb exploration rule fired at t18 ("move rug" after KB Puzzle Mechanics reference). Two residual critic issues: (1) comma-separated commands (-1.00), (2) "move rug" (-0.70). Memory dedup needs improvement — 6 egg-related memories across 2 locations when 2 would suffice. Agent now underground at Loud Room (t26) — watching for dam area exploration and further scoring.
+
+---
+
+## Episode 71 → 72 — IMPROVEMENT (INCREMENTAL)
+**Trigger:** Discovered that thinking was never enabled for the agent model. The ep67→68 change set `use_thinking=True` in app.py, but `thinking_kwargs()` returns `{}` for remote models (OpenRouter). Gemma 4-31B has always been remote — the flag was a no-op. Validated via test script (`scripts/test_openrouter_reasoning.py`) that OpenRouter supports `extra_body={"reasoning": {"enabled": True}}` for Gemma 4, compatible with instructor JSON mode.
+**Hypothesis:** Enabling actual reasoning mode will give the agent internal chain-of-thought before producing structured output. May improve puzzle-solving, verb exploration, and navigation reasoning quality.
+**Change:** `zorkburr/llm/client.py` `thinking_kwargs()` — for remote models with `use_thinking=True`, return `{"extra_body": {"reasoning": {"enabled": True}}}` instead of `{}`.
+**Reasoning:** OpenRouter's reasoning API is the remote equivalent of local `chat_template_kwargs.enable_thinking`. Model capability setting, game-agnostic.
+**Target metric:** Watch for improved reasoning quality in agent thinking field. May see latency increase (~50s/turn as observed when thinking was believed active in ep68). Score and exploration efficiency may improve.
+**Result:** PENDING
 
 ---

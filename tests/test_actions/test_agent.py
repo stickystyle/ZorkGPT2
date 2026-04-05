@@ -87,7 +87,7 @@ def test_generate_action_extra_body_for_local():
     call_kwargs = mock_client.create.call_args.kwargs
     assert call_kwargs["extra_body"] == {"chat_template_kwargs": {"enable_thinking": True}}
 
-def test_generate_action_no_extra_body_on_openrouter():
+def test_generate_action_reasoning_on_openrouter():
     mock_client = MagicMock()
     mock_client.create.return_value = AgentResponse(
         thinking="reasoning", action="south", new_objective=""
@@ -103,4 +103,4 @@ def test_generate_action_no_extra_body_on_openrouter():
         state, client=mock_client, config=_mock_config(use_local_models=False), use_thinking=True
     )
     call_kwargs = mock_client.create.call_args.kwargs
-    assert "extra_body" not in call_kwargs
+    assert call_kwargs["extra_body"] == {"reasoning": {"enabled": True}}
