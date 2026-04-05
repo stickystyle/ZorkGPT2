@@ -646,3 +646,49 @@ The permanent obstacle rule (ep35→36) caps attempts on the same OBJECT at 5. B
 **Result:** PENDING
 
 ---
+
+## Episode 64 (during) — IMPROVEMENT: Global Location Summary Index
+**Trigger:** Research into multi-room puzzle support (Zork I has 10+ puzzles requiring items from 3+ distant rooms). Agent only sees memories for current room + 1-hop neighbors. When deep underground, it has zero visibility into what's in the Living Room, Kitchen, or any room beyond 1 hop. Cannot plan "bring wrench from Maintenance Room to Dam" because it can't see Maintenance Room's contents from the Dam.
+**Hypothesis:** Adding a compact one-line summary of each explored location to the agent's context will enable cross-map strategic planning. LLM-generated summaries (cached per-location, regenerated only when memories change) give the agent global awareness at low token cost.
+**Change:** New feature — global location summary index:
+  1. `prompts/location_summary.md` — new prompt for LLM summary generation (strict: no hallucinated scores, no nav facts, max 100 chars)
+  2. `zorkburr/actions/memory.py` — added `generate_location_summary()` helper; called after every new memory creation; summaries cached in `LOCATION_SUMMARIES` state key
+  3. `zorkburr/actions/episode.py` — `persist_summaries()` for disk persistence; loaded in `initialize_episode()`; regenerated after consolidation in `finalize_episode()`
+  4. `zorkburr/actions/context.py` — injects one-line summaries for all locations beyond 1-hop neighbors into agent context
+  5. `zorkburr/state.py` — new `LOCATION_SUMMARIES` state key
+  6. `zorkburr/config.py` — new `summaries_file` config path
+  7. `zorkburr/llm/models.py` — new `LocationSummaryResponse` model
+  Tested prompt through 3 iterations (hallucination control, nav noise filtering, character limits). Final output: ~333 tokens for 25 locations. Seeded `data/summaries.json` with initial summaries for all explored locations.
+**Reasoning:** The agent can now see "wrench + screwdriver in Dam Lobby" when standing at the Dam, or "brown sack with lunch + garlic" at Behind House when underground. This bridges the information horizon gap without expanding the Mermaid map depth (which testing showed doesn't help — the 14B model can't pathfind on graphs, but handles next-step navigation fine with the 2-hop local view).
+**Target metric:** Agent should reference distant location contents in reasoning when planning multi-step goals. Cross-map item transport puzzles (e.g., rope from Attic to Dome Room, wrench from Maintenance to Dam) should become solvable once the agent can see what's where globally.
+**Result:** PENDING — will take effect from ep65 onward.
+
+---
+
+## KB + Memory Reset (pre-ep65)
+**Rationale:** After 60+ episodes, KB (94 lines) and memories (56 entries across 27 locations) have accumulated significant data quality issues that actively harm gameplay:
+  - **KB:** ~60% noise — massive duplication (Unexplored Leads 3x copied), contradictory entries ("turn bolt with wrench" listed in both correct mechanics AND failed approaches), truncated entries (lines 75,85,87,88 cut mid-sentence), wrong room IDs (Behind House = R79 and R40), stale "Notes on Recent Log" from 10+ episodes ago.
+  - **Memories:** ~40% useful — 5 hallucinated memories at locations 75/88 ("Leaves Enable Egg Opening", "Forest Path Has Screwdriver") directly caused ep64's 50-turn dead end. Heavy duplication (East-West Passage has 4 copies of "+5 points"). Navigation noise surviving consolidation.
+  - **Net effect:** The 14B model can't filter signal from noise. Hallucinated memories override KB guidance. Contradictory KB entries create confusion. The data accumulated under 60+ episodes of different prompt versions and is not self-correcting.
+**Action:**
+  1. Backed up: `data/knowledge.md.pre_reset_bak`, `data/memories.json.pre_reset_bak`
+  2. Wiped `data/knowledge.md` (empty) and `data/memories.json` (empty `{}`)
+  3. Kept `data/map_data.json` intact (structural data, largely correct)
+  4. Deleted all episode run logs (`docs/orchestrator/run_log_ep*.txt`, ep12-64) — journal captures all meaningful data, Burr tracker retains full state history
+**Expected cost:** ~5-10 episodes of relearning (house entry, rug mechanics, troll combat, dam bolt). Early episodes will score 0-15.
+**Expected benefit:** Clean data built by improved prompts (memory synthesis with inventory context, consolidation drop rules, global KB review). No hallucinated memories. No contradictory KB entries. Fresh start for the next phase of improvement.
+
+---
+
+## Episode 64 (during) — IMPROVEMENT: Auto-Pathfinding Routes to Objective Targets
+**Trigger:** Location summaries tell the agent *what's* at distant rooms, but the 2-hop Mermaid map doesn't show *how to get there*. Testing confirmed the 14B model cannot pathfind on graph representations (0/10 full-path, 2/10 text adjacency) but handles next-step navigation fine (14/14 valid). The agent needs turn-by-turn directions to its own objective targets.
+**Hypothesis:** Computing BFS shortest paths from the agent's current location to each objective target and injecting them as plain text directions will enable the agent to navigate to distant goals without needing to read the graph itself.
+**Change:** Two files modified:
+  1. `zorkburr/game/map_graph.py` — added `shortest_path(from_id, to_id)` method using BFS with parent tracking. Returns list of (direction, dest_room_id) tuples, None if unreachable, [] if already there.
+  2. `zorkburr/actions/context.py` — enhanced objectives section to compute and display routes for each objective with `location_id > 0`. Shows turn-by-turn directions with room names, "(you are here)" if at the target, "(no known route)" if unreachable. Recomputed every turn from the agent's current position.
+  Zero LLM cost — pure Python BFS on a 50-room graph (microseconds). No new state keys, config, or models needed. Verified against real map data: Living Room → Troll Room (2 moves), Kitchen → Dam (7 moves), Attic → Dam Base (9 moves) all correct.
+**Reasoning:** Routes are computed for the agent's own declared objectives — not injected strategy. The agent decides WHERE to go (via objectives); pathfinding tells it HOW. This is a reasoning tool (like the map itself) not game knowledge. Analogous to giving a player a compass — it doesn't tell them what to do, just how to get where they've already decided to go.
+**Target metric:** Agent should follow injected routes when navigating to objective targets. Multi-hop navigation to distant objectives (e.g., "return to Living Room from Dam area") should complete in near-optimal moves instead of random wandering.
+**Result:** PENDING — will take effect from ep65 onward.
+
+---

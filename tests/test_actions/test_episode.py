@@ -24,6 +24,7 @@ def _config(tmp_path: Path) -> GameConfig:
         map_file=str(tmp_path / "map.json"),
         memory_file=str(tmp_path / "memories.json"),
         knowledge_file=str(tmp_path / "knowledge.md"),
+        summaries_file=str(tmp_path / "summaries.json"),
     )
 
 

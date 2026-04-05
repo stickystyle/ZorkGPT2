@@ -7,7 +7,7 @@ from zorkburr.state import S
     reads=[S.GAME_RESPONSE, S.LOCATION_NAME, S.LOCATION_ID, S.INVENTORY, S.SCORE,
            S.ACTION_HISTORY, S.EXITS, S.DISCOVERED_OBJECTIVES, S.KNOWLEDGE_BASE,
            S.MEMORIES_BY_LOCATION, S.MAP_DATA, S.IN_COMBAT, S.TURN_COUNT,
-           S.TURNS_SINCE_PROGRESS, S.NEXT_STEPS],
+           S.TURNS_SINCE_PROGRESS, S.NEXT_STEPS, S.LOCATION_SUMMARIES],
     writes=[S.FORMATTED_CONTEXT],
 )
 def assemble_context(state: State) -> tuple[dict, State]:
@@ -105,13 +105,46 @@ def assemble_context(state: State) -> tuple[dict, State]:
                 adj_lines.append(f"  - [{cat}] ({direction} — {neighbor_name}): {text}")
             sections.append("**Nearby memories (adjacent rooms, from PREVIOUS episodes — state has reset):**\n" + "\n".join(adj_lines))
 
+    # Global location summaries: one-line summaries for all explored locations
+    # beyond 1-hop (current room and neighbors already shown in full above)
+    summaries = state[S.LOCATION_SUMMARIES]
+    if summaries and mg:
+        neighbor_ids = {str(rid) for rid in mg.get_exits(loc_id).values()}
+        neighbor_ids.add(loc_key)
+        global_lines = []
+        for rid_str in sorted(summaries.keys()):
+            if rid_str in neighbor_ids or not summaries[rid_str]:
+                continue
+            room_name = mg.get_room_name(int(rid_str)) if int(rid_str) in mg.rooms else f"R{rid_str}"
+            global_lines.append(f"  - {room_name} (R{rid_str}): {summaries[rid_str]}")
+        if global_lines:
+            sections.append(
+                "**Explored locations (from PREVIOUS episodes, state has reset):**\n"
+                + "\n".join(global_lines)
+            )
+
     objectives = state[S.DISCOVERED_OBJECTIVES]
     if objectives:
         obj_lines = []
         for o in objectives:
             if isinstance(o, dict):
                 loc_tag = f" [R{o['location_id']} — {o['location_name']}]" if o.get("location_id") else ""
-                obj_lines.append(f"  -{loc_tag} {o['text']}")
+                line = f"  -{loc_tag} {o['text']}"
+                # Add pathfinding route for location-specific objectives
+                target_id = o.get("location_id", 0)
+                if target_id and mg:
+                    if target_id == loc_id:
+                        line += "\n    (you are here)"
+                    else:
+                        path = mg.shortest_path(loc_id, target_id)
+                        if path is not None:
+                            steps = " → ".join(
+                                f"{d} → {mg.get_room_name(rid)}" for d, rid in path
+                            )
+                            line += f"\n    Route ({len(path)} moves): {steps}"
+                        else:
+                            line += "\n    (no known route)"
+                obj_lines.append(line)
             else:
                 obj_lines.append(f"  - {o}")
         sections.append("**Active Objectives:**\n" + "\n".join(obj_lines))

@@ -69,6 +69,14 @@ def initialize_episode(
         except Exception as e:
             logger.warning(f"Failed to load memories: {e}")
 
+    summaries_path = Path(config.summaries_file)
+    if summaries_path.exists():
+        try:
+            overrides["location_summaries"] = json.loads(summaries_path.read_text())
+            logger.info(f"Loaded summaries for {len(overrides['location_summaries'])} locations")
+        except Exception as e:
+            logger.warning(f"Failed to load summaries: {e}")
+
     return overrides
 
 
@@ -108,6 +116,16 @@ def persist_memories(memories: dict, config: GameConfig) -> None:
     path.write_text(json.dumps(memories, indent=2))
     total = sum(len(v) for v in memories.values())
     logger.debug(f"Persisted {total} memories to {path}")
+
+
+def persist_summaries(summaries: dict, config: GameConfig) -> None:
+    """Write location summaries to disk. Called after summary regeneration."""
+    if not summaries:
+        return
+    path = Path(config.summaries_file)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(summaries, indent=2))
+    logger.debug(f"Persisted summaries for {len(summaries)} locations to {path}")
 
 
 def persist_knowledge(knowledge: str, config: GameConfig) -> None:
@@ -340,6 +358,28 @@ def finalize_episode(state: State, config: GameConfig, client=None) -> dict:
                 logger.warning(f"Consolidation failed for location {loc_key}: {e}")
 
     persist_memories(all_mems, config)
+
+    # Regenerate summaries for consolidated locations
+    if client is not None and consolidated_total > 0:
+        from zorkburr.actions.memory import generate_location_summary
+        summaries = dict(state.get(S.LOCATION_SUMMARIES, {}))
+        map_data = state[S.MAP_DATA]
+        mg = None
+        if map_data:
+            mg = MapGraph.from_dict(map_data) if isinstance(map_data, dict) else map_data
+        for loc_key, loc_mems in all_mems.items():
+            active = [m for m in loc_mems if m.get("status") != "SUPERSEDED"]
+            if not active:
+                summaries.pop(loc_key, None)
+                continue
+            room_name = mg.get_room_name(int(loc_key)) if mg and int(loc_key) in mg.rooms else f"Room {loc_key}"
+            try:
+                summaries[loc_key] = generate_location_summary(
+                    loc_key, room_name, loc_mems, client, config,
+                )
+            except Exception as e:
+                logger.warning(f"Summary generation failed for location {loc_key}: {e}")
+        persist_summaries(summaries, config)
 
     return {
         "episode_id": state[S.EPISODE_ID],

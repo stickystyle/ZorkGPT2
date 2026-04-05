@@ -14,5 +14,7 @@ Rules:
 - Do NOT add new information — only reorganize what exists
 - Do NOT merge memories that cover different topics just because they're at the same location
 - PRESERVE memories that tell the agent what to DO (puzzle solutions, danger warnings, item uses)
+- DROP memories that attribute carried items to the location. If a memory says "item X found here" but item X is a common portable object (sword, lantern, screwdriver, rope, etc.) that the agent likely carried through this room, it is unreliable. Items are only native to a location if the game explicitly describes them as part of the room (on a table, in a corner, in a nest, etc.). When in doubt about whether an item belongs to a location, drop the memory — the item's true origin will be recorded at the correct location.
+- DROP memories that record only navigation facts (e.g., "moving east leads to X", "south exit goes to Y"). The map system tracks all connections automatically. Navigation memories waste context and go stale as the map grows.
 - When merging, the new_text should be the better of the two, not a combination of both
 - Copy all memory titles character-for-character from the provided list

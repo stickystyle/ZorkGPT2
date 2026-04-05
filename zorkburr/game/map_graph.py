@@ -1,6 +1,6 @@
 """Spatial map graph: rooms, connections, confidence tracking."""
 from __future__ import annotations
-from collections import defaultdict
+from collections import defaultdict, deque
 from typing import Optional
 
 _OPPOSITE_DIRS = {
@@ -59,6 +59,31 @@ class MapGraph:
     def get_exit_failures(self, room_id: int, direction: str) -> int:
         direction = normalize_direction(direction) or direction
         return self.exit_failures.get((room_id, direction), 0)
+
+    def shortest_path(self, from_id: int, to_id: int) -> list[tuple[str, int]] | None:
+        """BFS shortest path. Returns list of (direction, dest_room_id) or None if unreachable."""
+        if from_id == to_id:
+            return []
+        if from_id not in self.rooms or to_id not in self.rooms:
+            return None
+        # BFS with parent tracking
+        visited = {from_id}
+        queue: deque[tuple[int, list[tuple[str, int]]]] = deque()
+        for direction, dest in self.connections.get(from_id, {}).items():
+            if dest == to_id:
+                return [(direction, dest)]
+            if dest in self.rooms and dest not in visited:
+                visited.add(dest)
+                queue.append((dest, [(direction, dest)]))
+        while queue:
+            current, path = queue.popleft()
+            for direction, dest in self.connections.get(current, {}).items():
+                if dest == to_id:
+                    return path + [(direction, dest)]
+                if dest not in visited and dest in self.rooms:
+                    visited.add(dest)
+                    queue.append((dest, path + [(direction, dest)]))
+        return None
 
     def get_context_for_prompt(self, current_room_id: int) -> str:
         lines = []

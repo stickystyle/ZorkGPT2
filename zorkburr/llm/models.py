@@ -50,6 +50,9 @@ class ConsolidationAction(BaseModel):
 class ConsolidationResponse(BaseModel):
     actions: list[ConsolidationAction]
 
+class LocationSummaryResponse(BaseModel):
+    summary: str = Field(description="One-line location summary (max 100 chars)")
+
 class Objective(BaseModel):
     text: str = Field(description="The objective description")
     location_id: int = Field(default=0, description="Location ID where this objective applies (0 if general)")

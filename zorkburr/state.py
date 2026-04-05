@@ -45,6 +45,7 @@ class S:
     PRE_LOCATION_NAME = "pre_location_name"
     PRE_SCORE = "pre_score"
     PRE_INVENTORY = "pre_inventory"
+    LOCATION_SUMMARIES = "location_summaries"
 
 def create_initial_state(episode_id: str | None = None) -> State:
     return State({
@@ -88,4 +89,5 @@ def create_initial_state(episode_id: str | None = None) -> State:
         S.PRE_LOCATION_NAME: "",
         S.PRE_SCORE: 0,
         S.PRE_INVENTORY: [],
+        S.LOCATION_SUMMARIES: {},
     })

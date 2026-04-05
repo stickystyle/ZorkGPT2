@@ -94,6 +94,7 @@ class GameConfig(BaseSettings):
     memory_file: str = "data/memories.json"
     knowledge_file: str = "data/knowledge.md"
     map_file: str = "data/map.json"
+    summaries_file: str = "data/summaries.json"
 
     # Viewer / S3
     s3_bucket: str = ""

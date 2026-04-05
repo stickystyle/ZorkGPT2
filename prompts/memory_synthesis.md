@@ -11,6 +11,7 @@ Rules:
   - GOOD: "Troll blocks passage — attack with sword to defeat it"
 - DO NOT remember: simple movement between rooms, looking around, exits/directions (tracked by map)
 - DO NOT remember: inventory pickups/drops alone without strategic context (inventory is always in game state)
+- DO NOT attribute carried items to a location. The inventory list shows items the agent was CARRYING — these are NOT native to the current location. Only record an item as "found here" if the game response explicitly describes it as being present in the room (on a table, in a corner, etc.). If the agent drops a carried item, that is a transient player choice, not a location fact.
 - DO NOT remember: room descriptions or flavor text (the game engine provides these every visit)
 - DO NOT remember: information already captured in the knowledge base — check the existing memories list to avoid duplication
 - DO NOT remember: repeated failures with the same approach at the same location — if a FAILURE memory already exists for this interaction, do not create another

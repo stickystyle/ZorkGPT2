@@ -5,23 +5,68 @@ from dataclasses import dataclass, asdict
 import instructor
 from langfuse import observe
 from zorkburr.actions import action
-from zorkburr.actions.episode import persist_memories
+from zorkburr.actions.episode import persist_memories, persist_summaries
 from burr.core import State
 from zorkburr.config import GameConfig
 from zorkburr.llm.client import thinking_kwargs
-from zorkburr.llm.models import MemorySynthesisResponse
+from zorkburr.llm.models import LocationSummaryResponse, MemorySynthesisResponse
 from zorkburr.llm.prompts import load_prompt
 from zorkburr.state import S
 
 logger = logging.getLogger(__name__)
 
 _synthesis_prompt: str | None = None
+_summary_prompt: str | None = None
 
 def _get_synthesis_prompt() -> str:
     global _synthesis_prompt
     if _synthesis_prompt is None:
         _synthesis_prompt = load_prompt("memory_synthesis")
     return _synthesis_prompt
+
+def _get_summary_prompt() -> str:
+    global _summary_prompt
+    if _summary_prompt is None:
+        _summary_prompt = load_prompt("location_summary")
+    return _summary_prompt
+
+
+def generate_location_summary(
+    loc_id: str,
+    room_name: str,
+    memories: list[dict],
+    client: instructor.Instructor,
+    config: GameConfig,
+) -> str:
+    """Generate a one-line LLM summary of a location's memories.
+
+    Called after memory creation and after consolidation. Returns summary string.
+    """
+    active = [m for m in memories if m.get("status") != "SUPERSEDED"]
+    if not active:
+        return ""
+
+    mem_lines = [
+        f"- [{m.get('category', 'NOTE')}] {m.get('title', '?')}: {m.get('text', '')}"
+        for m in active
+    ]
+    user_content = f"Location: {room_name} (R{loc_id})\n\nMemories:\n" + "\n".join(mem_lines)
+
+    try:
+        response: LocationSummaryResponse = client.create(
+            model=config.memory_model,
+            response_model=LocationSummaryResponse,
+            messages=[
+                {"role": "system", "content": _get_summary_prompt()},
+                {"role": "user", "content": user_content},
+            ],
+            temperature=0.2, max_tokens=100, max_retries=2,
+            **thinking_kwargs(config, config.memory_model, False),
+        )
+        return response.summary.strip()
+    except Exception as e:
+        logger.warning(f"Location summary generation failed for {loc_id}: {e}")
+        return ""
 
 @dataclass
 class Memory:
@@ -48,8 +93,9 @@ def should_synthesize(score_delta: int, location_changed: bool, died: bool) -> b
     reads=[S.PRE_LOCATION_ID, S.PRE_LOCATION_NAME, S.PRE_SCORE, S.PRE_INVENTORY,
            S.LOCATION_ID, S.SCORE, S.INVENTORY, S.GAME_OVER, S.GAME_OVER_REASON,
            S.GAME_RESPONSE, S.ACTION_TO_TAKE, S.AGENT_REASONING, S.ACTION_HISTORY,
-           S.MEMORIES_BY_LOCATION, S.EPISODE_ID, S.TURN_COUNT, S.MEMORY_STATS],
-    writes=[S.MEMORIES_BY_LOCATION, S.MEMORY_STATS],
+           S.MEMORIES_BY_LOCATION, S.EPISODE_ID, S.TURN_COUNT, S.MEMORY_STATS,
+           S.LOCATION_SUMMARIES],
+    writes=[S.MEMORIES_BY_LOCATION, S.MEMORY_STATS, S.LOCATION_SUMMARIES],
 )
 @observe()
 def record_memory(state: State, client: instructor.Instructor, config: GameConfig) -> tuple[dict, State]:
@@ -60,8 +106,11 @@ def record_memory(state: State, client: instructor.Instructor, config: GameConfi
     if not should_synthesize(score_delta, location_changed, died):
         return {"synthesized": False}, state
 
+    pre_inv = state[S.PRE_INVENTORY]
+    inv_str = ", ".join(pre_inv) if pre_inv else "(empty)"
     context = (
         f"Location: {state[S.PRE_LOCATION_NAME]} (ID: {state[S.PRE_LOCATION_ID]})\n"
+        f"Inventory (items agent was CARRYING, not found here): {inv_str}\n"
         f"Action: {state[S.ACTION_TO_TAKE]}\n"
         f"Agent reasoning: {state[S.AGENT_REASONING]}\n"
         f"Response: {state[S.GAME_RESPONSE][:500]}\n\n"
@@ -122,11 +171,22 @@ def record_memory(state: State, client: instructor.Instructor, config: GameConfi
             loc_list.append(mem.to_dict())
             all_mems[loc_key] = loc_list
             persist_memories(all_mems, config)
+
+            # Regenerate summary for this location
+            summaries = dict(state[S.LOCATION_SUMMARIES])
+            summary = generate_location_summary(
+                loc_key, state[S.PRE_LOCATION_NAME], loc_list, client, config,
+            )
+            if summary:
+                summaries[loc_key] = summary
+                persist_summaries(summaries, config)
+
             stats = dict(state[S.MEMORY_STATS])
             stats["new"] = stats.get("new", 0) + 1
             stats["superseded"] = stats.get("superseded", 0) + superseded_count
             return {"synthesized": True, "memory_title": mem.title}, state.update(
-                **{S.MEMORIES_BY_LOCATION: all_mems, S.MEMORY_STATS: stats}
+                **{S.MEMORIES_BY_LOCATION: all_mems, S.MEMORY_STATS: stats,
+                   S.LOCATION_SUMMARIES: summaries}
             )
     except Exception as e:
         logger.warning(f"Memory synthesis failed: {e}")
