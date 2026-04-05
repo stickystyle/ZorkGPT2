@@ -71,6 +71,7 @@ class GameConfig(BaseSettings):
     critic_model: str = "anthropic/claude-sonnet-4.6"
     extractor_model: str = "anthropic/claude-haiku-4.5"
     analysis_model: str = "anthropic/claude-sonnet-4.6"
+    knowledge_model: str = ""
     memory_model: str = "anthropic/claude-haiku-4.5"
 
     # LLM sampling
@@ -84,7 +85,6 @@ class GameConfig(BaseSettings):
 
     # Periodic intervals
     objective_update_interval: int = 10
-    knowledge_update_interval: int = 50
 
     # Progress detection
     max_turns_stuck: int = 40

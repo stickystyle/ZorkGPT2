@@ -90,7 +90,7 @@ def _run(config: GameConfig, max_turns: int, episode_id: str) -> None:
         client=client,
         episode_id=episode_id,
         tracker="local",
-        persist=False,
+        persist=True,
     )
 
     # Load cross-episode learning (knowledge base, map) from prior episodes

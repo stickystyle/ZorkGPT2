@@ -9,7 +9,6 @@ from zorkburr.actions.context import assemble_context
 from zorkburr.actions.critic import evaluate_action
 from zorkburr.actions.execute import execute_action
 from zorkburr.actions.extract import extract_info
-from zorkburr.actions.knowledge import update_knowledge
 from zorkburr.actions.memory import record_memory
 from zorkburr.actions.objectives import check_objective_completion, update_objectives
 from zorkburr.actions.results import record_results
@@ -55,19 +54,16 @@ def build_turn_app(
     })
 
     # Bind dependencies to actions
-    bound_agent = generate_action.bind(client=client, config=config, use_thinking=False)
+    bound_agent = generate_action.bind(client=client, config=config, use_thinking=True)
     bound_critic = evaluate_action.bind(llm=client, jericho=jericho, config=config)
     bound_execute = execute_action.bind(jericho=jericho)
     bound_extract = extract_info.bind(client=client, jericho=jericho, config=config)
     bound_memory = record_memory.bind(client=client, config=config)
     bound_completion = check_objective_completion.bind(client=client, config=config)
     bound_objectives = update_objectives.bind(client=client, config=config, use_thinking=False)
-    bound_knowledge = update_knowledge.bind(client=client, config=config, use_thinking=False)
-
     threshold = config.critic_rejection_threshold
     max_rejections = config.max_rejections_per_turn
     obj_interval = config.objective_update_interval
-    kb_interval = config.knowledge_update_interval
 
     hooks = []
     if config.s3_bucket:
@@ -86,7 +82,6 @@ def build_turn_app(
             record_memory=bound_memory,
             check_objective_completion=bound_completion,
             update_objectives=bound_objectives,
-            update_knowledge=bound_knowledge,
             turn_complete=turn_complete,
         )
         .with_transitions(
@@ -109,10 +104,7 @@ def build_turn_app(
              expr(f"turn_count > 0 and turn_count % {obj_interval} == 0 and game_over == False")),
             ("check_objective_completion", "turn_complete", when(**{S.GAME_OVER: True})),
             ("check_objective_completion", "assemble_context", default),
-            ("update_objectives", "update_knowledge",
-             expr(f"turn_count % {kb_interval} == 0")),
             ("update_objectives", "assemble_context", default),
-            ("update_knowledge", "assemble_context", default),
         )
         .with_entrypoint("assemble_context")
         .with_state(initial_state)

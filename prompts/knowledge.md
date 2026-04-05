@@ -7,7 +7,7 @@ STRICT RULES:
    - BAD: "Turn 12: opened trap door in Living Room (score +5)"
    - BAD: "At turn 5, entered house via window"
    - BAD: "Scored points around turns 10-15"
-   - GOOD: "Opened trap door in Living Room by pushing rug first (score +5)"
+   - GOOD: "Opened trap door in Living Room (score +5)"
    - GOOD: "Entered house via kitchen window (score +10)"
 2. ONLY describe events that appear in the gameplay log below. Every claim must describe the specific action and location where it happened.
 3. NEVER add knowledge from outside the log. You likely know this game — ignore that knowledge entirely.
@@ -29,12 +29,40 @@ Within each section, put the most important entries first.
 BREVITY: Each bullet must be ONE concise line — no multi-sentence explanations, no self-corrections, no hedging. State the fact and move on. If you are uncertain about a detail, omit it rather than adding caveats. BAD: "*Correction based on strict log rules:* The log explicitly lists..." GOOD: "Killed troll in Troll Room (score +10)".
 
 **Score Changes:** Each score increase/decrease with the location name and ID (e.g., "at Living Room (R193)") and triggering action (NO turn numbers).
-**Puzzle Mechanics Discovered:** Interactions that revealed how something works (e.g., "pushing rug at Living Room (R193) revealed trap door").
+**Puzzle Mechanics Discovered:** Interactions that revealed how something works (e.g., "turning dial at Control Room (R42) opened blast door").
 **Items Found:** Item name and location with ID where found. Note if taken or left behind.
 **Dangerous Areas:** Locations (with IDs) and actions that caused death or damage.
-**Failed Approaches:** Actions attempted 2+ times that consistently failed, so the agent can avoid repeating them.
-**Unexplored Leads:** Exits seen but not taken, locked doors, dark passages — with location name and ID.
+**Failed Approaches:** Manipulation actions (use, move, push, pull, open, cut, pry, turn, etc.) attempted 2+ times that consistently failed, so the agent can avoid repeating them. Do NOT list "examine" or "look" as failed approaches — examining is information-gathering, not a manipulation attempt. A single failed examine tells you nothing about whether physical manipulation (move, push, pull, lift) would succeed on the same object.
+**Unexplored Leads:** Exits seen but not taken, locked doors, dark passages — with location name and ID. Do NOT list navigation paths or exits — these are tracked by the map system. Only list NOTABLE unexplored features (locked doors, dark passages, items seen but not taken).
 
 LOCATION IDS: Always include the numeric location ID in parentheses after the location name, formatted as (R<id>). Example: "Living Room (R193)", "Cellar (R25)". These IDs correspond to the map the agent sees.
 
-Do NOT speculate about what the agent should do next or where items might be. Only record what actually happened in the log.
+SCORE CHANGES — USE ONLY THE VERIFIED LIST:
+The user message includes a "VERIFIED SCORE CHANGES" section computed directly from the game engine. This is the ONLY source of truth for what earned points. Copy these entries into your Score Changes section. Do NOT add any score changes not in the verified list. Do NOT modify the score values. If the verified list says "(no score changes in this episode)", your Score Changes section must be empty or omitted.
+
+ACTIONS vs. NON-ACTIONS:
+Only record what the agent ACTUALLY DID — the exact command that appears in the gameplay log. "examine rug" means the agent looked at it, NOT that the agent moved, pushed, or pulled it. If you find yourself describing an action the agent did not take, you are hallucinating from external knowledge about this game. Delete it immediately.
+
+HALLUCINATION CHECK:
+- Before writing ANY claim about a puzzle mechanic or discovery, verify the SPECIFIC ACTION appears in the log.
+- "examine rug" is NOT the same as "push rug" or "move rug". Only record the EXACT verb the agent used.
+- If you catch yourself writing something you "know" about this game but can't point to in the log above, DELETE IT.
+
+GAME KNOWLEDGE FIREWALL:
+You likely recognize this game from your training data. You MUST ignore all knowledge about it. The following patterns are FORBIDDEN because they reveal game-design knowledge rather than observed gameplay:
+
+FORBIDDEN (delete any entry that matches):
+- Naming or classifying game mechanics: "echo puzzle", "flood puzzle", "maze puzzle", "trap mechanism"
+- Suggesting solutions: "requires solving X", "may require draining", "need to find the key for", "must be combined with"
+- Inferring purpose: "this is a treasure", "this unlocks the", "used to solve the"
+- Predicting unseen outcomes: "may require", "probably leads to", "likely contains"
+
+REQUIRED (use these instead):
+- Describe the game's OUTPUT, not its DESIGN: "commands echo back as repeated text" NOT "echo puzzle"
+- Record what FAILED, not what WOULD WORK: "platinum bar cannot be taken — game responds 'bar bar ...'" NOT "requires solving echo puzzle to retrieve"
+- Record OBSERVED STATE, not INFERRED MECHANICS: "north/east exits from Dam Lobby are flooded — cannot pass" NOT "may require draining"
+- If the game said "The bolt won't turn", write exactly that — do NOT add "needs a different tool" or "requires solving first"
+
+SELF-TEST before finalizing: Read each bullet. If you could NOT have written it from the gameplay log alone — if it requires knowing this game — delete it.
+
+Do NOT speculate about what the agent should do next, where items might be, or how game mechanics work. Only record what actually happened in the log — the specific command, the game's exact response, and the location.

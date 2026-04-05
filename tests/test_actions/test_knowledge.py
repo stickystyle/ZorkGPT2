@@ -5,7 +5,7 @@ from zorkburr.state import S
 
 
 def _mock_config(**kwargs):
-    defaults = dict(analysis_model="test", use_local_models=False)
+    defaults = dict(analysis_model="test", knowledge_model="", use_local_models=False)
     defaults.update(kwargs)
     return MagicMock(**defaults)
 
@@ -80,3 +80,25 @@ def test_update_knowledge_no_extra_body_on_openrouter():
     )
     call_kwargs = mock_raw.chat.completions.create.call_args.kwargs
     assert "extra_body" not in call_kwargs
+
+
+def test_update_knowledge_uses_knowledge_model():
+    mock_client, _ = _mock_client_with_raw()
+
+    update_knowledge.run(
+        _base_state(), client=mock_client,
+        config=_mock_config(knowledge_model="remote/anthropic/claude-sonnet-4.6"),
+        use_thinking=False,
+    )
+    mock_client.raw_client_for.assert_called_with("remote/anthropic/claude-sonnet-4.6")
+
+
+def test_update_knowledge_falls_back_to_analysis_model():
+    mock_client, _ = _mock_client_with_raw()
+
+    update_knowledge.run(
+        _base_state(), client=mock_client,
+        config=_mock_config(knowledge_model=""),
+        use_thinking=False,
+    )
+    mock_client.raw_client_for.assert_called_with("test")

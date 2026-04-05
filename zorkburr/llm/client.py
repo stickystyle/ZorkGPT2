@@ -54,12 +54,13 @@ def _strip_model_prefix(model_name: str) -> str:
 
 def _has_remote_roles(config: GameConfig) -> bool:
     """Check if any role model requires the OpenRouter client."""
-    return any(
-        is_remote_model(m, config) for m in [
-            config.agent_model, config.critic_model, config.extractor_model,
-            config.analysis_model, config.memory_model,
-        ]
-    )
+    models = [
+        config.agent_model, config.critic_model, config.extractor_model,
+        config.analysis_model, config.memory_model,
+    ]
+    if config.knowledge_model:
+        models.append(config.knowledge_model)
+    return any(is_remote_model(m, config) for m in models)
 
 
 # ---------------------------------------------------------------------------

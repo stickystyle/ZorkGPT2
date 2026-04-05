@@ -69,7 +69,7 @@ def run_episode(
     except KeyboardInterrupt:
         logger.info("Interrupted")
 
-    return finalize_episode(state, config)
+    return finalize_episode(state, config, client=client)
 
 
 def _run_episodes(config: GameConfig, args: argparse.Namespace) -> None:

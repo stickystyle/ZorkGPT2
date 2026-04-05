@@ -64,6 +64,72 @@ def _normalize_bullet(bullet: str) -> str:
     return text.lower().strip()
 
 
+def _enforce_verified_scores(kb_text: str, verified_bullets: list[str]) -> str:
+    """Replace the Score Changes section with only verified entries and
+    remove hallucinated score claims from other sections.
+
+    This is a structural guardrail: the Score Changes section is entirely
+    controlled by Python-computed data, not by LLM output.  Any hallucinated
+    score entries that survived the merge are removed here.
+    """
+    # Build set of verified action verbs for cross-reference
+    verified_actions: set[str] = set()
+    for bullet in verified_bullets:
+        # Extract action from "- <action> at <location> (score ...)"
+        m = re.match(r'^-\s+(.+?)\s+at\s+', bullet)
+        if m:
+            verified_actions.add(m.group(1).strip().lower())
+
+    sections = _parse_sections(kb_text)
+
+    # If the text has no parseable sections, return it as-is — nothing to enforce
+    if not sections:
+        return kb_text
+
+    # 1. Overwrite Score Changes with verified data (or remove if empty)
+    if verified_bullets:
+        sections["Score Changes"] = verified_bullets
+    else:
+        sections.pop("Score Changes", None)
+
+    # 2. Remove bullets in OTHER sections that contain hallucinated score claims
+    #    A bullet with "(score +N)" or "(score -N)" that doesn't match any
+    #    verified action is a hallucination leak from the Score Changes section.
+    _score_claim_re = re.compile(r'\(score\s+[+\-]?\d+\)', re.IGNORECASE)
+    for section_name, bullets in sections.items():
+        if section_name == "Score Changes":
+            continue
+        filtered = []
+        for bullet in bullets:
+            if _score_claim_re.search(bullet):
+                # Check if any verified action appears in this bullet
+                bullet_lower = bullet.lower()
+                if not any(action in bullet_lower for action in verified_actions):
+                    logger.info("Removed hallucinated score claim from %s: %s", section_name, bullet.strip())
+                    continue
+            filtered.append(bullet)
+        sections[section_name] = filtered
+
+    # Re-render in canonical order
+    lines: list[str] = []
+    rendered: set[str] = set()
+    for section_name in _SECTIONS:
+        bullets = sections.get(section_name, [])
+        if bullets:
+            if lines:
+                lines.append("")
+            lines.append(f"**{section_name}:**")
+            lines.extend(bullets)
+            rendered.add(section_name)
+    for section_name, bullets in sections.items():
+        if section_name not in rendered and bullets:
+            if lines:
+                lines.append("")
+            lines.append(f"**{section_name}:**")
+            lines.extend(bullets)
+    return "\n".join(lines)
+
+
 def _merge_kb(existing_kb: str, new_kb: str) -> str:
     """Merge new KB entries into existing KB, deduplicating by normalized content.
 
@@ -118,23 +184,39 @@ def _merge_kb(existing_kb: str, new_kb: str) -> str:
 )
 @observe()
 def update_knowledge(state: State, client: instructor.Instructor, config: GameConfig, use_thinking: bool = False) -> tuple[dict, State]:
-    recent = state[S.ACTION_HISTORY][-25:]
-    action_summary = "\n".join(
-        f"Turn {a['turn']}: {a['action']} -> {a.get('response', '')[:150]}" for a in recent
-    )
+    recent = state[S.ACTION_HISTORY]
+    lines = []
+    for a in recent:
+        delta = a.get('score_after', 0) - a.get('score_before', 0)
+        score_tag = f" [SCORE: {a.get('score_before', '?')}→{a.get('score_after', '?')}, {delta:+d}]" if delta != 0 else ""
+        lines.append(f"Turn {a['turn']} [{a.get('location_name', '?')}]: {a['action']} -> {a.get('response', '')[:150]}{score_tag}")
+    action_summary = "\n".join(lines)
+
+    # Pre-compute verified score changes from FULL action history (Python, not LLM)
+    all_history = state[S.ACTION_HISTORY]
+    verified_score_bullets: list[str] = []
+    for a in all_history:
+        delta = a.get('score_after', 0) - a.get('score_before', 0)
+        if delta != 0:
+            loc_name = a.get('location_name', 'Unknown')
+            verified_score_bullets.append(f"- {a['action']} at {loc_name} (score {a.get('score_before')}→{a.get('score_after')}, {delta:+d})")
+    verified_scores = "\n".join(verified_score_bullets) if verified_score_bullets else "(no score changes in this episode)"
+
     existing = state[S.KNOWLEDGE_BASE] or ""
     user_msg = (
         f"Score: {state[S.SCORE]} | Turn: {state[S.TURN_COUNT]}\n\n"
+        f"VERIFIED SCORE CHANGES (computed from game engine — these are the ONLY score changes that occurred):\n{verified_scores}\n\n"
         f"Existing knowledge:\n{existing or '(none yet)'}\n\nRecent gameplay:\n{action_summary}"
     )
     try:
-        raw_client, model = client.raw_client_for(config.analysis_model)
+        kb_model = config.knowledge_model or config.analysis_model
+        raw_client, model = client.raw_client_for(kb_model)
         response = raw_client.chat.completions.create(
             model=model,
             messages=[{"role": "system", "content": _get_knowledge_prompt()}, {"role": "user", "content": user_msg}],
-            temperature=0.7, max_tokens=1024,
+            temperature=0.2, max_tokens=2048,
             timeout=config.llm_request_timeout,
-            **thinking_kwargs(config, config.analysis_model, False),
+            **thinking_kwargs(config, kb_model, False),
         )
         llm_output = response.choices[0].message.content or ""
 
@@ -147,6 +229,9 @@ def update_knowledge(state: State, client: instructor.Instructor, config: GameCo
             )
         else:
             content = llm_output
+
+        # Structural guardrail: replace Score Changes section with verified data
+        content = _enforce_verified_scores(content, verified_score_bullets)
 
         persist_knowledge(content, config)
         return {"knowledge_length": len(content)}, state.update(**{S.KNOWLEDGE_BASE: content})
