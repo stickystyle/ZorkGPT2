@@ -6,6 +6,8 @@ from zorkburr.llm.models import (
     AgentResponse,
     CriticResponse,
     ExtractorResponse,
+    GroundingJudgment,
+    GroundingValidationResponse,
     MemorySynthesisResponse,
     ObjectiveCompletionResponse,
 )
@@ -25,6 +27,9 @@ def _mock_llm_side_effect(**kwargs):
         return MemorySynthesisResponse(should_remember=False, reasoning="skip")
     elif model == ObjectiveCompletionResponse:
         return ObjectiveCompletionResponse(completed_objectives=[])
+    elif model == GroundingValidationResponse:
+        # Auto-accept all grounding validations in tests
+        return GroundingValidationResponse(judgments=[])
     return MagicMock()
 
 
@@ -84,6 +89,8 @@ def test_turn_graph_with_critic(jericho):
             return MemorySynthesisResponse(should_remember=False, reasoning="skip")
         elif model == ObjectiveCompletionResponse:
             return ObjectiveCompletionResponse(completed_objectives=[])
+        elif model == GroundingValidationResponse:
+            return GroundingValidationResponse(judgments=[])
         return MagicMock()
 
     mock_client = MagicMock()
