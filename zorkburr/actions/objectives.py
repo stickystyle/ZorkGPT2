@@ -33,10 +33,36 @@ def _obj_text(o: object) -> str:
     return o["text"] if isinstance(o, dict) else str(o)
 
 
+def _resolve_location_id(name: str, current_loc_name: str, current_loc_id: int,
+                          rooms: dict[str, str]) -> int:
+    """Resolve a location name to its numeric ID using the map data.
+
+    Tries exact match first, then case-insensitive, then substring/prefix
+    matching. Returns 0 if no match found.
+    """
+    if not name:
+        return 0
+    # Check current location first
+    norm = name.strip().lower()
+    if norm == current_loc_name.strip().lower() and current_loc_id != 0:
+        return current_loc_id
+    # Exact match
+    for room_id_str, room_name in rooms.items():
+        if room_name.strip().lower() == norm:
+            return int(room_id_str)
+    # Fuzzy: one is a substring of the other (handles "Living" vs "Living Room")
+    for room_id_str, room_name in rooms.items():
+        rn = room_name.strip().lower()
+        if norm in rn or rn in norm:
+            return int(room_id_str)
+    return 0
+
+
 @action(
     reads=[S.DISCOVERED_OBJECTIVES, S.COMPLETED_OBJECTIVES, S.ACTION_HISTORY,
-           S.GAME_RESPONSE, S.SCORE, S.LOCATION_NAME, S.LOCATION_ID, S.TURN_COUNT, S.KNOWLEDGE_BASE],
-    writes=[S.DISCOVERED_OBJECTIVES, S.COMPLETED_OBJECTIVES],
+           S.GAME_RESPONSE, S.SCORE, S.LOCATION_NAME, S.LOCATION_ID, S.TURN_COUNT, S.KNOWLEDGE_BASE,
+           S.MAP_DATA],
+    writes=[S.PENDING_OBJECTIVES, S.PENDING_COMPLETED_OBJECTIVES],
 )
 @observe()
 def update_objectives(state: State, client: instructor.Instructor, config: GameConfig, use_thinking: bool = False) -> tuple[dict, State]:
@@ -61,20 +87,32 @@ def update_objectives(state: State, client: instructor.Instructor, config: GameC
             temperature=0.7, max_tokens=512, max_retries=2,
             **thinking_kwargs(config, config.analysis_model, use_thinking),
         )
-        completed = set(response.completed)
-        updated = [o for o in current_objectives if _obj_text(o) not in completed]
-        existing_texts = {_obj_text(o) for o in updated}
+        # Resolve location_id from location_name using map data
+        map_data = state[S.MAP_DATA]
+        rooms = map_data.get("rooms", {})
+        cur_loc_name = state[S.LOCATION_NAME]
+        cur_loc_id = state[S.LOCATION_ID]
+        for obj in response.objectives:
+            if obj.location_id == 0 and obj.location_name:
+                resolved = _resolve_location_id(obj.location_name, cur_loc_name, cur_loc_id, rooms)
+                if resolved != 0:
+                    obj.location_id = resolved
+                    logger.debug(f"Resolved objective location '{obj.location_name}' -> ID {resolved}")
+
+        # Filter to truly new objectives
+        existing_texts = {_obj_text(o) for o in current_objectives}
+        new_objectives = []
         for obj in response.objectives:
             if obj.text not in existing_texts:
-                updated.append({"text": obj.text, "location_id": obj.location_id, "location_name": obj.location_name})
+                new_objectives.append({"text": obj.text, "location_id": obj.location_id, "location_name": obj.location_name})
                 existing_texts.add(obj.text)
-        updated = updated[:15]
-        completed_records = list(state[S.COMPLETED_OBJECTIVES])
-        for obj_text in completed:
-            completed_records.append({"objective": obj_text, "completed_turn": state[S.TURN_COUNT]})
+
         return (
-            {"new_count": len(response.objectives)},
-            state.update(**{S.DISCOVERED_OBJECTIVES: updated, S.COMPLETED_OBJECTIVES: completed_records}),
+            {"new_count": len(new_objectives)},
+            state.update(**{
+                S.PENDING_OBJECTIVES: new_objectives if new_objectives else None,
+                S.PENDING_COMPLETED_OBJECTIVES: list(response.completed) if response.completed else None,
+            }),
         )
     except Exception as e:
         logger.warning(f"Objective update failed: {e}")

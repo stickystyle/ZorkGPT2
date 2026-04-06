@@ -283,3 +283,40 @@ def test_record_memory_writes_pending_instead_of_committing():
     assert new_state[S.PENDING_MEMORY]["loc_key"] == "10"
     # MEMORIES_BY_LOCATION should be unchanged (empty)
     assert new_state[S.MEMORIES_BY_LOCATION] == {}
+
+
+from zorkburr.actions.objectives import update_objectives
+from zorkburr.llm.models import ObjectiveDiscoveryResponse, Objective
+
+
+def test_update_objectives_writes_pending():
+    """update_objectives should set PENDING_OBJECTIVES instead of committing directly."""
+    mock_client = MagicMock()
+    mock_client.create.return_value = ObjectiveDiscoveryResponse(
+        objectives=[Objective(text="Read the leaflet", location_id=10, location_name="West of House")],
+        completed=["Open the mailbox"],
+    )
+    config = GameConfig(openrouter_api_key="test-key")
+    state = create_initial_state(episode_id="test-ep").update(**{
+        S.ACTION_HISTORY: _make_action_history([("open mailbox", "Opening reveals a leaflet.")]),
+        S.GAME_RESPONSE: "Opening the small mailbox reveals a leaflet.",
+        S.SCORE: 10,
+        S.LOCATION_NAME: "West of House",
+        S.LOCATION_ID: 10,
+        S.TURN_COUNT: 10,
+        S.KNOWLEDGE_BASE: "",
+        S.MAP_DATA: {"rooms": {"10": "West of House"}},
+        S.DISCOVERED_OBJECTIVES: [{"text": "Open the mailbox", "location_id": 10, "location_name": "West of House"}],
+    })
+
+    result, new_state = update_objectives.run(state, client=mock_client, config=config, use_thinking=False)
+    assert result["new_count"] == 1
+    # New objectives should be PENDING, not committed
+    assert new_state[S.PENDING_OBJECTIVES] is not None
+    assert len(new_state[S.PENDING_OBJECTIVES]) == 1
+    assert new_state[S.PENDING_OBJECTIVES][0]["text"] == "Read the leaflet"
+    # Completions should be pending too
+    assert new_state[S.PENDING_COMPLETED_OBJECTIVES] == ["Open the mailbox"]
+    # DISCOVERED_OBJECTIVES should be unchanged (still has the old one)
+    assert len(new_state[S.DISCOVERED_OBJECTIVES]) == 1
+    assert new_state[S.DISCOVERED_OBJECTIVES][0]["text"] == "Open the mailbox"
