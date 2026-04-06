@@ -505,3 +505,14 @@ record_memory → validate_memory → check_objective_completion → [update_obj
 **Result:** PENDING
 
 ---
+
+## Episode 78 → 79 — IMPROVEMENT (WILD EXPERIMENT — user-directed, off-orchestrator)
+**Trigger:** User-directed experiment. Not orchestrator-dispatched. Score has been flat at 44/350 for 9 consecutive episodes on the local 14B agent model (Ministral 3 14B → Gemma 4 31B via OpenRouter). User wants to see what a frontier model does with the same loop before returning to prompt-level iteration.
+**Hypothesis:** A stronger base model (Claude Sonnet 4.6) may reveal whether the 44 ceiling is (a) a prompt/architecture limitation that smaller models also hit, or (b) a capability limitation of the previous agent model. If Sonnet also plateaus at 44, the bottleneck is architectural (KB representation, memory schema, critic loop) and prompt iteration on smaller models is the right path forward. If Sonnet breaks 44 cleanly, the previous ceiling was model-bound and we have a new reference point for what "the loop working well" looks like.
+**Change:** `pyproject.toml` — `agent_model` switched from `remote/google/gemma-4-31b-it` to `remote/anthropic/claude-sonnet-4.6`. Critic / extractor / memory / analysis roles unchanged (still local Ministral 3 14B). Knowledge model unchanged (already `remote/anthropic/claude-sonnet-4.6`). Commit: `9fdcbfa`.
+**Reasoning:** This tests the model-capability hypothesis in isolation by keeping every other component constant. The critic continues to operate at its existing rejection thresholds (per the universal-thresholds memory), so if Sonnet produces better actions, the critic should accept them at the same rate or higher. The ep77→78 intransitive-command rule is still in place and PENDING — running it on Sonnet will also give a secondary signal on whether that rule fires when the underlying model is more capable.
+**Target metric:** (1) Score vs. 44 ceiling. (2) Whether Sonnet triggers the ep77→78 intransitive-command rule at Loud Room (it may, if KB-skip behavior is sensitive to model reasoning quality). (3) Cost-per-episode signal — Sonnet every turn is materially more expensive, so this is a bounded experiment, not a new baseline.
+**Caveats:** This violates the "one-change-per-episode" rule in spirit because the intransitive-command rule from ep77→78 is still PENDING. Results will need careful attribution — if score changes, disentangling "better model" from "rule finally fires" requires a follow-up Gemma run. Orchestrator should treat this as an isolated data point, not a baseline shift.
+**Result:** PENDING
+
+---
