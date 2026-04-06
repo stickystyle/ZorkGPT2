@@ -74,6 +74,8 @@ All LLM calls use [Instructor](https://github.com/instructor-ai/instructor) for 
 
 For local models (Ollama/mlx_lm), set `USE_LOCAL_MODELS=true` in `.env` and configure `local_model` / `local_base_url`.
 
+The OpenRouter OpenAPI spec is available at `docs/openrouter_openapi.yaml`.
+
 ### Jericho Interface
 
 `JerichoInterface` (`zorkburr/game/jericho_interface.py`) wraps Jericho's `FrotzEnv`. Must call `jericho.start()` before use. The Z-machine is the ground truth — `LOCATION_NAME`, `SCORE`, `INVENTORY`, and `GAME_OVER` all come from Jericho, not from LLM parsing. ROM file: `roms/zork1.z5`.
