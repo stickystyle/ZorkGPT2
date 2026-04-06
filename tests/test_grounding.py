@@ -238,3 +238,48 @@ def test_validate_objectives_disabled():
     obj_texts = [o["text"] if isinstance(o, dict) else o for o in new_state[S.DISCOVERED_OBJECTIVES]]
     assert "Read the leaflet" in obj_texts
     assert "Find the golden key in the attic" in obj_texts
+
+
+from zorkburr.llm.models import MemorySynthesisResponse
+from zorkburr.actions.memory import record_memory
+
+
+def test_record_memory_writes_pending_instead_of_committing():
+    """record_memory should set PENDING_MEMORY instead of writing to MEMORIES_BY_LOCATION."""
+    mock_client = MagicMock()
+    mock_client.create.return_value = MemorySynthesisResponse(
+        should_remember=True,
+        reasoning="Score changed",
+        category="SUCCESS",
+        memory_title="Mailbox Leaflet Found",
+        memory_text="Open mailbox to find leaflet.",
+        persistence="permanent",
+        status="ACTIVE",
+        supersedes_titles=[],
+    )
+    config = GameConfig(openrouter_api_key="test-key")
+    state = create_initial_state(episode_id="test-ep").update(**{
+        S.PRE_LOCATION_ID: 10,
+        S.PRE_LOCATION_NAME: "West of House",
+        S.PRE_SCORE: 0,
+        S.PRE_INVENTORY: [],
+        S.LOCATION_ID: 10,
+        S.SCORE: 10,  # Score changed -> triggers synthesis
+        S.INVENTORY: [],
+        S.GAME_OVER: False,
+        S.GAME_OVER_REASON: "",
+        S.GAME_RESPONSE: "Opening the mailbox reveals a leaflet.",
+        S.ACTION_TO_TAKE: "open mailbox",
+        S.AGENT_REASONING: "Check the mailbox",
+        S.ACTION_HISTORY: _make_action_history([("open mailbox", "Opening the mailbox reveals a leaflet.")]),
+        S.TURN_COUNT: 5,
+    })
+
+    result, new_state = record_memory.run(state, client=mock_client, config=config)
+    assert result["synthesized"] is True
+    # Memory should be in PENDING_MEMORY, NOT in MEMORIES_BY_LOCATION
+    assert new_state[S.PENDING_MEMORY] is not None
+    assert new_state[S.PENDING_MEMORY]["memory"]["title"] == "Mailbox Leaflet Found"
+    assert new_state[S.PENDING_MEMORY]["loc_key"] == "10"
+    # MEMORIES_BY_LOCATION should be unchanged (empty)
+    assert new_state[S.MEMORIES_BY_LOCATION] == {}

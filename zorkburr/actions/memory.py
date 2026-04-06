@@ -5,7 +5,6 @@ from dataclasses import dataclass, asdict
 import instructor
 from langfuse import observe
 from zorkburr.actions import action
-from zorkburr.actions.episode import persist_memories, persist_summaries
 from burr.core import State
 from zorkburr.config import GameConfig
 from zorkburr.llm.client import thinking_kwargs
@@ -93,9 +92,8 @@ def should_synthesize(score_delta: int, location_changed: bool, died: bool) -> b
     reads=[S.PRE_LOCATION_ID, S.PRE_LOCATION_NAME, S.PRE_SCORE, S.PRE_INVENTORY,
            S.LOCATION_ID, S.SCORE, S.INVENTORY, S.GAME_OVER, S.GAME_OVER_REASON,
            S.GAME_RESPONSE, S.ACTION_TO_TAKE, S.AGENT_REASONING, S.ACTION_HISTORY,
-           S.MEMORIES_BY_LOCATION, S.EPISODE_ID, S.TURN_COUNT, S.MEMORY_STATS,
-           S.LOCATION_SUMMARIES],
-    writes=[S.MEMORIES_BY_LOCATION, S.MEMORY_STATS, S.LOCATION_SUMMARIES],
+           S.MEMORIES_BY_LOCATION, S.EPISODE_ID, S.TURN_COUNT, S.MEMORY_STATS],
+    writes=[S.PENDING_MEMORY, S.MEMORY_STATS],
 )
 @observe()
 def record_memory(state: State, client: instructor.Instructor, config: GameConfig) -> tuple[dict, State]:
@@ -135,32 +133,13 @@ def record_memory(state: State, client: instructor.Instructor, config: GameConfi
             **thinking_kwargs(config, config.memory_model, False),
         )
         if response.should_remember:
-            all_mems = dict(state[S.MEMORIES_BY_LOCATION])
-            loc_list = list(all_mems.get(loc_key, []))
-
             # Dedup guard: reject exact title matches against non-superseded memories
-            existing_titles = {m.get("title") for m in loc_list if m.get("status") != "SUPERSEDED"}
+            existing_titles = {m.get("title") for m in existing if m.get("status") != "SUPERSEDED"}
             if response.memory_title in existing_titles:
                 logger.info(f"Rejected duplicate memory title: '{response.memory_title}' at location {loc_key}")
                 stats = dict(state[S.MEMORY_STATS])
                 stats["dedup_rejected"] = stats.get("dedup_rejected", 0) + 1
                 return {"synthesized": False, "reason": "duplicate_title"}, state.update(**{S.MEMORY_STATS: stats})
-
-            # Process supersession: mark old memories as replaced
-            superseded_count = 0
-            if response.supersedes_titles:
-                for old_title in response.supersedes_titles:
-                    found = False
-                    for m in loc_list:
-                        if m.get("title") == old_title and m.get("status") != "SUPERSEDED":
-                            m["status"] = "SUPERSEDED"
-                            m["superseded_by"] = response.memory_title
-                            logger.info(f"Superseded memory '{old_title}' with '{response.memory_title}' at location {loc_key}")
-                            superseded_count += 1
-                            found = True
-                            break
-                    if not found:
-                        logger.debug(f"Supersede target not found: '{old_title}' at location {loc_key}")
 
             mem = Memory(
                 category=response.category, title=response.memory_title,
@@ -168,25 +147,14 @@ def record_memory(state: State, client: instructor.Instructor, config: GameConfi
                 turn=state[S.TURN_COUNT], persistence=response.persistence,
                 status=response.status,
             )
-            loc_list.append(mem.to_dict())
-            all_mems[loc_key] = loc_list
-            persist_memories(all_mems, config)
-
-            # Regenerate summary for this location
-            summaries = dict(state[S.LOCATION_SUMMARIES])
-            summary = generate_location_summary(
-                loc_key, state[S.PRE_LOCATION_NAME], loc_list, client, config,
-            )
-            if summary:
-                summaries[loc_key] = summary
-                persist_summaries(summaries, config)
-
-            stats = dict(state[S.MEMORY_STATS])
-            stats["new"] = stats.get("new", 0) + 1
-            stats["superseded"] = stats.get("superseded", 0) + superseded_count
-            return {"synthesized": True, "memory_title": mem.title}, state.update(
-                **{S.MEMORIES_BY_LOCATION: all_mems, S.MEMORY_STATS: stats,
-                   S.LOCATION_SUMMARIES: summaries}
+            pending = {
+                "memory": mem.to_dict(),
+                "supersedes_titles": response.supersedes_titles,
+                "loc_key": loc_key,
+            }
+            return (
+                {"synthesized": True, "memory_title": mem.title},
+                state.update(**{S.PENDING_MEMORY: pending}),
             )
     except Exception as e:
         logger.warning(f"Memory synthesis failed: {e}")
