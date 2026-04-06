@@ -15,3 +15,4 @@ docs/orchestrator
 .playwright-mcp/
 MagicMock/
 models/
+infrastructure/cdk.out/
