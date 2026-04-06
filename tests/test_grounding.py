@@ -320,3 +320,107 @@ def test_update_objectives_writes_pending():
     # DISCOVERED_OBJECTIVES should be unchanged (still has the old one)
     assert len(new_state[S.DISCOVERED_OBJECTIVES]) == 1
     assert new_state[S.DISCOVERED_OBJECTIVES][0]["text"] == "Open the mailbox"
+
+
+def test_memory_pipeline_propose_then_validate():
+    """Full pipeline: record_memory proposes -> validate_memory accepts or rejects."""
+    # Step 1: record_memory produces a pending memory
+    synth_client = MagicMock()
+    synth_client.create.return_value = MemorySynthesisResponse(
+        should_remember=True,
+        reasoning="Score changed, important",
+        category="SUCCESS",
+        memory_title="Trapdoor Opened",
+        memory_text="Push rug then open trapdoor to access cellar.",
+        persistence="permanent",
+        status="ACTIVE",
+        supersedes_titles=[],
+    )
+    config = GameConfig(openrouter_api_key="test-key")
+    state = create_initial_state(episode_id="e2e-test").update(**{
+        S.PRE_LOCATION_ID: 20,
+        S.PRE_LOCATION_NAME: "Living Room",
+        S.PRE_SCORE: 0,
+        S.PRE_INVENTORY: ["lamp"],
+        S.LOCATION_ID: 20,
+        S.SCORE: 5,
+        S.INVENTORY: ["lamp"],
+        S.GAME_OVER: False,
+        S.GAME_OVER_REASON: "",
+        S.GAME_RESPONSE: "The rug moves aside revealing a trapdoor. You open it.",
+        S.ACTION_TO_TAKE: "open trapdoor",
+        S.AGENT_REASONING: "Try opening the trapdoor",
+        S.ACTION_HISTORY: _make_action_history([
+            ("push rug", "The rug moves aside revealing a trapdoor."),
+            ("open trapdoor", "The rug moves aside revealing a trapdoor. You open it."),
+        ]),
+        S.TURN_COUNT: 8,
+    })
+
+    _, state_after_record = record_memory.run(state, client=synth_client, config=config)
+    assert state_after_record[S.PENDING_MEMORY] is not None
+
+    # Step 2: validate_memory accepts the grounded memory
+    val_client = MagicMock()
+    val_client.create.return_value = GroundingValidationResponse(judgments=[
+        GroundingJudgment(item="Trapdoor Opened", grounded=True, reason="Trapdoor seen in game text"),
+    ])
+
+    result, final_state = validate_memory.run(state_after_record, client=val_client, config=config)
+    assert result["validated"] is True
+    assert final_state[S.PENDING_MEMORY] is None
+    assert "20" in final_state[S.MEMORIES_BY_LOCATION]
+    assert final_state[S.MEMORIES_BY_LOCATION]["20"][-1]["title"] == "Trapdoor Opened"
+
+
+def test_memory_pipeline_propose_then_reject():
+    """Full pipeline: record_memory proposes -> validate_memory rejects hallucination."""
+    synth_client = MagicMock()
+    synth_client.create.return_value = MemorySynthesisResponse(
+        should_remember=True,
+        reasoning="Found item",
+        category="DISCOVERY",
+        memory_title="Screwdriver in Forest",
+        memory_text="Screwdriver is found on the forest path.",
+        persistence="permanent",
+        status="ACTIVE",
+        supersedes_titles=[],
+    )
+    config = GameConfig(openrouter_api_key="test-key")
+    state = create_initial_state(episode_id="e2e-test").update(**{
+        S.PRE_LOCATION_ID: 30,
+        S.PRE_LOCATION_NAME: "Forest Path",
+        S.PRE_SCORE: 0,
+        S.PRE_INVENTORY: ["screwdriver"],  # Agent was CARRYING the screwdriver
+        S.LOCATION_ID: 31,
+        S.SCORE: 0,
+        S.INVENTORY: ["screwdriver"],
+        S.GAME_OVER: False,
+        S.GAME_OVER_REASON: "",
+        S.GAME_RESPONSE: "You walk along the forest path.",
+        S.ACTION_TO_TAKE: "drop screwdriver",
+        S.AGENT_REASONING: "Drop screwdriver here",
+        S.ACTION_HISTORY: _make_action_history([
+            ("drop screwdriver", "Dropped."),
+        ]),
+        S.TURN_COUNT: 12,
+    })
+
+    _, state_after_record = record_memory.run(state, client=synth_client, config=config)
+    assert state_after_record[S.PENDING_MEMORY] is not None
+
+    # Validator correctly rejects — screwdriver was carried, not found here
+    val_client = MagicMock()
+    val_client.create.return_value = GroundingValidationResponse(judgments=[
+        GroundingJudgment(
+            item="Screwdriver in Forest",
+            grounded=False,
+            reason="Screwdriver was in inventory (carried), agent dropped it — not native to this location",
+        ),
+    ])
+
+    result, final_state = validate_memory.run(state_after_record, client=val_client, config=config)
+    assert result["validated"] is False
+    assert final_state[S.PENDING_MEMORY] is None
+    assert final_state[S.MEMORIES_BY_LOCATION].get("30", []) == []
+    assert final_state[S.MEMORY_STATS]["grounding_rejected"] == 1
