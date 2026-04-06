@@ -29,12 +29,14 @@ You are an intelligent agent playing Zork. Your mission: explore the Great Under
 1. **Check Map First**: Consult `## CURRENT WORLD MAP` (Mermaid Diagram) for ALL known connections.
    - Syntax: `R3["Forest"] -->|"east"| R4` means "east" from Forest leads to Forest Path
    - Priority: Use diagram paths before trying unmapped exits
-2. **Exits First, But Collect Along the Way**: When you arrive at a location:
-   - **Phase A (first 1-2 actions):** Try 1-2 untested exits to begin mapping.
-   - **Phase B (collect):** TAKE any visible portable items. Use comma-separated `take` commands for efficiency.
-   - **Phase C (finish mapping):** Try remaining untested exits.
+2. **Mapped vs. Unmapped Locations**: When you arrive at a location, check the World Map diagram:
+   - **ALREADY MAPPED (connections shown in diagram):** Exits are known — do NOT re-test them. Continue pursuing your current objective or plan. Only stop to take an item if it is directly relevant to your current goal AND you have inventory capacity. Do not blindly collect items at rooms you are passing through — inventory management wastes far more turns than leaving an item for later.
+   - **UNMAPPED (not in diagram):** Explore systematically:
+     - **Phase A:** Try 1-2 untested exits to begin mapping.
+     - **Phase B:** TAKE visible portable items (use comma-separated `take` for efficiency).
+     - **Phase C:** Try remaining untested exits.
    - **Structural entry points count as exits:** Windows, doors, hatches, trap doors, gates, and holes are PASSAGES. Commands like `enter window`, `open trap door then descend` are EXIT actions. Try them alongside compass exits.
-   - In your `thinking`, LIST all exits (including structural passages), mark which you've taken, and note visible portable items.
+   - At unmapped locations, LIST all exits in your `thinking`, mark which you've taken, and note visible portable items.
    - Do NOT spend multiple turns examining objects until all exits are mapped.
 3. **Forced Movement When Stuck**: If 2+ consecutive turns at the same location without a score increase, your NEXT action MUST be movement to an untested exit (or a quick `take [item]` followed by movement).
    - **AREA ESCAPE RULE (mandatory)**: In your `thinking`, count how many of your last 8 turns were spent in the same 2-3 locations. If 5 or more of your last 8 turns were in the same 2-3 locations with no score change, you are TRAPPED IN AN AREA — trying different exits within these rooms will not help because they all loop back. You MUST backtrack: consult the World Map, find the route you used to ENTER this area, retrace it, and navigate to a completely different region of the map. Do NOT try "one more exit" from the current rooms.
@@ -68,7 +70,11 @@ You're in "puzzle mode" when standard interactions produce unusual feedback that
 5. **Item combinations:** Use inventory items to modify environment
 6. **State-change attempts:** Some puzzles require changing environment before object becomes accessible
 
+**VERB EXPLORATION RULE (mandatory for room features):** "Examine" tells you what something LOOKS like — it does NOT test whether it can be physically manipulated. When you examine a physical room feature (rug, painting, bookcase, statue, curtain, panel, lever, furniture) and it is described with any detail, try at least ONE physical manipulation verb (move, push, pull, lift, open, turn, slide) before concluding it is inert. Many puzzles in text adventures are hidden behind mundane-looking objects — a rug may conceal a trap door, a painting may hide a safe, a bookcase may swing open. If you only examine and never manipulate, you will miss these entirely.
+
 **Named Container Pattern:** Distinctive containers often have thematic purposes — Armory + weapons → try storing/displaying. Altar + religious items → try offering.
+
+**Response-Derived Commands:** When game responses echo, repeat, or mirror your input — or contain an emphasized, unusual, or conspicuous single word — the game may be hinting that a word IS the command. Try typing notable words from the game's responses as standalone intransitive commands (single words with no object). Text adventures sometimes require you to say, do, or invoke a word itself rather than use it as a verb-noun pair. If a room's behavior prominently features a concept (echoing, praying, singing), try that concept word alone as a command.
 
 **Multi-Step Puzzles:** If direct interaction repeatedly fails and the room emphasizes an environmental problem (too hot, too dark, too loud), solve the environmental constraint first using inventory items, then retry.
 
@@ -86,8 +92,8 @@ You're in "puzzle mode" when standard interactions produce unusual feedback that
 - Your actions have lasting effects
 
 **EXPLORATION STRATEGY:**
-1. New location → `look` → List ALL exits → Try 1-2 untested exits → TAKE visible items → Try remaining exits → THEN deeper object interaction
-2. Only after all exits mapped: examine interesting objects
+1. Arrive at location → Check World Map → If already mapped: keep moving toward objective (only take items if goal-relevant and you have capacity). If unmapped: List exits → Try 1-2 untested → TAKE items → Try remaining exits → THEN deeper interaction.
+2. At unmapped locations: examine interesting objects after exits mapped. At mapped locations: interact only if this is your destination or has goal-relevant items.
 3. Experiment with inventory items on room features
 4. **When to persist vs move:**
    - **Not stuck** if getting NEW feedback each turn

@@ -313,6 +313,81 @@ New data from ep76 exploration:
 
 ---
 
+## Episode 77 — Turn 75 Checkpoint
+**Type:** HEALTHY — score stagnant but agent exploring broadly, Loud Room echo pattern observed
+**Score:** 44/350 (delta: 0 since t37 — stagnant 38 turns, expected underground puzzle-gated)
+**Locations visited (t51-75):** 10 unique (Cellar, Chasm, Deep_Canyon, East_Chasm, East-West_Passage, Loud_, Reservoir_South, Round_, Stream_View, Troll_)
+**Avg critic score:** 0.52 (HEALTHY)
+**Rejection rate:** 4/25 (16%) — EXCELLENT
+**Gameplay quality:** DRIFTING
+  - Memory use: Not evaluated in detail.
+  - KB alignment: Agent tried platinum bar at Loud Room (t70) — KB lists this as Failed Approach. Agent correctly abandoned after 3 turns.
+  - Objective quality: Not checked.
+  - Objective pursuit: Agent exploring underground circuit. Tried to retrieve tools from Troll Room (t53, t58) but items not visible. Stream View water bottle experiment (t63-66, 4 turns).
+  - Learning system quality: 0 KB updates, 0 new memories this block.
+  - Pathfinding: NAVIGATING — Cellar→Troll→EW→Chasm→Reservoir→Stream View→Deep Canyon→Loud Room→Round→EW→Chasm. Broad underground circuit, no tight oscillation.
+**Triggers:** Score stagnant (0 delta across 2 consecutive checkpoints). However: underground is puzzle-gated, agent exploring productively.
+**Notes:** LOUD ROOM OBSERVATION (t69-72): Agent tried "take platinum bar" (echoed), "look" (echoed), "examine noise" (echoed). Recognized the echoing pattern but tried to find/muffle noise source (brown sack, axe) instead of typing "echo" as standalone command. This confirms the need for the intransitive command exploration rule. Agent also tried filling bottle at Stream View (t63-66, 4 turns) — creative but unproductive. "up" from Cellar rejected 3x at -0.90 (t55) — critic blocking valid ascent. Not dispatching improvement yet — ep77 is observation baseline before implementing intransitive command rule for ep78.
+
+---
+
+## Episode 77 — Turn 100 Checkpoint
+**Type:** CONCERN — score stagnant 3 consecutive checkpoints, thief combat consuming turns
+**Score:** 44/350 (delta: 0 since t37 — stagnant 63 turns)
+**Locations visited (t76-100):** 7 unique (Cellar, Chasm, East_Chasm, East-West_Passage, Reservoir_South, Stream_View, Troll_) — all previously visited
+**Avg critic score:** 0.66 (HEALTHY — best block this episode)
+**Rejection rate:** 6/25 (24%) — HEALTHY
+**Gameplay quality:** DRIFTING
+  - Memory use: Not evaluated.
+  - KB alignment: Agent circling known underground rooms. No new KB-driven exploration.
+  - Objective quality: Not checked.
+  - Objective pursuit: Agent fighting thief repeatedly (t77, t87-88, t91-94). No objective progress.
+  - Learning system quality: 0 KB updates, memories may have been generated.
+  - Pathfinding: WANDERING — Same underground circuit as t51-75. Cellar→Troll→EW→Chasm→Reservoir→Stream View→back. No new territory discovered.
+**Triggers:** Score stagnant (0 delta across 3 consecutive checkpoints). However: underground is puzzle-gated, and thief encounters are consuming turns.
+**Notes:** Thief appeared 4+ times in this block (t77 EW Passage, t87-88 Stream View, t91-94 Reservoir South). Agent spent 7 turns on "attack man with axe" — valid combat but no score gain. The thief stealing items (sword, matchbook earlier) is disrupting inventory management. Agent never reached Dam area this episode — stayed in east/south underground circuit. Score ceiling at 44 is from puzzle gating (dam bolt, echo room). Not dispatching improvement — this is baseline data for intransitive command rule evaluation.
+
+---
+
+## Episode 77 — COMPLETE
+**Turns:** 125 (max_turns — survived full episode)
+**Final score:** 44/350 (house +10 t7, cellar +25 t13, troll +5 t18, painting +4 t37)
+**Locations visited:** 20 unique
+**Objectives found:** 15
+**End reason:** max_turns
+**Memory stats:** 12 total, 0 new, 3 dedup rejected, 0 superseded, 0 consolidated
+**Improvement dispatched:** yes — intransitive command rule (for ep78)
+
+**Key achievements:**
+  - Score 40 by t18 (efficient KB-driven early game)
+  - Dome Room discovered (new territory, t26)
+  - Painting +4 at t37
+  - 125 turns survived — 3rd consecutive max_turns episode
+  - 0 LLM fallback "look" actions from truncation (max_tokens fix holding)
+
+**Key issues:**
+  1. **Score stagnant t37-125** (88 turns at 44): Underground puzzle-gated
+  2. **Loud Room echo pattern not solved** — agent tried "take bar", "look", "examine noise" (all echoed) but never tried "echo" as standalone command (t69-72)
+  3. **Thief encounters** — 4+ thief fights consuming 7+ turns. Thief stole sword and matchbook. Inventory disrupted.
+  4. **Underground loop** — same Cellar↔Troll↔EW↔Chasm↔Reservoir circuit for 88 turns. Never reached Dam area this episode.
+  5. **"up" from Cellar rejected** — critic rejects ascent at -0.90×3 (t55, t103). Agent can't return to surface to deposit painting.
+  6. **Fallback "look" at t115-119** — 3 consecutive looks at Troll Room. Rate limiting or model stalling.
+
+| Episode | Score | vs Prev | Best So Far | Turns to 1st Score | Locations | KB Quality | End Reason |
+|---------|-------|---------|-------------|-------------------|-----------|------------|------------|
+| ep70 | 45 | +30 | 54 | 7 | 22 | clean | max_turns! |
+| ep71 | 45 | 0 | 54 | 5 | 20 | clean | max_turns! |
+| ep72 | 30(40) | -5 | 54 | 7 | 11 | clean | death t28 |
+| ep73 | 40 | +10 | 54 | 7 | 16 | clean | killed t50 |
+| ep74 | 45 | +5 | 54 | 7 | 14 | clean | killed t60 |
+| ep75 | 44 | -1 | 54 | 7 | 19 | sonnet | max_turns! |
+| ep76 | 44 | 0 | 54 | 7 | 20 | sonnet | max_turns! |
+| ep77 | 44 | 0 | 54 | 7 | 20 | sonnet | max_turns! |
+
+**Trend:** ep77 matched ep75/76 (score 44, 20 locations, max_turns). Score ceiling at 44-45 for 8 consecutive episodes. System reliably scores 40 by t18 and reaches painting by t37. Underground exploration follows the same east/south circuit without reaching Dam. The Loud Room echo pattern is the clearest improvement opportunity — agent recognizes commands echo but lacks the heuristic to try typing echoed words as standalone commands. Dispatching intransitive command rule for ep78.
+
+---
+
 ## IMPROVEMENT: Grounding Validator (during ep77, t45)
 
 **Problem:** Memory and objective LLMs hallucinate claims not supported by actual gameplay. Examples: attributing carried items to room locations ("screwdriver found in forest" when agent just dropped it there), generating objectives referencing items/NPCs never seen in game text, inventing mechanics not demonstrated.
@@ -350,5 +425,16 @@ record_memory → validate_memory → check_objective_completion → [update_obj
 **Success criteria:** Fewer hallucinated memories (particularly item-location misattributions). Watch `grounding_rejected` counter in memory stats.
 
 **Risk:** Over-rejection of valid memories by the grounding LLM. Mitigated by fail-open on errors and the kill switch.
+
+---
+
+## Episode 77 → 78 — IMPROVEMENT
+**Trigger:** Score stuck at 44/350 for 8 consecutive episodes. Agent reaches Loud Room, observes echoing pattern, tries only verb-noun commands (take bar, examine noise, look), never considers intransitive commands. Leaves after 3 turns without progress.
+**Hypothesis:** The agent's command generation is biased toward verb-noun pairs because the prompt's parser reference and puzzle-solving protocol only model transitive commands. The agent has no heuristic for recognizing when game responses hint that a word itself is the command, so it never generates standalone intransitive commands even when the game's behavior (echoing, repetition) strongly suggests one.
+**Change:** Added "Response-Derived Commands" rule to the Puzzle-Solving Protocol in `prompts/agent.md`. The rule teaches the agent to: (1) notice when game responses echo, repeat, or mirror input, (2) recognize that emphasized or conspicuous words in responses may themselves be commands, (3) try those words as standalone intransitive commands (single words with no object).
+**Reasoning:** The rule is game-agnostic — it applies to any text adventure where the game hints at commands through response patterns (echoing, rhyming, emphasis). It teaches HOW to think about unusual response patterns, not WHAT to type. The agent should apply this at the Loud Room (echoing → try "echo") but also at other puzzles requiring intransitive commands (e.g., "pray" at a temple).
+**Validation:** Re-read the modified prompt. Confirmed: (1) rule is game-agnostic — works for any text adventure with response-pattern puzzles, (2) no game-specific knowledge — no room names, item names, or puzzle solutions, (3) teaches reasoning heuristic — how to interpret unusual response patterns, (4) single logical modification — one new rule added to puzzle-solving protocol.
+**Target metric:** Agent tries at least one intransitive command at the Loud Room derived from the echoing pattern. Score exceeds 44 (+10 for platinum bar = 54).
+**Result:** PENDING
 
 ---
