@@ -58,7 +58,7 @@ def generate_action(state: State, client: instructor.Instructor, config: GameCon
             response_model=AgentResponse,
             messages=messages,
             temperature=config.default_temperature,
-            max_tokens=2048,
+            max_tokens=config.default_max_tokens,
             max_retries=3,
             **thinking_kwargs(config, config.agent_model, use_thinking),
         )

@@ -516,3 +516,48 @@ record_memory → validate_memory → check_objective_completion → [update_obj
 **Result:** PENDING
 
 ---
+
+## Episode 79 — Turn 25 Checkpoint (Sonnet 4.6 agent experiment)
+**Type:** HEALTHY
+**Score:** 40/350 (house +10 t7, cellar +25 t13, troll +5 t15)
+**Locations visited:** 13 unique (West_House, South_House, Behind_House, Kitchen, Living_, Cellar, Troll_, East-West_Passage, Round_, Narrow_Passage, Mirror_, Winding_Passage, Cave)
+**Avg critic score:** 0.66 (HEALTHY — higher than ep75-78 first blocks)
+**Rejection rate:** 5/25 (20%) — HEALTHY
+**Gameplay quality:** LEARNING (preliminary — not deep-inspected)
+  - Memory use: Standard KB-driven scoring path (house→cellar→troll→east), 40 points by t16 matches fastest-ever pace.
+  - KB alignment: Following cross-episode KB cleanly. `move rug` still rejected hard (-0.90 × 3) before being forced through — known critic over-rejection.
+  - Pathfinding: NAVIGATING — clean underground circuit, currently back at East-West Passage.
+**Triggers:** None.
+**Notes:** First Sonnet 4.6 agent checkpoint. Throughput ~1 turn/min (reasoning-heavy — expect total ~100 min for full episode). Real test is the t26-100 block where local models plateau at 44.
+
+---
+
+## Episode 79 — Turn 50 Checkpoint (Sonnet 4.6 agent experiment)
+**Type:** CONCERN — matches 44 ceiling, 2 consecutive `look` fallbacks at t49-50, 14 max_tokens retries in log
+**Score:** 44/350 (delta: +4 since t25 — painting at t30)
+**Locations visited (t26-50):** 10 unique (Troll_, Cellar, East_Chasm, Gallery, East-West_Passage, Round_, Narrow_Passage, Mirror_, Winding_Passage, Cave) — all previously visited
+**Avg critic score:** 0.59 (HEALTHY)
+**Rejection rate:** 4/25 (16%) — HEALTHY
+**Gameplay quality:** DRIFTING
+  - Memory use: Sonnet painting run (t27-30: Cellar→East_Chasm→Gallery→drop-sword-take-painting) is the fastest painting acquisition so far. Then t30-48 is the same underground circuit as local-model episodes (Cellar↔Chasm, Troll↔EW↔Round↔Narrow↔Mirror).
+  - KB alignment: Following KB scoring path cleanly.
+  - Objective pursuit: Agent experimented at Mirror Room (t41-43: examine/push/pull mirror) — novel, productive probing behavior not seen from local models. But did not break through.
+  - Learning system quality: Not deep-inspected yet.
+  - Pathfinding: NAVIGATING early, then two `look` fallbacks at t49-50 — infrastructure issue (max_tokens).
+**Triggers:** LLM error pile-up (2 consecutive `look` fallbacks at t49-50), though overall rejection rate is healthy. Underlying cause: 14 `max_tokens` errors in log suggest Sonnet's reasoning is generating very long outputs and the `max_tokens` budget used for the local model may be too tight for Sonnet 4.6 via OpenRouter.
+**Notes:** **KEY OBSERVATION:** Sonnet reached painting at t30 (fastest ever — ep77 t37, ep78 t32). But then fell into the same Cellar↔Troll↔EW↔Chasm circuit as local models, matching the 44 ceiling. Never reached Loud Room in first 50 turns, so the intransitive-command rule still untested on Sonnet. Mirror Room probing (t41-43) is the most creative local-experimentation behavior seen this session — a quality signal, even though it didn't score. **Infrastructure concern:** the `look` fallbacks are data loss — turns where Sonnet's response was truncated. Need to monitor and potentially kill early if fallbacks cascade.
+
+---
+
+## Episode 79 → 80 — IMPROVEMENT (BLOCKER: agent max_tokens)
+**Trigger:** Agent LLM fallbacks at ep79 t49-50 — Sonnet 4.6 exceeded hard-coded 2048-token budget during complex planning, Instructor retried 3× (useless for deterministic truncation), then fell back to action="look" destroying high-quality strategic reasoning (trap-door-direction analysis, alternative-route hypothesis).
+**Hypothesis:** Not a prompt problem — the agent action call has `max_tokens=2048` hard-coded in `zorkburr/actions/agent.py:61`, ignoring `config.default_max_tokens = 4096`. Sonnet 4.6 thinking mode needs more headroom than any budget currently configured.
+**Change:**
+  - `zorkburr/actions/agent.py:61` — `max_tokens=2048` → `max_tokens=config.default_max_tokens`
+  - `pyproject.toml [tool.zorkburr]` — set `default_max_tokens = 8192`
+**Reasoning:** Wires the existing config field through to the site that actually needs it, and bumps the override to 4× the failing budget. Other LLM call sites (critic, extractor, memory, etc.) keep their own tight budgets — only the agent action call gets the bigger budget.
+**Validation:** Infrastructure fix — no fixture replay applicable. Manual checks: grep confirms both edits, config loads with default_max_tokens=8192, test suite passes.
+**Target metric:** Zero `Agent LLM call failed` events from `max_tokens length limit` in ep80 under Sonnet 4.6. Score ceiling unchanged — this fix only restores observability, it does not alter agent behavior on clean turns.
+**Result:** PENDING
+
+---
