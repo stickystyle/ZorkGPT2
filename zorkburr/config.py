@@ -83,6 +83,9 @@ class GameConfig(BaseSettings):
     critic_rejection_threshold: float = 0.3
     max_rejections_per_turn: int = 3
 
+    # Grounding validator
+    enable_grounding_validator: bool = True
+
     # Periodic intervals
     objective_update_interval: int = 10
 

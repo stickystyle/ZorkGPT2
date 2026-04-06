@@ -56,6 +56,7 @@ default_max_tokens = 2048
 enable_critic = true
 critic_rejection_threshold = 0.3
 max_rejections_per_turn = 3
+enable_grounding_validator = true
 objective_update_interval = 10
 max_turns_stuck = 40
 stuck_check_interval = 10
