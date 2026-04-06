@@ -62,7 +62,7 @@ def _resolve_location_id(name: str, current_loc_name: str, current_loc_id: int,
     reads=[S.DISCOVERED_OBJECTIVES, S.COMPLETED_OBJECTIVES, S.ACTION_HISTORY,
            S.GAME_RESPONSE, S.SCORE, S.LOCATION_NAME, S.LOCATION_ID, S.TURN_COUNT, S.KNOWLEDGE_BASE,
            S.MAP_DATA],
-    writes=[S.PENDING_OBJECTIVES, S.PENDING_COMPLETED_OBJECTIVES],
+    writes=[S.DISCOVERED_OBJECTIVES, S.COMPLETED_OBJECTIVES],
 )
 @observe()
 def update_objectives(state: State, client: instructor.Instructor, config: GameConfig, use_thinking: bool = False) -> tuple[dict, State]:
@@ -99,20 +99,20 @@ def update_objectives(state: State, client: instructor.Instructor, config: GameC
                     obj.location_id = resolved
                     logger.debug(f"Resolved objective location '{obj.location_name}' -> ID {resolved}")
 
-        # Filter to truly new objectives
-        existing_texts = {_obj_text(o) for o in current_objectives}
-        new_objectives = []
+        completed = set(response.completed)
+        updated = [o for o in current_objectives if _obj_text(o) not in completed]
+        existing_texts = {_obj_text(o) for o in updated}
         for obj in response.objectives:
             if obj.text not in existing_texts:
-                new_objectives.append({"text": obj.text, "location_id": obj.location_id, "location_name": obj.location_name})
+                updated.append({"text": obj.text, "location_id": obj.location_id, "location_name": obj.location_name})
                 existing_texts.add(obj.text)
-
+        updated = updated[:15]
+        completed_records = list(state[S.COMPLETED_OBJECTIVES])
+        for obj_text in completed:
+            completed_records.append({"objective": obj_text, "completed_turn": state[S.TURN_COUNT]})
         return (
-            {"new_count": len(new_objectives)},
-            state.update(**{
-                S.PENDING_OBJECTIVES: new_objectives if new_objectives else None,
-                S.PENDING_COMPLETED_OBJECTIVES: list(response.completed) if response.completed else None,
-            }),
+            {"new_count": len(response.objectives)},
+            state.update(**{S.DISCOVERED_OBJECTIVES: updated, S.COMPLETED_OBJECTIVES: completed_records}),
         )
     except Exception as e:
         logger.warning(f"Objective update failed: {e}")

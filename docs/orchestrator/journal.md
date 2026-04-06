@@ -276,3 +276,79 @@ New data from ep76 exploration:
 **Planned improvement for ep77:** Add intransitive command exploration rule to agent prompt. When game responses contain unusual patterns (echoed text, repeated words, onomatopoeia), the game may be hinting at a command word. The agent should try typing unusual words from game responses as standalone commands. Game-agnostic: teaches response-reading as a puzzle-solving strategy, not specific solutions.
 
 ---
+
+## Episode 77 — Turn 25 Checkpoint
+**Type:** HEALTHY — score 40 by t18, efficient KB-driven early game, systematic underground exploration
+**Score:** 40/350 (house +10 t7, cellar +25 t13, troll +5 t18)
+**Locations visited:** 12 unique (West_House, North_House, Behind_House, Kitchen, Living_, Cellar, Troll_, East-West_Passage, Round_, Narrow_Passage, Mirror_, Engravings_Cave)
+**Avg critic score:** 0.54 (HEALTHY)
+**Rejection rate:** 6/25 (24%) — HEALTHY (driven by "take sack,bottle" -1.00×3, "move rug" -0.90×3)
+**Gameplay quality:** LEARNING
+  - Memory use: Agent reasoning references KB Score Changes throughout (turns 3, 4, 7, 13, 17, 18). Every navigation decision cites KB. Excellent.
+  - KB alignment: Agent followed KB Score Changes exactly: house entry→items→rug→cellar→troll→east. Perfect.
+  - Objective quality: Not checked yet (objectives just generated at t20 boundary).
+  - Objective pursuit: Agent at Engravings Cave (new area, t25). Exploring systematically.
+  - Learning system quality: KB clean (Sonnet-generated from ep76). 12 memories, 6 are egg duplicates (dedup issue). 0 LLM fallbacks so far.
+  - Pathfinding: NAVIGATING — efficient route: mailbox→house→items→rug→cellar→troll→EW Passage→Round→Mirror Room circuit→Engravings Cave (new). Zero wasted turns.
+**Triggers:** None — all metrics healthy.
+**Notes:** Throughput ~1 turn/min avg. Engravings Cave is new territory (not seen in ep75/76). Agent exploring southeast from Round Room. Memory dedup still broken (6 egg memories across 2 locations). Residual critic issues: comma-separated commands (-1.00), "move rug" (-0.90). Both force-accepted but waste turns. Monitoring to t50 for Dam area exploration and scoring.
+
+---
+
+## Episode 77 — Turn 50 Checkpoint
+**Type:** HEALTHY — score 44, painting acquired, broad underground exploration including Dome Room (new)
+**Score:** 44/350 (delta: +4 since t25 — painting +4 at t37)
+**Locations visited (t26-50):** 11 unique (Dome_, Engravings_Cave, Round_, East-West_Passage, Troll_, Cellar, East_Chasm, Gallery, Chasm, Reservoir_South, Stream_View)
+**Avg critic score:** 0.52 (HEALTHY)
+**Rejection rate:** 6/25 (24%) — HEALTHY
+**Gameplay quality:** LEARNING
+  - Memory use: Agent navigating purposefully using map data. Referenced KB for Gallery painting.
+  - KB alignment: Agent took painting (+4) per KB Score Changes. Now navigating back toward Living Room for gothic door investigation.
+  - Objective quality: Not checked yet.
+  - Objective pursuit: Agent plans to investigate gothic door in Living Room (KB Unexplored Leads). Navigating via Chasm→EW Passage→Troll→Cellar→up.
+  - Learning system quality: 0 KB updates (end-of-episode only). Memories building. 0 LLM fallbacks.
+  - Pathfinding: NAVIGATING — Dome Room→Engravings Cave→Gallery (painting)→Cellar→Troll→Chasm→Reservoir South→Stream View. Broad exploration with purposeful item collection.
+**Triggers:** None — score increased, all metrics healthy.
+**Notes:** Agent discovered Dome Room (new area, t26). Thief appeared in Cellar at t42 — stole sword and matchbook. Agent fought with axe. Screwdriver+tube missing from Troll Room (thief or game state). Agent now heading back to Living Room for gothic door. Lost sword may prevent future troll encounters. Score 44 by t37 — matches ep75/76 pace. Monitoring for gothic door outcome and Dam area exploration.
+
+---
+
+## IMPROVEMENT: Grounding Validator (during ep77, t45)
+
+**Problem:** Memory and objective LLMs hallucinate claims not supported by actual gameplay. Examples: attributing carried items to room locations ("screwdriver found in forest" when agent just dropped it there), generating objectives referencing items/NPCs never seen in game text, inventing mechanics not demonstrated.
+
+**Evidence:** 6 duplicate egg memories across 2 locations (dedup catches exact titles but not semantic hallucinations). Objective quality issues noted in ep75/76 checkpoints. Memory synthesis prompt already warns about inventory vs. room items but LLM still confuses them.
+
+**Change:** Added binary grounding validation gate after memory generation (memories only — objectives excluded).
+- One new Burr graph node: `validate_memory` (after `record_memory`)
+- Calls a shared grounding prompt that checks whether claims trace back to actual game output in the last 5 turns
+- Uses `critic_model` (same as action critic) with temperature 0.0
+- Binary accept/reject — ungrounded candidates are dropped, grounded ones committed
+- Fail-open on LLM error (commit anyway)
+- Kill switch: `enable_grounding_validator = true` in pyproject.toml
+
+**Why memories only, not objectives:** Objectives are forward-looking and KB-informed — the objective generator sees the Knowledge Base and creates objectives about distant locations/items from prior episodes. The grounding validator only sees the last 5 turns, so it would reject valid KB-driven objectives (e.g., "collect tools from Maintenance Room") as ungrounded. Memories are backward-looking claims about what just happened, so grounding against recent turns is appropriate.
+
+**New graph flow:**
+```
+record_memory → validate_memory → check_objective_completion → [update_objectives] → assemble_context
+```
+
+**Files changed:**
+- `zorkburr/state.py` — 1 new pending state key (`PENDING_MEMORY`)
+- `zorkburr/config.py` + `pyproject.toml` — `enable_grounding_validator` flag
+- `zorkburr/llm/models.py` — `GroundingJudgment`, `GroundingValidationResponse`
+- `prompts/grounding_validator.md` — shared prompt with `{grounding_rules}` placeholder
+- `zorkburr/actions/grounding.py` — new file: `_call_grounding_validator`, `validate_memory`
+- `zorkburr/actions/memory.py` — `record_memory` writes to `PENDING_MEMORY` instead of committing directly
+- `zorkburr/app.py` — new node and transitions wired in
+
+**LLM call budget:** ~5-10 memory validations per 100-turn episode. Minimal cost.
+
+**Type:** INCREMENTAL — measure in ep78 (ep77 already running without this change).
+
+**Success criteria:** Fewer hallucinated memories (particularly item-location misattributions). Watch `grounding_rejected` counter in memory stats.
+
+**Risk:** Over-rejection of valid memories by the grounding LLM. Mitigated by fail-open on errors and the kill switch.
+
+---

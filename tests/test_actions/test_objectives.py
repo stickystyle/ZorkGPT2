@@ -30,16 +30,13 @@ def test_update_objectives_discovers_new():
     _, new_state = update_objectives.run(
         state, client=mock_client, config=_mock_config(), use_thinking=False
     )
-    # update_objectives writes to PENDING_OBJECTIVES; DISCOVERED_OBJECTIVES is unchanged
-    pending = new_state[S.PENDING_OBJECTIVES]
-    assert pending is not None
-    assert len(pending) == 2
-    assert pending[0]["text"] == "Find the treasure"
-    assert pending[0]["location_id"] == 42
-    assert pending[0]["location_name"] == "Forest"
-    assert pending[1]["text"] == "Explore the forest"
-    assert pending[1]["location_id"] == 0
-    assert new_state[S.DISCOVERED_OBJECTIVES] == []
+    objs = new_state[S.DISCOVERED_OBJECTIVES]
+    assert len(objs) == 2
+    assert objs[0]["text"] == "Find the treasure"
+    assert objs[0]["location_id"] == 42
+    assert objs[0]["location_name"] == "Forest"
+    assert objs[1]["text"] == "Explore the forest"
+    assert objs[1]["location_id"] == 0
 
 
 def test_check_completion_marks_done():
@@ -129,7 +126,4 @@ def test_update_objectives_deduplicates():
     _, new_state = update_objectives.run(
         state, client=mock_client, config=_mock_config(), use_thinking=False
     )
-    # Duplicate filtered out — no new objectives to stage
-    assert new_state[S.PENDING_OBJECTIVES] is None
-    # DISCOVERED_OBJECTIVES unchanged
     assert len(new_state[S.DISCOVERED_OBJECTIVES]) == 1

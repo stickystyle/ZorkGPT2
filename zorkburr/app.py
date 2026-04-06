@@ -11,7 +11,7 @@ from zorkburr.actions.execute import execute_action
 from zorkburr.actions.extract import extract_info
 from zorkburr.actions.memory import record_memory
 from zorkburr.actions.objectives import check_objective_completion, update_objectives
-from zorkburr.actions.grounding import validate_memory, validate_objectives
+from zorkburr.actions.grounding import validate_memory
 from zorkburr.actions.results import record_results
 from zorkburr.config import GameConfig
 from zorkburr.game.jericho_interface import JerichoInterface
@@ -84,7 +84,6 @@ def build_turn_app(
             check_objective_completion=bound_completion,
             update_objectives=bound_objectives,
             validate_memory=validate_memory.bind(client=client, config=config),
-            validate_objectives=validate_objectives.bind(client=client, config=config),
             turn_complete=turn_complete,
         )
         .with_transitions(
@@ -108,8 +107,7 @@ def build_turn_app(
              expr(f"turn_count > 0 and turn_count % {obj_interval} == 0 and game_over == False")),
             ("check_objective_completion", "turn_complete", when(**{S.GAME_OVER: True})),
             ("check_objective_completion", "assemble_context", default),
-            ("update_objectives", "validate_objectives"),
-            ("validate_objectives", "assemble_context", default),
+            ("update_objectives", "assemble_context", default),
         )
         .with_entrypoint("assemble_context")
         .with_state(initial_state)

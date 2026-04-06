@@ -154,92 +154,6 @@ def test_validate_memory_disabled():
     assert "10" in mems
 
 
-from zorkburr.actions.grounding import validate_objectives
-
-
-def _base_state_with_pending_objectives() -> State:
-    """Build a state with pending objectives ready for validation."""
-    state = create_initial_state(episode_id="test-ep")
-    return state.update(**{
-        S.ACTION_HISTORY: _make_action_history([
-            ("look", "You are west of a white house. There is a mailbox here."),
-            ("open mailbox", "Opening the small mailbox reveals a leaflet."),
-        ]),
-        S.LOCATION_NAME: "West of House",
-        S.LOCATION_ID: 10,
-        S.INVENTORY: ["lamp"],
-        S.TURN_COUNT: 10,
-        S.PENDING_OBJECTIVES: [
-            {"text": "Read the leaflet", "location_id": 10, "location_name": "West of House"},
-            {"text": "Find the golden key in the attic", "location_id": 0, "location_name": ""},
-        ],
-        S.PENDING_COMPLETED_OBJECTIVES: ["Open the mailbox"],
-    })
-
-
-def test_validate_objectives_pass_through_when_no_pending():
-    mock_client = MagicMock()
-    config = GameConfig(openrouter_api_key="test-key")
-    state = create_initial_state(episode_id="test-ep")
-
-    result, new_state = validate_objectives.run(state, client=mock_client, config=config)
-    assert result["validated"] == 0
-    mock_client.create.assert_not_called()
-
-
-def test_validate_objectives_filters_ungrounded():
-    """Only grounded objectives get committed; ungrounded ones are dropped."""
-    mock_client = MagicMock()
-    mock_client.create.return_value = GroundingValidationResponse(judgments=[
-        GroundingJudgment(item="Read the leaflet", grounded=True, reason="Leaflet found in mailbox"),
-        GroundingJudgment(item="Find the golden key in the attic", grounded=False, reason="No attic or key seen"),
-    ])
-    config = GameConfig(openrouter_api_key="test-key")
-    state = _base_state_with_pending_objectives()
-
-    result, new_state = validate_objectives.run(state, client=mock_client, config=config)
-    assert result["validated"] == 1
-    assert result["rejected"] == 1
-    assert new_state[S.PENDING_OBJECTIVES] is None
-    assert new_state[S.PENDING_COMPLETED_OBJECTIVES] is None
-    # Only grounded objective committed
-    obj_texts = [o["text"] if isinstance(o, dict) else o for o in new_state[S.DISCOVERED_OBJECTIVES]]
-    assert "Read the leaflet" in obj_texts
-    assert "Find the golden key in the attic" not in obj_texts
-    # Completed objectives always committed
-    assert len(new_state[S.COMPLETED_OBJECTIVES]) == 1
-    assert new_state[S.COMPLETED_OBJECTIVES][0]["objective"] == "Open the mailbox"
-
-
-def test_validate_objectives_completions_committed_without_pending():
-    """Completed objectives are committed even when no new objectives are pending."""
-    mock_client = MagicMock()
-    config = GameConfig(openrouter_api_key="test-key")
-    state = create_initial_state(episode_id="test-ep").update(**{
-        S.TURN_COUNT: 10,
-        S.PENDING_OBJECTIVES: None,
-        S.PENDING_COMPLETED_OBJECTIVES: ["Explore the house"],
-    })
-
-    result, new_state = validate_objectives.run(state, client=mock_client, config=config)
-    mock_client.create.assert_not_called()
-    assert len(new_state[S.COMPLETED_OBJECTIVES]) == 1
-
-
-def test_validate_objectives_disabled():
-    """When grounding validator is disabled, commits all objectives unconditionally."""
-    mock_client = MagicMock()
-    config = GameConfig(openrouter_api_key="test-key", enable_grounding_validator=False)
-    state = _base_state_with_pending_objectives()
-
-    result, new_state = validate_objectives.run(state, client=mock_client, config=config)
-    assert result["validated"] == 2
-    mock_client.create.assert_not_called()
-    obj_texts = [o["text"] if isinstance(o, dict) else o for o in new_state[S.DISCOVERED_OBJECTIVES]]
-    assert "Read the leaflet" in obj_texts
-    assert "Find the golden key in the attic" in obj_texts
-
-
 from zorkburr.llm.models import MemorySynthesisResponse
 from zorkburr.actions.memory import record_memory
 
@@ -289,8 +203,8 @@ from zorkburr.actions.objectives import update_objectives
 from zorkburr.llm.models import ObjectiveDiscoveryResponse, Objective
 
 
-def test_update_objectives_writes_pending():
-    """update_objectives should set PENDING_OBJECTIVES instead of committing directly."""
+def test_update_objectives_commits_directly():
+    """update_objectives should commit directly to DISCOVERED_OBJECTIVES (no grounding validation)."""
     mock_client = MagicMock()
     mock_client.create.return_value = ObjectiveDiscoveryResponse(
         objectives=[Objective(text="Read the leaflet", location_id=10, location_name="West of House")],
@@ -311,15 +225,12 @@ def test_update_objectives_writes_pending():
 
     result, new_state = update_objectives.run(state, client=mock_client, config=config, use_thinking=False)
     assert result["new_count"] == 1
-    # New objectives should be PENDING, not committed
-    assert new_state[S.PENDING_OBJECTIVES] is not None
-    assert len(new_state[S.PENDING_OBJECTIVES]) == 1
-    assert new_state[S.PENDING_OBJECTIVES][0]["text"] == "Read the leaflet"
-    # Completions should be pending too
-    assert new_state[S.PENDING_COMPLETED_OBJECTIVES] == ["Open the mailbox"]
-    # DISCOVERED_OBJECTIVES should be unchanged (still has the old one)
-    assert len(new_state[S.DISCOVERED_OBJECTIVES]) == 1
-    assert new_state[S.DISCOVERED_OBJECTIVES][0]["text"] == "Open the mailbox"
+    # Objectives committed directly — "Open the mailbox" completed, "Read the leaflet" added
+    objs = new_state[S.DISCOVERED_OBJECTIVES]
+    obj_texts = [o["text"] if isinstance(o, dict) else o for o in objs]
+    assert "Read the leaflet" in obj_texts
+    assert "Open the mailbox" not in obj_texts  # completed, removed
+    assert len(new_state[S.COMPLETED_OBJECTIVES]) == 1
 
 
 def test_memory_pipeline_propose_then_validate():
