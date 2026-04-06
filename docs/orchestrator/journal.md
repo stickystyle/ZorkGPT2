@@ -774,3 +774,81 @@ The SOTA experiment has already justified itself: Sonnet solved the Mirror Room 
 **Result:** PENDING
 
 ---
+
+## Episode 82 — Turn 25 Checkpoint (Sonnet 4.6, KB carryover from ep81 + maze label fix)
+**Type:** HEALTHY — **Loud Room solved at t20, score 50 by t25 (28 turns faster than ep81)**
+**Score:** 50/350 (house +10 t6, cellar +25 t13, troll +5 t16, **platinum bar +10 t21 — echo at t20**)
+**Locations visited (t1-25):** 10 unique (West_House, South_House, Behind_House, Kitchen, Living_, Cellar, Troll_, East-West_Passage, Round_, Loud_)
+**Avg critic score:** 0.60 (HEALTHY)
+**Rejection rate:** 4/25 (16%) — HEALTHY
+**Max_tokens events:** 0
+**Gameplay quality:** LEARNING
+  - KB alignment: Sonnet went straight for the Loud Room echo puzzle this episode — score 50 reached at t21 vs. t49 in ep81. Direct KB carryover of the validated `echo` heuristic. Strongest KB transfer this session.
+  - Pathfinding: NAVIGATING — clean linear path house→cellar→troll→Loud Room→back. Zero exploration loops in the first 25 turns.
+**Triggers:** None.
+**Notes:** Two-episode KB carryover working as designed: ep81 discovered echo puzzle at t48; ep82 reproduces it at t20 (28 turns earlier). Maze label fix (ep81→82) untested at this checkpoint — agent hasn't reached the Maze yet. Continuing to monitor for maze entry around t50-75.
+
+---
+
+## Episode 82 — Turn 50 Checkpoint (Sonnet 4.6, maze label fix UNDER TEST)
+**Type:** CONCERN — score stagnant at 60 since t34, agent in maze t28-50 (22 turns), MAP_MISMATCH cascade
+**Score:** 60/350 (delta: +10 since t25 — bag of coins at t34, in Dead End / R65 area)
+**Locations visited (t26-50):** 3 (Maze, Dead_End, Troll_) — almost all maze cells, but per Burr trace the agent traversed at least 9 distinct loc_ids (R52, R53, R60-R70, R167)
+**Avg critic score:** 0.48 (just below 0.5 — borderline trigger)
+**Rejection rate:** 7/25 (28%) — near threshold
+**Max_tokens events:** 0
+**Gameplay quality:** DRIFTING (maze fix partially working)
+  - **Maze label fix evidence (POSITIVE):** Agent's `next_steps` plans now reference specific maze room IDs — "From R167 go east to R65", "navigate sw→R64", "at R63 try unmapped exits". This is a categorical improvement over ep81 where the agent had no way to talk about maze rooms. The disambiguation IS reaching the agent.
+  - **Bag acquired at t34** — 47 turns earlier than ep81 (t81). Sonnet found the treasure room (R65 / Dead End) much faster.
+  - **MAP_MISMATCH cascade (NEW PROBLEM):** Per `burr_pathfinding.py`, t35-t48 shows ~10 MAP_MISMATCH events. Agent's plan says "from R64, sw → R64" but actual move lands at R68. The maze graph edges in MAP_DATA appear stale or inconsistent — possibly because maze rooms have been visited from multiple entry points and the edge cache reflects the FIRST observation rather than the current truth. Each mismatch invalidates the plan, agent re-plans, then mismatches again.
+  - Pathfinding: WANDERING — clear plans (head to Troll Room → Cellar → Living Room to use skeleton key), but execution fails because the map edges keep contradicting the moves.
+**Triggers:** Score stagnant 2 consecutive checkpoints (t25→t50: 50→60→60). Borderline critic (0.48). High rejection rate (28%).
+**Notes:** The ep81→82 hypothesis is **partially confirmed**: disambiguating labels did reach the agent's planning (referencing specific room IDs), and got the bag acquired 47 turns earlier. But it exposed a downstream problem: the maze's MAP_DATA edges are unreliable, so the agent makes reasonable plans against an unreliable graph. NOT dispatching an improvement yet — agent still has 50 turns to either escape or score more. The fix's primary indirect target (deposit treasures) is still in play.
+
+---
+
+## Episode 82 — COMPLETE
+**Turns:** 100 (max_turns)
+**Final score:** 64/350 — **NEW SESSION HIGH (+4 above ep81's 60)**
+**Score breakdown:** house +10 t6, cellar +25 t13, troll +5 t16, **platinum bar +10 t21 (echo at t20)**, **bag of coins +10 t34**, **painting +4 t67**
+**Locations visited:** 17 unique (lower than ep81's 24 — most of t26-60 was in maze cells which collapse to "Maze")
+**Objectives found:** 8
+**End reason:** max_turns
+**Memory stats:** 4 total, 3 new
+**Max_tokens events:** 0 across all 100 turns
+**Improvement dispatched:** no — observation episode
+
+### Turn 100 block metrics (t76-100)
+- Avg critic: 0.52 (HEALTHY)
+- Rejections: 7/25 (28%)
+- Key activity: Studio chimney climb (t71-72), dropped all treasures in Studio (t72 — strategic mistake), reached Living Room via Kitchen→up→Living (t73-74), 5 turns wasted on `unlock wooden door with skeletkey` (t75-79 — wrong puzzle/door), then `light lantern` t80 (good — dark area prep), back down through trap door / Cellar / underground t81-100. Never returned to Studio for the treasures, never deposited at trophy case.
+
+### Key achievements
+1. **NEW SESSION HIGH 64/350** — beats ep81 by +4 (painting). Beats prior all-time best (ep37=54) by +10.
+2. **Loud Room solved at t20** — 28 turns earlier than ep81 (t48). KB carryover reproducing the validated heuristic from one episode prior.
+3. **Bag of coins at t34** — 47 turns earlier than ep81 (t81). Sonnet found the maze treasure room dramatically faster.
+4. **Painting acquired at t67** — first time both maze treasure AND painting collected in one episode.
+5. **MAZE ESCAPE at t61** — Sonnet exited the maze back to Troll Room after 33 turns (t28-61). In ep81 it never escaped. The label-fix hypothesis is partially confirmed: disambiguation enabled escape, even if slowly.
+
+### Key issues
+1. **33 turns in the maze (t28-61)** — escape happened, but slowly. MAP_MISMATCH events suggest the underlying maze edge data is unreliable.
+2. **Treasures dropped in Studio at t72** — Sonnet got confused about scoring mechanics. Dropped painting/bar/manual/sack/bag in Studio thinking that would deposit them, but the trophy case is in Living Room. Never returned to retrieve. **+8 to +20 estimated points lost** (treasures only score on deposit, except for the on-pickup component already counted).
+3. **5 turns wasted on wrong-door puzzle (t75-79)** — Sonnet tried `unlock wooden door with skeletkey` repeatedly. There's no wooden-door-with-skeleton-key puzzle in this part of the game; this looks like KB-induced false objective.
+4. **OpenRouter API key hit daily limit during reasoning** — visible in last_exception trace mid-episode. Doesn't appear to have aborted the episode but worth noting.
+
+### Pending improvements resolved
+- **Episode 81 → 82 — maze label disambiguation**: **IMPROVED (partial)** — Hypothesis confirmed at the agent-reasoning level: agent now references specific maze room IDs in `next_steps` plans (R63, R64, R67, R167) which it could not do before. Direct effect: bag of coins acquired 47 turns earlier (t34 vs t81), maze escape achieved (vs. never in ep81). Net score effect: 60→64 (+4 from painting picked up post-escape). The fix is correct but not sufficient — exposed a downstream MAP_DATA edge unreliability problem in the maze that prevents efficient navigation. **Result:** PENDING → **Result:** IMPROVED — maze escape achieved + score 60→64.
+
+### Running Score Table
+| Episode | Score | vs Prev | Best So Far | Turns to 1st Score | Locations | End Reason |
+|---------|-------|---------|-------------|-------------------|-----------|------------|
+| ep77 | 44 | 0 | 54 | 7 | 20 | max_turns |
+| ep78 | 44 | 0 | 54 | 7 | ~16 | killed t50 |
+| ep79 | 44 | 0 | 54 | 7 | ~19 | killed (max_tokens) |
+| ep80 | 45 | +1 | 54 | 7 | 28 | max_turns |
+| ep81 | 60 | +15 | 60 | 6 | 24 | max_turns |
+| **ep82** | **64** | **+4** | **64** | **6** | **17** | **max_turns** |
+
+**Trend:** Three-episode upward chain: ep80=45 (Coal Mine), ep81=60 (Loud Room + maze treasure), ep82=64 (faster Loud Room + maze escape + painting). Each episode builds on prior KB. The maze fix worked at the agent-reasoning level but exposed a deeper graph-data problem. Two new bottlenecks for next session: (1) maze MAP_DATA edge reliability — the agent's plans against the maze graph keep producing MAP_MISMATCH; (2) trophy-case scoring confusion — Sonnet picked up treasures but doesn't reliably deposit them (dropped in Studio, then never returned).
+
+---
