@@ -64,3 +64,11 @@ class ObjectiveDiscoveryResponse(BaseModel):
 
 class ObjectiveCompletionResponse(BaseModel):
     completed_objectives: list[str] = Field(default_factory=list)
+
+class GroundingJudgment(BaseModel):
+    item: str = Field(description="Title of memory or text of objective being validated")
+    grounded: bool = Field(description="Whether the claim is supported by recent game output")
+    reason: str = Field(description="Explanation for the judgment (logged, not shown to agent)")
+
+class GroundingValidationResponse(BaseModel):
+    judgments: list[GroundingJudgment] = Field(description="One judgment per candidate")
