@@ -50,7 +50,9 @@ class GameConfig(BaseSettings):
 
     # API
     openrouter_api_key: str = Field(default="", alias="OPENROUTER_API_KEY")
-    openrouter_base_url: str = "https://openrouter.ai/api/v1"
+    openrouter_base_url: str = Field(
+        default="https://openrouter.ai/api/v1", alias="OPENROUTER_BASE_URL"
+    )
 
     # Local models (llama-server)
     use_local_models: bool = Field(default=False, alias="USE_LOCAL_MODELS")
