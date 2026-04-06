@@ -84,10 +84,24 @@ The OpenRouter OpenAPI spec is available at `docs/openrouter_openapi.yaml`.
 
 `build_turn_app()` in `zorkburr/app.py` wires everything together via Burr's `ApplicationBuilder`. It accepts `tracker` (default `"local"` for Burr's UI) and `persist` (SQLite via `data/burr_state.db`). The Burr tracking UI runs at `http://localhost:7241` when tracker is active.
 
+### Cross-Episode Persistence
+
+Episodes run with `persist=True` (see `run_episode.py:93`) — the Burr SQLite DB at `data/burr_state.db` is a full audit log of every turn across every episode, kept for post-hoc analysis.
+
+**But the Burr DB is not the source of truth for cross-episode learning.** The master copies of accumulated knowledge live as plain files on disk, defined in `GameConfig` (`zorkburr/config.py`):
+- `data/memories.json` — `MEMORIES_BY_LOCATION`
+- `data/knowledge.md` — `KNOWLEDGE_BASE`
+- `data/map.json` — `MAP_DATA`
+- `data/summaries.json` — rolling episode summaries
+
+`initialize_episode()` loads these into state at episode start; `finalize_episode()` writes them back at episode end (both in `zorkburr/actions/episode.py`). If you need to reset or edit cross-episode learning, edit these files directly — don't touch the Burr DB.
+
 ### Orchestrator
 
 `run_episode.py` is the CLI entry point — runs one episode and emits structured log lines to stdout:
 - Per-turn: `TURN N | loc=... | score=.../... | critic=... | rejections=... | action=...`
 - On exit: `EPISODE_END | turns=... | score=... | locations=... | objectives_found=... | reason=...`
 
-The `/zork-orchestrator` slash command (`.claude/commands/zork-orchestrator.md`) runs Claude as a monitor-improve loop: it polls episode logs, detects performance problems, and dispatches Opus subagents to improve prompts and config — one change per episode to measure effect.
+The `/zork-orchestrator` slash command (`.claude/commands/zork-orchestrator.md`) runs Claude as a monitor-improve loop: it polls episode logs, detects performance problems, and dispatches Opus subagents to improve prompts and config.
+
+**Hard rule: one change per episode.** The orchestrator exists to measure the effect of individual changes. Subagents must never bundle multiple prompt or config tweaks into a single episode — if two things need changing, they run as two sequential episodes so each effect is attributable.
