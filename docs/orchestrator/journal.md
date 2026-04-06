@@ -428,6 +428,73 @@ record_memory → validate_memory → check_objective_completion → [update_obj
 
 ---
 
+## Episode 78 — Turn 25 Checkpoint
+**Type:** CONCERN — Loud Room reached but agent skipped without trying ANY command (KB poisoning)
+**Score:** 40/350 (house +10 t7, cellar +25 t14, troll +5 t17 — no painting)
+**Locations visited:** 14 unique (BEST first-25 location count this session)
+**Avg critic score:** 0.57 (HEALTHY)
+**Rejection rate:** 6/25 (24%) — HEALTHY
+**Gameplay quality:** DRIFTING
+  - Memory use: Agent navigating purposefully.
+  - KB alignment: Agent followed KB scoring sequence (house→cellar→troll→east). At Loud Room (t23), agent reasoning explicitly cites KB: "the KB confirms that the room's echo property prevents taking it" — and immediately moves on WITHOUT trying any command.
+  - Objective quality: Not checked.
+  - Objective pursuit: Agent navigating toward Gallery for painting via Cellar route.
+  - Learning system quality: KB clean, but the Loud Room entry now actively prevents the agent from attempting the puzzle.
+  - Pathfinding: NAVIGATING — efficient deep underground exploration. Reached Loud Room at t23 (ep77 reached it at t69). Now heading to Gallery for painting.
+**Triggers:** None — first checkpoint.
+**Notes:** UNEXPECTED FAILURE MODE: The intransitive command rule didn't fire because the agent didn't even attempt a command at the Loud Room. The KB entry "All commands in Loud Room echo back as repeated text — platinum bar cannot be taken in this state" is being read as "skip this room entirely." This is a KB-poisoning problem distinct from ep77 (where the agent tried 3 commands and observed echoes). The new rule needs to either (a) override the KB skip behavior, or (b) be paired with KB cleanup that converts "Failed Approaches" into "Try alternative". Monitoring whether agent revisits Loud Room after gathering more info, or whether the rule fires elsewhere in the episode.
+
+---
+
+## Episode 78 — Turn 50 Checkpoint
+**Type:** CONCERN — score 44 (painting), Loud Room never re-attempted, agent in same underground circuit
+**Score:** 44/350 (delta: +4 since t25 — painting at t32)
+**Locations visited (t26-50):** 11 unique (Cellar, Chasm, East_Chasm, East-West_Passage, Gallery, North-South_Passage, Reservoir_South, Round_, Stream_View, Troll_, Loud_)
+**Avg critic score:** ~0.66
+**Rejection rate:** ~5/25 (20%) — HEALTHY
+**Gameplay quality:** DRIFTING
+  - Memory use: Agent navigating purposefully via map.
+  - KB alignment: Agent took painting (+4) but did NOT revisit Loud Room. KB skip behavior persisting — agent reads "echo prevents taking" and refuses to engage.
+  - Objective quality: Not checked.
+  - Objective pursuit: Same underground circuit as ep77 (Cellar↔Troll↔EW↔Chasm↔Reservoir).
+  - Learning system quality: 0 LLM fallbacks (max_tokens fix holding).
+  - Pathfinding: NAVIGATING — efficient, but no new territory discovered.
+**Triggers:** Score stagnant (0 delta since t32, 18 turns).
+**Notes:** INTRANSITIVE COMMAND RULE NOT FIRING: Agent passed through Loud Room at t23 and never returned. KB poisoning prevents the rule from being tested. Painting acquired faster than ep77 (t32 vs t37). Verb exploration rule firing (move rug at t11). Same fundamental behavior as ep77 — score 44 ceiling holds. Need to either: (a) wipe Loud Room KB entry to force re-engagement, (b) add explicit instruction to revisit known-failed puzzles when new heuristics are available, or (c) accept that 44 is the structural ceiling without echo discovery.
+
+---
+
+## Episode 78 — COMPLETE (killed at turn 50)
+**Turns:** 50
+**Final score:** 44/350 (house +10 t7, cellar +25 t14, troll +5 t17, painting +4 t32)
+**Locations visited:** ~16 unique
+**End reason:** early_stop (manual kill — intransitive command rule cannot be tested due to KB skip behavior)
+**Improvement dispatched:** no — diagnosis reframed
+
+**Intransitive command rule evaluation:**
+- Agent reached Loud Room at t23 (faster than any post-reset episode — ep77 reached at t69, ep76 reached but only briefly)
+- Agent reasoning at t24: "the KB confirms that the room's echo property prevents taking it" — IMMEDIATELY moved on without trying any command
+- The new "Response-Derived Commands" rule never had a chance to fire because the agent didn't observe echoing this episode (no commands attempted)
+- This is a different failure mode than diagnosed: KB-driven puzzle skip vs. missing reasoning heuristic
+- **VERDICT: NEUTRAL/UNTESTABLE — rule is well-formed but blocked upstream by KB behavior**
+
+---
+
+## Session Complete
+**Episodes run:** 2 (ep77 max_turns 44/350, ep78 killed at t50 with score 44)
+**Best score achieved:** 44/350 (both episodes — 9 consecutive episodes at this ceiling)
+**Improvements made:** 1 (intransitive command rule, untestable due to KB skip)
+**System status:** PERFORMING WELL but PLATEAUED at 44
+**Summary:** This session confirmed the score ceiling at 44 holds for the 9th consecutive episode. ep77 served as baseline observation: agent reached Loud Room at t69, observed echoing, tried verb-noun commands (take bar, look, examine noise) but never typed a single word as a standalone command. The intransitive command rule was added to prompts/agent.md to teach this heuristic. ep78 deployed the rule but exposed a NEW failure mode: the KB now contains "All commands in Loud Room echo back — platinum bar cannot be taken" which the agent reads as "skip this room entirely." Agent passed through Loud Room at t23 without attempting any command, so the new rule could not fire. The rule itself is sound and game-agnostic, but its trigger condition (observing echoes) requires the agent to actually engage with the puzzle. Two coupled problems must be solved together: (1) the intransitive command heuristic (now in place), and (2) the KB representation of unsolved puzzles needs to encourage retry when new heuristics are available, not permanent skip. Also: a separate session added a grounding validator (memories only) for ep78+ — independent infrastructure improvement, not yet evaluated.
+
+**Next steps for future session:**
+1. Modify KB Failed Approaches representation: distinguish "permanently failed" (try, give up) from "puzzle observation" (try, learn, retry with new approach). Current "all commands echo back, bar cannot be taken" should become "Loud Room: commands echo back — environmental constraint, requires alternative approach."
+2. Or: Wipe specific Loud Room KB entry pre-ep79 to force re-engagement and test the intransitive command rule cleanly.
+3. Continue evaluating grounding validator (ep78 was killed early so memory stats incomplete).
+4. Consider upstream KB cleanup: when multiple Failed Approaches accumulate at the same location with same root cause, the agent should be encouraged to try fundamentally different categories (intransitive commands, environmental modifications) rather than abandoning the location.
+
+---
+
 ## Episode 77 → 78 — IMPROVEMENT
 **Trigger:** Score stuck at 44/350 for 8 consecutive episodes. Agent reaches Loud Room, observes echoing pattern, tries only verb-noun commands (take bar, examine noise, look), never considers intransitive commands. Leaves after 3 turns without progress.
 **Hypothesis:** The agent's command generation is biased toward verb-noun pairs because the prompt's parser reference and puzzle-solving protocol only model transitive commands. The agent has no heuristic for recognizing when game responses hint that a word itself is the command, so it never generates standalone intransitive commands even when the game's behavior (echoing, repetition) strongly suggests one.
