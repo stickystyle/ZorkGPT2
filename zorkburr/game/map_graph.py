@@ -104,12 +104,16 @@ class MapGraph:
         """Generate a Mermaid flowchart of the known map."""
         if not self.rooms:
             return ""
+        name_counts: dict[str, int] = defaultdict(int)
+        for n in self.rooms.values():
+            name_counts[n] += 1
         lines = ["graph LR"]
         for room_id, name in sorted(self.rooms.items()):
+            label = f"{name} #{room_id}" if name_counts[name] > 1 else name
             if room_id == current_room_id:
-                lines.append(f'    R{room_id}[["**{name}** ★"]]')
+                lines.append(f'    R{room_id}[["**{label}** ★"]]')
             else:
-                lines.append(f'    R{room_id}["{name}"]')
+                lines.append(f'    R{room_id}["{label}"]')
         seen: set[tuple[int, int, str]] = set()
         for from_id, exits in sorted(self.connections.items()):
             for direction, to_id in sorted(exits.items()):
@@ -137,13 +141,17 @@ class MapGraph:
                         next_frontier.append(dest_id)
             frontier = next_frontier
         # Build diagram with only visited rooms and edges between them
+        name_counts: dict[str, int] = defaultdict(int)
+        for rid in visited:
+            name_counts[self.rooms[rid]] += 1
         lines = ["graph LR"]
         for room_id in sorted(visited):
             name = self.rooms[room_id]
+            label = f"{name} #{room_id}" if name_counts[name] > 1 else name
             if room_id == current_room_id:
-                lines.append(f'    R{room_id}[["**{name}** ★"]]')
+                lines.append(f'    R{room_id}[["**{label}** ★"]]')
             else:
-                lines.append(f'    R{room_id}["{name}"]')
+                lines.append(f'    R{room_id}["{label}"]')
         for from_id in sorted(visited):
             for direction, to_id in sorted(self.connections.get(from_id, {}).items()):
                 if to_id not in visited:
