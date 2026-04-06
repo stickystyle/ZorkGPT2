@@ -485,6 +485,23 @@ When an improvement is needed:
    find tests/fixtures -name "*.json" -mtime +7 -delete 2>/dev/null
    ```
 
+2.7. **Verify clean working tree** — the improvement subagent will run `git add` and
+   `git commit`, which can sweep up pre-existing dirty state and create unreviewable
+   commits. Check:
+   ```bash
+   git status --porcelain
+   ```
+   The ONLY acceptable dirty file is `docs/orchestrator/journal.md` (which the
+   orchestrator itself modifies for checkpoint entries). If anything else is dirty
+   (modified, deleted, or staged), you MUST resolve it before dispatching:
+   - If the dirty changes are from the prior session and should be preserved:
+     `git stash push -m "pre-improvement-stash"` then `git stash pop` after the
+     improvement is committed.
+   - If they are stale and should be discarded: `git checkout -- <file>` (only after
+     confirming with the user if the change looks non-trivial).
+   - Never dispatch the improvement subagent with a dirty tree. A bundled commit
+     will fail evaluator review on "AUTHORIZED FILES ONLY" and force a revert.
+
 3. **Dispatch a general-purpose subagent using Opus** (prompt engineering requires judgment — use the most capable model) with this brief (fill in all `<>` placeholders):
 
    ```
@@ -637,9 +654,14 @@ When an improvement is needed:
       lines/sections serving a single hypothesis is fine. Two unrelated tweaks → FAIL.
    3. ALL CHANGES ARE INFRASTRUCTURE (BLOCKER only) — Every change must fix broken
       infrastructure. Strategic prompt tweaks bundled into a BLOCKER fix → FAIL.
-   4. AUTHORIZED FILES ONLY — Only `prompts/`, `pyproject.toml` config, and
-      `docs/orchestrator/journal.md` should be modified — unless the brief explicitly
-      authorized Python fixes. Other files touched → FAIL.
+   4. AUTHORIZED FILES ONLY — Only `prompts/` and `pyproject.toml` config should
+      be modified by the improvement subagent — unless the brief explicitly
+      authorized Python fixes. `docs/orchestrator/journal.md` is ALWAYS expected
+      to be modified (the subagent appends an IMPROVEMENT entry) and also may be
+      modified by the orchestrator itself for checkpoint entries — do NOT flag
+      journal.md changes. Files NOT to expect: anything in `data/` (generated,
+      gitignored), `tests/`, `zorkburr/` (unless authorized), `CLAUDE.md`, or
+      root-level config files. Any of those touched → FAIL.
    5. JOURNAL ENTRY WRITTEN — An IMPROVEMENT entry was appended (not overwritten) with
       all required fields: Trigger, Hypothesis, Change, Reasoning, Target metric,
       Validation, Result: PENDING.
