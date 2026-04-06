@@ -1,17 +1,14 @@
 from unittest.mock import MagicMock, patch
 from burr.core import State
 from zorkburr.actions.memory import record_memory, should_synthesize, Memory
-from zorkburr.llm.models import LocationSummaryResponse, MemorySynthesisResponse
+from zorkburr.llm.models import MemorySynthesisResponse
 from zorkburr.state import S
 
 
-def _mock_client_with_summary(synthesis_response):
-    """Create a mock client that returns synthesis_response first, then a summary."""
+def _mock_client_with_synthesis(synthesis_response):
+    """Create a mock client that returns a single synthesis response."""
     mock = MagicMock()
-    mock.create.side_effect = [
-        synthesis_response,
-        LocationSummaryResponse(summary="test summary"),
-    ]
+    mock.create.return_value = synthesis_response
     return mock
 
 def test_memory_dataclass():
@@ -30,7 +27,7 @@ def test_should_not_synthesize_no_change():
     assert should_synthesize(score_delta=0, location_changed=False, died=False) is False
 
 def test_record_memory_with_synthesis():
-    mock_client = _mock_client_with_summary(MemorySynthesisResponse(
+    mock_client = _mock_client_with_synthesis(MemorySynthesisResponse(
         should_remember=True, category="DISCOVERY", memory_title="Found leaflet",
         memory_text="Mailbox contains a leaflet.", persistence="permanent",
         status="ACTIVE", reasoning="new info",
@@ -48,10 +45,10 @@ def test_record_memory_with_synthesis():
         S.LOCATION_SUMMARIES: {},
     })
     result, new_state = record_memory.run(state, client=mock_client, config=MagicMock(memory_model="test"))
-    mems = new_state[S.MEMORIES_BY_LOCATION]
-    assert "10" in mems
-    assert len(mems["10"]) == 1
-    assert mems["10"][0]["title"] == "Found leaflet"
+    pending = new_state[S.PENDING_MEMORY]
+    assert pending is not None
+    assert pending["memory"]["title"] == "Found leaflet"
+    assert pending["loc_key"] == "10"
 
 def test_record_memory_skips_no_change():
     state = State({
@@ -101,11 +98,15 @@ def test_record_memory_rejects_duplicate_title():
 
 def test_record_memory_allows_duplicate_title_if_superseded():
     """Dedup guard ignores SUPERSEDED memories — the title is available for reuse."""
-    mock_client = _mock_client_with_summary(MemorySynthesisResponse(
+    mock_client = _mock_client_with_synthesis(MemorySynthesisResponse(
         should_remember=True, category="DISCOVERY", memory_title="Found leaflet",
         memory_text="Better version.", persistence="permanent",
         status="ACTIVE", reasoning="improved",
     ))
+    original_mems = [{"category": "DISCOVERY", "title": "Found leaflet",
+                      "text": "Old version.", "episode": "ep-0",
+                      "turn": 3, "persistence": "permanent", "status": "SUPERSEDED",
+                      "superseded_by": "Something else"}]
     state = State({
         S.PRE_LOCATION_ID: 10, S.PRE_LOCATION_NAME: "West of House",
         S.PRE_SCORE: 0, S.PRE_INVENTORY: [],
@@ -114,24 +115,23 @@ def test_record_memory_allows_duplicate_title_if_superseded():
         S.GAME_RESPONSE: "Opening the small mailbox reveals a leaflet.",
         S.ACTION_TO_TAKE: "open mailbox", S.AGENT_REASONING: "check the mailbox",
         S.ACTION_HISTORY: [],
-        S.MEMORIES_BY_LOCATION: {
-            "10": [{"category": "DISCOVERY", "title": "Found leaflet",
-                    "text": "Old version.", "episode": "ep-0",
-                    "turn": 3, "persistence": "permanent", "status": "SUPERSEDED",
-                    "superseded_by": "Something else"}]
-        },
+        S.MEMORIES_BY_LOCATION: {"10": original_mems},
         S.EPISODE_ID: "ep-1", S.TURN_COUNT: 5,
         S.MEMORY_STATS: {"new": 0, "dedup_rejected": 0, "superseded": 0},
         S.LOCATION_SUMMARIES: {},
     })
     result, new_state = record_memory.run(state, client=mock_client, config=MagicMock(memory_model="test"))
     assert result["synthesized"] is True
-    assert len(new_state[S.MEMORIES_BY_LOCATION]["10"]) == 2
+    pending = new_state[S.PENDING_MEMORY]
+    assert pending is not None
+    assert pending["memory"]["title"] == "Found leaflet"
+    # MEMORIES_BY_LOCATION is unchanged — commit happens in validate_memory
+    assert len(new_state[S.MEMORIES_BY_LOCATION]["10"]) == 1
 
 
 def test_record_memory_increments_new_counter():
-    """Memory stats 'new' counter should increment on successful synthesis."""
-    mock_client = _mock_client_with_summary(MemorySynthesisResponse(
+    """record_memory writes to PENDING_MEMORY; the 'new' stat is incremented later by validate_memory."""
+    mock_client = _mock_client_with_synthesis(MemorySynthesisResponse(
         should_remember=True, category="DISCOVERY", memory_title="Found leaflet",
         memory_text="Mailbox contains a leaflet.", persistence="permanent",
         status="ACTIVE", reasoning="new info",
@@ -150,7 +150,9 @@ def test_record_memory_increments_new_counter():
     })
     result, new_state = record_memory.run(state, client=mock_client, config=MagicMock(memory_model="test"))
     assert result["synthesized"] is True
-    assert new_state[S.MEMORY_STATS]["new"] == 1
+    # PENDING_MEMORY is set; 'new' counter is NOT incremented yet (happens in validate_memory)
+    assert new_state[S.PENDING_MEMORY] is not None
+    assert new_state[S.MEMORY_STATS]["new"] == 0
 
 
 def test_record_memory_increments_dedup_counter():
@@ -235,8 +237,8 @@ def test_record_memory_context_includes_titles(monkeypatch):
 
 
 def test_record_memory_supersedes_old_memory():
-    """When LLM returns supersedes_titles, old memories should be marked SUPERSEDED."""
-    mock_client = _mock_client_with_summary(MemorySynthesisResponse(
+    """record_memory stages supersession info in PENDING_MEMORY; actual commit is in validate_memory."""
+    mock_client = _mock_client_with_synthesis(MemorySynthesisResponse(
         should_remember=True, category="DISCOVERY",
         memory_title="Safe Descent with Lantern",
         memory_text="Staircase is safe when carrying the lantern.",
@@ -263,22 +265,22 @@ def test_record_memory_supersedes_old_memory():
     })
     result, new_state = record_memory.run(state, client=mock_client, config=MagicMock(memory_model="test"))
     assert result["synthesized"] is True
+    pending = new_state[S.PENDING_MEMORY]
+    assert pending is not None
+    assert pending["memory"]["title"] == "Safe Descent with Lantern"
+    assert pending["supersedes_titles"] == ["Dark Staircase Deadly"]
+    # MEMORIES_BY_LOCATION is unchanged — supersession commit happens in validate_memory
     mems = new_state[S.MEMORIES_BY_LOCATION]["10"]
-    # Old memory marked SUPERSEDED
-    old = next(m for m in mems if m["title"] == "Dark Staircase Deadly")
-    assert old["status"] == "SUPERSEDED"
-    assert old["superseded_by"] == "Safe Descent with Lantern"
-    # New memory added
-    new = next(m for m in mems if m["title"] == "Safe Descent with Lantern")
-    assert new["status"] == "ACTIVE"
-    # Stats updated
-    assert new_state[S.MEMORY_STATS]["superseded"] == 1
-    assert new_state[S.MEMORY_STATS]["new"] == 1
+    assert len(mems) == 1
+    assert mems[0]["status"] == "ACTIVE"  # not yet superseded
+    # Stats are NOT updated yet
+    assert new_state[S.MEMORY_STATS]["superseded"] == 0
+    assert new_state[S.MEMORY_STATS]["new"] == 0
 
 
 def test_record_memory_ignores_nonexistent_supersede_title():
     """If supersedes_titles names a title that doesn't exist, skip it gracefully."""
-    mock_client = _mock_client_with_summary(MemorySynthesisResponse(
+    mock_client = _mock_client_with_synthesis(MemorySynthesisResponse(
         should_remember=True, category="NOTE",
         memory_title="New Memory",
         memory_text="Some insight.",
