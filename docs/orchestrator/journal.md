@@ -852,3 +852,29 @@ The SOTA experiment has already justified itself: Sonnet solved the Mirror Room 
 **Trend:** Three-episode upward chain: ep80=45 (Coal Mine), ep81=60 (Loud Room + maze treasure), ep82=64 (faster Loud Room + maze escape + painting). Each episode builds on prior KB. The maze fix worked at the agent-reasoning level but exposed a deeper graph-data problem. Two new bottlenecks for next session: (1) maze MAP_DATA edge reliability — the agent's plans against the maze graph keep producing MAP_MISMATCH; (2) trophy-case scoring confusion — Sonnet picked up treasures but doesn't reliably deposit them (dropped in Studio, then never returned).
 
 ---
+## Episode 83 — Turn 25 Checkpoint (Sonnet 4.6, no policy change)
+**Type:** CONCERN — different path than ep82, 15pt behind at t25
+**Score:** 35/350 (house +10 t7, cellar +25 t15; no troll kill, no Loud Room yet)
+**Locations visited (t1-25):** 10 (West_House, South_House, Behind_House, Kitchen, Living, Cellar, Troll_, East_Chasm, Gallery, Studio)
+**Avg critic score:** 0.53
+**Rejection rate:** 7/25 (28%) — borderline
+**Triggers:** none individually firing (critic 0.53 > 0.5, rejection 28% < 30%)
+**Gameplay quality:** DRIFTING
+  - Path divergence from ep82: after troll (t17 sack-throw instead of sword-kill, no +5), went East_Chasm→Gallery→Studio skipping Loud Room. New exploration branch.
+  - **Dropped lantern (LIT) + manual in Studio at t24-25** — repeating the ep82 "drop treasures in Studio" pattern, but this time the active light source. Dangerous: no light for return trip.
+  - Studio stuck: t21-25 all in Studio with rejections on "north"/"up"/"drop". -0.80 critic at t23 on "up" (3 rejections).
+  - Pathfinding: exploring a valid but slower branch. Not clearly broken yet.
+**Notes:** No urgent trigger. Sonnet exploring differently — legit variance. Lantern drop is concerning; will watch whether it blocks return trip. Continuing to poll without intervention.
+
+---
+
+## Episode 83 → 84 — IMPROVEMENT
+**Trigger:** Score stagnant t25→t50 (35→35); avg critic 0.24 in t26-50; 36% rejection rate; agent proposed same invalid direction 3+ times at t34/t35 ignoring Available Exits ground truth
+**Hypothesis:** Agent prompt does not mention the Available Exits section in the formatted context as engine ground truth. Agent reasons from stale KB/memory beliefs about door/passage state instead of the live engine exit list, causing it to repeatedly propose directions the engine has already declared invalid.
+**Change:** prompts/agent.md — added rule 0 in NAVIGATION PROTOCOL directing the agent to consult the "Available Exits" section as authoritative engine ground truth, with a mandatory pre-movement ritual: locate the line, quote it verbatim in `thinking`, confirm the intended direction appears, and ABORT if not (pick a listed direction or take a non-movement action). Explicitly overrides World Map, KB, memories, and prior plans.
+**Reasoning:** If the agent treats Available Exits as ground truth, it cannot propose "down" when "down" is not in the list. This breaks the reject-retry-reject loop and lets the agent re-plan to a valid direction or non-movement action. Prior fix searches in journal/journal_archive: None — first attempt at directing the agent to consult Available Exits as ground truth.
+**Target metric:** Avg critic in any 25-turn block returns to ≥0.5; rejection rate <30%; no movement direction proposed 3x in a row when not in Available Exits.
+**Validation:** PARTIAL — 4/5 structural checks passed (t31, t39, t40 healthy unchanged; t35 problem now correctly proposes "w" with reasoning that quotes the Available Exits list verbatim and notes "no `down` listed", proving the new ritual works when invoked). t34 still proposes "down" — that fixture has NO recent rejection signal in context, and the agent's KB confidence about the chimney overrides the (unrationalized) Available Exits check. The rule clearly works once the agent has any empirical signal that the direction failed (t35), which is sufficient to break the 3x retry spiral. Healthy fixtures all preserved. No game-specific knowledge added (pure meta-rule about reading the engine exit list — applies to any text adventure with an exit ground-truth field).
+**Result:** PENDING
+
+---
