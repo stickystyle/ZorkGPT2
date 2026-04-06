@@ -6,7 +6,8 @@ import instructor
 from langfuse import observe
 
 from zorkburr.actions import action
-from zorkburr.actions.episode import persist_memories
+from zorkburr.actions.episode import persist_memories, persist_summaries
+from zorkburr.actions.memory import generate_location_summary
 from zorkburr.config import GameConfig
 from zorkburr.llm.client import thinking_kwargs
 from zorkburr.llm.models import GroundingValidationResponse
@@ -103,6 +104,15 @@ def _commit_memory(state: State, pending: dict, config: GameConfig, client: inst
     all_mems[loc_key] = loc_list
     persist_memories(all_mems, config)
 
+    # Regenerate location summary
+    summaries = dict(state[S.LOCATION_SUMMARIES])
+    summary = generate_location_summary(
+        loc_key, state[S.PRE_LOCATION_NAME], loc_list, client, config,
+    )
+    if summary:
+        summaries[loc_key] = summary
+        persist_summaries(summaries, config)
+
     stats = dict(state[S.MEMORY_STATS])
     stats["new"] = stats.get("new", 0) + 1
     stats["superseded"] = stats.get("superseded", 0) + superseded_count
@@ -110,6 +120,7 @@ def _commit_memory(state: State, pending: dict, config: GameConfig, client: inst
     new_state = state.update(**{
         S.MEMORIES_BY_LOCATION: all_mems,
         S.MEMORY_STATS: stats,
+        S.LOCATION_SUMMARIES: summaries,
         S.PENDING_MEMORY: None,
     })
     return {"validated": True, "memory_title": mem_dict["title"]}, new_state
@@ -118,8 +129,8 @@ def _commit_memory(state: State, pending: dict, config: GameConfig, client: inst
 @action(
     reads=[S.PENDING_MEMORY, S.ACTION_HISTORY, S.LOCATION_NAME, S.LOCATION_ID,
            S.INVENTORY, S.MEMORIES_BY_LOCATION, S.MEMORY_STATS,
-           S.PRE_LOCATION_NAME, S.EPISODE_ID, S.TURN_COUNT],
-    writes=[S.MEMORIES_BY_LOCATION, S.MEMORY_STATS, S.PENDING_MEMORY],
+           S.LOCATION_SUMMARIES, S.PRE_LOCATION_NAME, S.EPISODE_ID, S.TURN_COUNT],
+    writes=[S.MEMORIES_BY_LOCATION, S.MEMORY_STATS, S.LOCATION_SUMMARIES, S.PENDING_MEMORY],
 )
 @observe()
 def validate_memory(state: State, client: instructor.Instructor, config: GameConfig) -> tuple[dict, State]:
@@ -137,7 +148,7 @@ def validate_memory(state: State, client: instructor.Instructor, config: GameCon
         response = _call_grounding_validator(
             client=client,
             config=config,
-            candidates=[{"item": mem_dict["title"]}],
+            candidates=[{"item": f"{mem_dict['title']}: {mem_dict['text']}"}],
             addendum=MEMORY_ADDENDUM,
             action_history=state[S.ACTION_HISTORY],
             location_name=state[S.LOCATION_NAME],

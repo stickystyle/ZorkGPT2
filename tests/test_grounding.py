@@ -106,10 +106,14 @@ def test_validate_memory_pass_through_when_no_pending():
 
 def test_validate_memory_accepted():
     """Grounded memory gets committed to MEMORIES_BY_LOCATION."""
+    from zorkburr.llm.models import LocationSummaryResponse
     mock_client = MagicMock()
-    mock_client.create.return_value = GroundingValidationResponse(judgments=[
-        GroundingJudgment(item="Leaflet in Mailbox", grounded=True, reason="Mailbox opened, leaflet found"),
-    ])
+    mock_client.create.side_effect = [
+        GroundingValidationResponse(judgments=[
+            GroundingJudgment(item="Leaflet in Mailbox: Open mailbox to find a leaflet inside.", grounded=True, reason="Mailbox opened, leaflet found"),
+        ]),
+        LocationSummaryResponse(summary="Mailbox contains a leaflet"),
+    ]
     config = GameConfig(openrouter_api_key="test-key")
     state = _base_state_with_pending_memory()
 
@@ -142,14 +146,18 @@ def test_validate_memory_rejected():
 
 
 def test_validate_memory_disabled():
-    """When grounding validator is disabled, commits unconditionally."""
+    """When grounding validator is disabled, commits unconditionally (no grounding call)."""
+    from zorkburr.llm.models import LocationSummaryResponse
     mock_client = MagicMock()
+    mock_client.create.return_value = LocationSummaryResponse(summary="test summary")
     config = GameConfig(openrouter_api_key="test-key", enable_grounding_validator=False)
     state = _base_state_with_pending_memory()
 
     result, new_state = validate_memory.run(state, client=mock_client, config=config)
     assert result["validated"] is True
-    mock_client.create.assert_not_called()
+    # No grounding call — only summary generation call (if any)
+    for call in mock_client.create.call_args_list:
+        assert call.kwargs.get("response_model") != GroundingValidationResponse
     mems = new_state[S.MEMORIES_BY_LOCATION]
     assert "10" in mems
 
@@ -272,10 +280,14 @@ def test_memory_pipeline_propose_then_validate():
     assert state_after_record[S.PENDING_MEMORY] is not None
 
     # Step 2: validate_memory accepts the grounded memory
+    from zorkburr.llm.models import LocationSummaryResponse
     val_client = MagicMock()
-    val_client.create.return_value = GroundingValidationResponse(judgments=[
-        GroundingJudgment(item="Trapdoor Opened", grounded=True, reason="Trapdoor seen in game text"),
-    ])
+    val_client.create.side_effect = [
+        GroundingValidationResponse(judgments=[
+            GroundingJudgment(item="Trapdoor Opened: Push rug then open trapdoor to access cellar.", grounded=True, reason="Trapdoor seen in game text"),
+        ]),
+        LocationSummaryResponse(summary="Rug hides trapdoor to cellar"),
+    ]
 
     result, final_state = validate_memory.run(state_after_record, client=val_client, config=config)
     assert result["validated"] is True
