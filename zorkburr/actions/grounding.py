@@ -42,6 +42,8 @@ def _call_grounding_validator(
     location_name: str,
     location_id: int,
     inventory: list[str],
+    score: int = 0,
+    pre_score: int = 0,
 ) -> GroundingValidationResponse:
     """Call the grounding validator LLM with the shared prompt + type-specific addendum."""
     prompt = _get_grounding_prompt().replace("{grounding_rules}", addendum)
@@ -59,8 +61,12 @@ def _call_grounding_validator(
     for c in candidates:
         candidate_lines.append(f"- {c['item']}")
 
+    score_delta = score - pre_score
+    score_line = f"**Score:** {pre_score} -> {score} (delta: {score_delta:+d} this turn)\n"
+
     user_content = (
         f"**Current Location:** {location_name} (ID: {location_id})\n"
+        f"{score_line}"
         f"**Inventory:** {inv_str}\n\n"
         f"**Recent Game History:**\n" + "\n".join(history_lines) + "\n\n"
         f"**Candidates to validate:**\n" + "\n".join(candidate_lines)
@@ -129,7 +135,8 @@ def _commit_memory(state: State, pending: dict, config: GameConfig, client: inst
 @action(
     reads=[S.PENDING_MEMORY, S.ACTION_HISTORY, S.LOCATION_NAME, S.LOCATION_ID,
            S.INVENTORY, S.MEMORIES_BY_LOCATION, S.MEMORY_STATS,
-           S.LOCATION_SUMMARIES, S.PRE_LOCATION_NAME, S.EPISODE_ID, S.TURN_COUNT],
+           S.LOCATION_SUMMARIES, S.PRE_LOCATION_NAME, S.EPISODE_ID, S.TURN_COUNT,
+           S.SCORE, S.PRE_SCORE],
     writes=[S.MEMORIES_BY_LOCATION, S.MEMORY_STATS, S.LOCATION_SUMMARIES, S.PENDING_MEMORY],
 )
 @observe()
@@ -154,6 +161,8 @@ def validate_memory(state: State, client: instructor.Instructor, config: GameCon
             location_name=state[S.LOCATION_NAME],
             location_id=state[S.LOCATION_ID],
             inventory=state[S.INVENTORY],
+            score=state[S.SCORE],
+            pre_score=state[S.PRE_SCORE],
         )
         if response.judgments and response.judgments[0].grounded:
             logger.info(f"Grounding accepted memory: '{mem_dict['title']}'")
