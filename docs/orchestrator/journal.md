@@ -38,6 +38,16 @@ Started: 2026-03-30
 
 ---
 
+## Episode 87 → 88 — IMPROVEMENT (KB content fix — chimney rule)
+**Trigger:** Chronic painting-loss across ep82/84/86/87. ep87 t43 agent reasoning verbatim from Burr trace: *"I need to drop the painting so my hands are empty to climb the chimney from Studio to Kitchen."* This is the agent applying KB rule line 30 literally.
+**Hypothesis:** The KB chimney rule is incomplete and is causing the agent to drop the painting before every chimney climb. Fixing the KB rule to require keeping the lantern AND adding an explicit "do not drop treasures to climb" note will break the chronic pattern and let the painting actually reach the trophy case.
+**Change:** Edited `data/knowledge.md` line 30 (chimney rule) and added a treasure-deposit note. Rewrote the chimney rule to capture the full constraint (light load + keep lantern; empty hands fails with "Going up empty-handed is a bad idea." verified ep87 t22; working pattern verified ep87 t24) with an explicit CRITICAL warning not to drop treasures in Studio just to climb. Also updated the Failed Approaches entry (line 111) to reflect the empty-hands failure mode and cross-reference the main rule. Added an adjacent scoring-model note clarifying that treasures only score on deposit in the trophy case.
+**Reasoning:** This is a KB content bug, not a prompt bug. The agent is reasoning correctly given the KB it has — the KB itself is wrong. Fixing the source of the misinformation is more durable than trying to teach the agent to ignore its own KB.
+**Target metric:** ep88 should successfully deposit the painting in the trophy case at least once. Score should exceed ep87's 44 if everything else holds.
+**Validation:** N/A (KB content edit, no automated test). Diff reviewed by hand.
+**Result:** PENDING
+---
+
 ## Episode 75 — Turn 25 Checkpoint
 **Type:** HEALTHY — score 40 by t18, efficient KB-driven early game, deep underground exploration
 **Score:** 40/350 (house +10 t7, cellar +25 t14, troll +5 t18)
@@ -936,6 +946,58 @@ Every subsystem now hits the remote Claude proxy. This change was never committe
 **Target metric:** Any improvement in KB/memory quality (strategic vs. noise ratio) and score; ep85 baseline under clean network.
 **Validation:** N/A — this is a config commit, not a prompt change. Validation happens by observing ep85 end-to-end.
 **Result:** PENDING
+
+---
+
+## Episode 87 — Turn 50 Checkpoint
+**Type:** CONCERN — score stagnant entire block (1st stagnation checkpoint)
+**Score:** 39/350 (0 delta from t25)
+**Locations visited t26-50:** 6 (Studio, Gallery, East_Chasm, Cellar, Living, Kitchen — same Studio↔Living loop)
+**Avg critic score:** 0.51 (above threshold)
+**Rejection rate:** 6/25 (24%) — under threshold
+**Triggers:** Score stagnant 1st checkpoint (need 2 consecutive to fire)
+**Failures:** 0
+**Gameplay quality:** DRIFTING
+
+### Root cause identified — KB content bug, not prompt bug
+At t43, agent reasoned: *"I need to drop the painting so my hands are empty to climb the chimney from Studio to Kitchen."* — and the critic approved at 0.50 with vague reasoning. The KB rule learned from prior episodes is *"climb chimney requires dropping items"*, but the **actual** rule (which ep87 itself observed at t22 — *"Going up empty-handed is a bad idea"*) is **light load + lantern, not empty hands**.
+
+This is the chronic painting-loss pattern across ep82/84/86/87. The KB has an incomplete rule that reliably causes the agent to drop the painting before climbing. The critic doesn't catch it because critics don't have a "treasures should never be dropped except temporarily" meta-rule.
+
+### Two distinct critic-quality issues observed in t1-50
+
+1. **Hallucinated rejection justifications** (t10 `move rug`, t22/24 `climb chimney`): critic blocks correct plays with confidently-wrong reasons. Only the rejection cap prevents hard-blocking. Example t24: critic said *"climbing the chimney without a visible object or tool"* — agent had the lantern and the action immediately succeeded.
+2. **Approves harmful actions** (t43 `drop painting`): critic approves treasure-loss with vague reasoning about *"resource management"*. No grounding in score or treasure semantics.
+
+Both flaws share a root cause: the Ministral critic generates plausible-sounding text without grounding in inventory/exits/score. It has no notion of treasure value.
+
+### Distinct pre-existing design issue: cross-episode KB poisoning
+At t36 (`take painting`), agent reasoning listed *"painting, platinum bar, bag, brown sack"* as items to retrieve from Studio. Only the painting was actually there in ep87 — the platinum bar/bag/sack are from ep82's playthrough but the KB stores them as facts. Agent then wandered t37-42 hunting ep82 ghosts. **Filed as known design issue, not the ep87→88 priority.**
+
+### Next ep87→88 candidate (committing after episode end)
+KB content fix: edit `data/knowledge.md` so the chimney rule reads correctly — *"climb chimney requires LIGHT load with lantern; do NOT drop the lantern; do NOT drop the painting just to climb"*. This is a one-line KB edit, not a prompt change. It directly addresses the chronic painting-loss pattern.
+
+**Notes:** NOT dispatching mid-episode. Waiting for t75 to confirm 2-checkpoint stagnation and for full episode-end metrics. KB-correction dispatched as ep87→88.
+
+---
+
+## Episode 87 — Turn 25 Checkpoint
+**Type:** CONCERN (avg critic <0.5 trigger fires, but not system defect)
+**Score:** 39/350 (kitchen +10 t6, cellar +25 t13, painting +4 t17, stuck at 39 since)
+**Locations visited:** 9 (West_House, North_House, Behind_House, Kitchen, Living, Cellar, East_Chasm, Gallery, Studio)
+**Avg critic score:** 0.40 — below 0.5 threshold
+**Rejection rate:** 7/25 (28%) — under 30%
+**Rejections ≥3:** 4 turns (t10 `move rug`, t21 `drop leaflet`, t22 `climb chimney`, t24 `climb chimney`)
+**Triggers:** avg critic <0.5
+**Failures:** 0 (no `Memory synthesis failed`, no `Critic LLM call failed`, no LLM_ERROR)
+**Gameplay quality:** LEARNING (critic doing real work)
+- The negative critic scores are real Ministral evaluations, NOT silent fallback. Fallback value is exactly 0.50; we're seeing actual -0.60, -0.80, -0.90.
+- Critic correctly rejected the Studio "drop treasures here" trap that cost ep82/84/86 points (`drop leaflet` t21 -0.60×3, `drop lantern` t20 0.50×1).
+- Critic correctly rejected `climb chimney` with items at t22 -0.90×3 and t24 -0.80×3 (Kitchen→chimney attempt) — KB knows climb chimney requires dropping items.
+- Agent eventually recovered by `take lantern` (t23) — a sane response to the rejection cascade.
+- First-score turn t6 matches ep82's pace. Trajectory through cellar+troll route is healthy.
+
+**Notes:** NOT dispatching an improvement. The critic <0.5 trigger fires technically, but the cause is "critic is doing its job rejecting bad actions" — exactly the opposite of the failure mode the trigger is designed to catch. Want to see if agent breaks the Studio pattern in t26-50 on its own. The critic-revert hypothesis (ep85→86) is already being validated: real distribution, no silent fallback, Studio trap correctly punished. Continuing.
 
 ---
 

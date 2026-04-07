@@ -1,0 +1,152 @@
+**Score Changes:**
+- in at Behind House (score 0→10, +10)
+- down at Living  (score 10→35, +25)
+- take painting at Gallery (score 35→39, +4)
+- e at Troll  (score 39→44, +5)
+
+**Puzzle Mechanics Discovered:**
+- Moving rug in Living Room reveals closed trap door underneath — must move rug first, then open trap door
+- Trap door in Living Room locks from above after descending — cannot be reopened from Cellar side (locked, breaking with axe fails)
+- Spirits at Entrance to Hades cannot be attacked with material objects (sword and axe both fail with "How can you attack a spirit with material objects?")
+- Entering the gate at Entrance to Hades blocked by invisible force — cannot pass through
+- Sword glows faint blue in Cave (near Entrance to Hades staircase), stops glowing in Winding Passage
+- Pressing blue button in Maintenance Room causes water leak from east wall — water rises rapidly (shin → knee level) and floods east room of Dam Lobby
+- All commands in Loud Room echo back as repeated text (e.g., "take platinum bar" → "bar bar ...", "look" → "look look ...") — platinum bar cannot be taken in this state
+- East doorway of Dam Lobby flooded after pressing blue button in Maintenance Room — "The room is full of water and cannot be entered"
+- `turn bolt with wrench` at Dam — "The bolt won't turn with your best effort" (attempted multiple times)
+- Thief roams multiple areas (Cellar, East-West Passage, Stream View, Reservoir South) and can be attacked but is difficult to kill — dodges, disarms, and leaves when finding nothing of value
+- `attack man with axe` at Cellar disarms thief but he leaves still carrying his bag — thief robbed items during encounter
+- Filling bottle with water at Stream View fails — "The water slips through your fingers" even with bottle open
+- West exit from Stream View blocked — "The stream emerges from a spot too small for you to enter"
+- Dome Room: cannot descend from dome periphery — "You cannot go down without fracturing many bones"
+- Gallery painting requires dropping heavy items first — inventory too heavy to take painting while carrying sword
+- `rub mirror` in Mirror Room causes rumble from deep within the earth and the room shakes — effect otherwise unclear
+- Bat Room: vampire bat swoops down when entered — transported to Coal Mine area (Ladder Top region)
+- Shaft Room: basket can be lowered/raised via `lower basket` / `raise basket` commands; coal placed in basket stays in it through lowering/raising cycle
+- `move timber` in Timber Room reveals nothing
+- All commands in Loud Room echo back as repeated text — typing `echo` changes the room acoustics subtly, after which `take platinum bar` succeeds
+- Maze skeleton location contains skeleton key and bag — inventory weight limit requires dropping items before taking them; `take bag` scores +10
+- Maze skeleton location contains skeleton key and bag — inventory weight limit requires dropping items before taking them
+- `climb chimney` at Studio (up to Kitchen) requires a LIGHT load AND keeping the brass lantern. Heavy load fails with "You can't get up there with what you're carrying" — drop a few items to lighten. EMPTY hands ALSO fails with "Going up empty-handed is a bad idea." (verified ep87 t22). The working pattern (verified ep87 t24): drop excess items but KEEP the lantern, then `climb chimney` succeeds. CRITICAL: do NOT drop treasures (painting, bag, platinum bar, coffin, etc.) in the Studio just to climb — treasures left in Studio do not score. Carry the treasure plus the lantern, drop only non-treasure ballast (sword, axe, sack, bottle) if needed.
+- Scoring model: treasures only score on DEPOSIT in the trophy case in the Living Room. Picking a treasure up gives partial credit (e.g. painting +4 on take) but the bulk of the score comes from putting it in the trophy case. Do NOT drop a treasure unless there is a clean plan to retrieve and deposit it within a few turns.
+- `unlock wooden door with key` (skeleton key) at Living Room — "It doesn't seem to work" — skeleton key does not open the gothic wooden door
+- Wooden door gothic lettering in Living Room translates to "This space intentionally left blank." — door appears decorative or requires different means to open
+- Trap door in Living Room can be reopened from above (Living Room side) after returning via chimney/Kitchen route — descending again re-locks it from above
+
+**Items Found:**
+- Leaflet — West House mailbox (taken)
+- Brown sack — Kitchen (taken)
+- Glass bottle — Kitchen (taken)
+- Brass lantern — Living Room (taken)
+- Sword — Living Room (taken)
+- Axe — Troll Room (taken, after troll killed)
+- Painting — Gallery (taken, scores +4)
+- Paper — Studio (taken, contains registration/congratulations text)
+- Leaflet — West House mailbox (taken); dropped in Maintenance Room, re-taken
+- Brown sack — Kitchen (taken); dropped in Gallery
+- Glass bottle — Kitchen (taken); dropped in Gallery
+- Axe — Troll Room (taken after troll killed); dropped in Gallery
+- Matchbook — Dam Lobby (taken)
+- Tour guidebook — Dam Lobby (taken); dropped in Maintenance Room, re-taken
+- Wrench — Maintenance Room (taken)
+- Screwdriver — Maintenance Room (taken); dropped in Troll Room
+- Tube (Frobozz Magic Gunk Company All-Purpose Gunk) — Maintenance Room (taken); dropped in Troll Room
+- Platinum bar — Loud Room (cannot be taken — all commands echo)
+- Sword — Living Room (taken); dropped in Gallery to reduce weight
+- Axe — Troll Room (taken after troll killed)
+- Painting — Gallery (taken, scores +4; note: score change not in verified list for this episode)
+- Tour guidebook — Dam Lobby (taken)
+- Bracelet — Gas Room (taken, scores +5)
+- Small pile of coal — Dead End in coal mine (taken, placed in basket at Shaft Room)
+- Leaflet — West House mailbox (taken); dropped in Maze (skeleton room) to reduce weight
+- Glass bottle — Kitchen (taken); dropped in Maze (skeleton room) to reduce weight
+- Sword — Living Room (taken); dropped in Maze (skeleton room) — still there, too heavy to retrieve with current load
+- Platinum bar — Loud Room (taken after using `echo` command, scores +10)
+- Skeleton key — Maze skeleton room (taken)
+- Bag — Maze skeleton room (taken, scores +10)
+- Glass bottle (with water) — Kitchen (taken)
+- Sword — Living Room (taken); dropped in Troll Room
+- Painting — Gallery (taken, scores +4); dropped in Studio
+- Platinum bar — Loud Room (taken after using `echo` command, scores +10); dropped in Studio
+- Bag — Maze skeleton room (taken, scores +10); dropped in Studio
+- Brown sack — Kitchen (taken); dropped in Studio
+- Leaflet — dropped in Troll Room (before entering maze)
+- Glass bottle — dropped in Troll Room (before entering maze)
+
+**Dangerous Areas:**
+- Cellar is pitch black without lantern — risk of being eaten by grue; light lantern before or immediately upon entering
+- Maintenance Room floods rapidly after pressing blue button — water rises from shin to knee level quickly; exit south before it gets worse
+- Bat Room: entering causes vampire bat to swoop and transport player to Coal Mine area (Ladder Top region)
+- Maze: going `down` in certain passages warns "You won't be able to get back up to the tunnel you are going through when it gets to the next room" — one-way drop risk
+
+**Failed Approaches:**
+- `attack spirits with sword` at Entrance to Hades — "How can you attack a spirit with material objects?"
+- `attack spirits with axe` at Entrance to Hades — same response, repeated multiple times
+- `enter gate` at Entrance to Hades — "Some invisible force prevents you from passing through the gate" (attempted multiple times)
+- `wave lantern` at Entrance to Hades — "Waving the brass lantern has no effect" / "isn't notably helpful"
+- `wave sword` / `brandish sword` at Entrance to Hades — no effect
+- `open trap door` at Cellar — "The door is locked from above" (attempted multiple times)
+- `break trap door with axe` at Cellar — "Nice try"
+- `wave lantern` at Entrance to Hades — "Waving the brass lantern has no effect"
+- `turn bolt with wrench` at Dam — "The bolt won't turn with your best effort" (attempted multiple times)
+- `fix pipe with wrench` at Maintenance Room — "With a wrench? The water level here is now up to your shin" (did not fix leak)
+- `turn pipe` at Maintenance Room — "You can't turn that!" (wrench auto-selected)
+- `take platinum bar` / `take bar` / `get bar` at Loud Room — all echo back as "bar bar ..." (multiple attempts)
+- `attack spirits with sword` / `attack spirits with axe` at Entrance to Hades — "How can you attack a spirit with material objects?" (multiple attempts)
+- `enter gate` at Entrance to Hades — "Some invisible force prevents you from passing through the gate" (multiple attempts)
+- `open trap door` at Cellar — "The door is locked from above" (multiple attempts)
+- `turn bolt with wrench` at Dam — "The bolt won't turn with your best effort" (multiple attempts)
+- `turn pipe` at Maintenance Room — "You can't turn that!"
+- `fill bottle with water` at Stream View — "The water slips through your fingers" even with bottle open (multiple attempts)
+- `down` at Dome Room — "You cannot go down without fracturing many bones"
+- `attack man with axe` at multiple locations — thief consistently survives and leaves; not a reliable way to eliminate him
+- `attack man with axe` at multiple locations — thief consistently survives and leaves
+- `enter crack` at Chasm — "You can't fit through the crack"
+- `enter mirror` at Mirror Room — "You hit your head against the mirror" (attempted multiple times)
+- `move timber` at Timber Room — "Moving the broken timber reveals nothing"
+- `take platinum bar` / `take bar` / `get bar` at Loud Room without `echo` — all echo back as "bar bar ..." (multiple attempts)
+- `enter mirror` at Mirror Room — "You hit your head against the mirror" (multiple attempts)
+- `take sword` at Maze skeleton room — "Your load is too heavy" (carrying platinum bar, bag, skeleton key, and other items)
+- `take sword` at Maze skeleton room — "Your load is too heavy"
+- `unlock wooden door with key` (skeleton key) at Living Room — "It doesn't seem to work"
+- `climb chimney` at Studio with empty hands — "Going up empty-handed is a bad idea." (must keep lantern; see chimney rule in Puzzle Mechanics)
+
+**Unexplored Leads:**
+- Wooden door with gothic lettering on west wall of Living Room — appears locked/barred
+- Forbidding hole leading west from Troll Room — leads to Maze (entered briefly, returned)
+- Dark forbidding staircase leading down from Cave — leads to Entrance to Hades (currently blocked by spirits/gate)
+- Narrow stairway leading down at north end of East-West Passage — leads to Chasm area
+- Crawlway south from Cellar — unexplored
+- Passages from Round Room — several blocked by cave-ins, others unexplored
+- Stream View (west of Reservoir South) — visited briefly, not explored further
+- Screwdriver and tube left in Troll Room — not retrieved
+- Stairway leading down at Deep Canyon — unexplored (leads to Loud Room via different route?)
+- East passage from Loud Room — unexplored
+- Sword dropped in Gallery — not retrieved
+- Narrow tunnel leading east from Gas Room — unexplored
+- Descending staircase from Smelly Room — foul odor detected, not explored
+- Shaft at Shaft Room — basket lowered with coal but shaft bottom not visited directly; button mentioned but not found
+- North-South Passage forks northeast — fork unexplored
+- Staircase at Ladder Top leads somewhere (besides coal mine) — not fully explored
+- Wooden door with gothic lettering on west wall of Living Room — appears locked/barred; skeleton key now in inventory may open it
+- East passage from Loud Room (via Damp Cave) — Damp Cave visited but crack south not passable; east exit from Damp Cave unexplored
+- Shaft at Shaft Room — basket lowered with coal but shaft bottom not visited directly
+- Sword, leaflet, bottle dropped in Maze skeleton room — not retrieved
+- Manual dropped in Maze skeleton room — not retrieved
+- Wooden door with gothic lettering on west wall of Living Room — skeleton key does not open it; opening method unknown
+- Crawlway south from Cellar — leads to East of Chasm (visited); north passage from East of Chasm leads back to Cellar
+- Passages from Round Room — several blocked by cave-ins; south leads to Narrow Passage → Mirror Room (visited)
+- Sword, leaflet, bottle dropped in Troll Room — not retrieved
+- Painting, platinum bar, bag, brown sack dropped in Studio — not retrieved
+- Mirror Room exits (besides north) — not explored
+
+**Current situation:**
+- Score: 44/350, Turn 100
+- Location: Troll Room
+- Carrying: Brass lantern (on), sword
+- Items dropped in Studio: painting, sword (second one), axe, manual/paper, leaflet (maybe)
+- Items dropped elsewhere: screwdriver, tube in Troll Room (earlier session — but Troll Room showed nothing when I looked at turn 85)
+
+**Immediate plan:**
+- The painting and other treasures need to get to the trophy case. The trophy case is in the Living Room.
+- I need to retrieve items from Studio and transport them to the trophy case.
