@@ -30,6 +30,8 @@ _REASON_MAP = {
     "death": "game_over_death",
 }
 
+LLM_CIRCUIT_BREAKER_REASON = "llm_circuit_breaker"
+
 
 def _resolve_end_reason(game_over_reason: str) -> str:
     return _REASON_MAP.get(game_over_reason, f"game_over_unknown:{game_over_reason}")
@@ -167,6 +169,11 @@ def _run(config: GameConfig, max_turns: int, episode_id: str) -> None:
 
                 if state[S.GAME_OVER]:
                     end_reason = _resolve_end_reason(state[S.GAME_OVER_REASON])
+                    objectives_found = len(state[S.DISCOVERED_OBJECTIVES])
+                    break
+
+                if state[S.LLM_FAILURE_COUNT] >= config.llm_failure_circuit_breaker_threshold:
+                    end_reason = LLM_CIRCUIT_BREAKER_REASON
                     objectives_found = len(state[S.DISCOVERED_OBJECTIVES])
                     break
 

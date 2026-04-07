@@ -51,6 +51,7 @@ analysis_model = "remote/claude-sonnet-4-6"
 knowledge_model = "remote/claude-sonnet-4-6"
 memory_model = "remote/claude-sonnet-4-6"
 llm_request_timeout = 1200
+llm_failure_circuit_breaker_threshold = 5
 default_temperature = 1.0
 default_max_tokens = 8192
 enable_critic = true

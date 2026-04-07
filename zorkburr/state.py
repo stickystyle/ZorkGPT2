@@ -24,6 +24,7 @@ class S:
     CRITIC_JUSTIFICATION = "critic_justification"
     CRITIC_CONFIDENCE = "critic_confidence"
     REJECTION_COUNT = "rejection_count"
+    LLM_FAILURE_COUNT = "llm_failure_count"
     WAS_OVERRIDDEN = "was_overridden"
     ACTION_HISTORY = "action_history"
     REASONING_HISTORY = "reasoning_history"
@@ -69,6 +70,7 @@ def create_initial_state(episode_id: str | None = None) -> State:
         S.CRITIC_JUSTIFICATION: "",
         S.CRITIC_CONFIDENCE: 0.0,
         S.REJECTION_COUNT: 0,
+        S.LLM_FAILURE_COUNT: 0,
         S.WAS_OVERRIDDEN: False,
         S.ACTION_HISTORY: [],
         S.REASONING_HISTORY: [],

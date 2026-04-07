@@ -108,6 +108,9 @@ class GameConfig(BaseSettings):
     # LLM request timeout (total wall-clock seconds per request)
     llm_request_timeout: int = 300
 
+    # LLM failure circuit breaker — abort episode after N consecutive failures
+    llm_failure_circuit_breaker_threshold: int = 5
+
     # Retry (flattened from [tool.zorkburr.retry])
     retry_max_retries: int = 3
     retry_initial_delay: float = 1.0

@@ -63,6 +63,7 @@ def test_generate_action_fallback_on_error():
         S.CRITIC_JUSTIFICATION: "",
         S.KNOWLEDGE_BASE: "",
         S.TURN_COUNT: 1,
+        S.LLM_FAILURE_COUNT: 0,
     })
     result, new_state = generate_action.run(
         state, client=mock_client, config=_mock_config(), use_thinking=False
