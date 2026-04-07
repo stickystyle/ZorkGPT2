@@ -939,6 +939,25 @@ Every subsystem now hits the remote Claude proxy. This change was never committe
 
 ---
 
+## Episode 85 — COMPLETE (aborted by circuit breaker — validation run)
+**Turns:** 5
+**Final score:** 0/350
+**Locations visited:** 1 (West_House)
+**End reason:** `llm_circuit_breaker`
+**LLM_ERROR lines emitted:** 5 (t0–t4, all Connection error / Request timed out)
+
+The provider is still unstable — every generate_action call failed. Circuit breaker tripped at t5 exactly as designed and the episode aborted cleanly in ~60 seconds instead of burning 100 turns on `look` fallbacks. This is a working validation of the BLOCKER fix:
+
+- `grep "^LLM_ERROR" run_log_ep85.txt | wc -l` → 5
+- `EPISODE_END | ... | reason=llm_circuit_breaker`
+- Orchestrator spotted the outage on the first 60s poll instead of reverse-engineering it from the Burr tracker after 100 wasted turns.
+
+**Resolution of BLOCKER entry:** **Result:** IMPROVED — fired correctly on first live provider outage.
+
+**Session status:** PAUSED — cannot get a clean reading on the ep84→85 model switch or the ep83→84 navigation prompt fix until the Anthropic provider stabilizes. No further episodes until network recovers. Will resume when user signals the provider is back.
+
+---
+
 ## Episode 84 → 85 — IMPROVEMENT (BLOCKER — LLM failure circuit breaker)
 **Trigger:** ep84 silently produced 53/100 `action=look` fallbacks when the LLM provider was down. The fallback in `zorkburr/actions/agent.py:69-74` emits literal `"look"` with no signal to the run loop, so the episode continued for 100 turns wasting budget. User agreed this needs a circuit breaker.
 **Hypothesis:** N/A — this is an infrastructure fix, not a gameplay experiment.
