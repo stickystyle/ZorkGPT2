@@ -878,3 +878,97 @@ The SOTA experiment has already justified itself: Sonnet solved the Mirror Room 
 **Result:** PENDING
 
 ---
+## Episode 84 — COMPLETE (UNINTERPRETABLE — LLM network failures)
+**Turns:** 100
+**Final score:** 39/350
+**Locations visited:** 10
+**Objectives found:** 15
+**End reason:** max_turns
+**Improvement dispatched:** no — data is unusable
+
+### Root cause: 53/100 actions were "look" fallbacks from LLM timeouts
+Inspected Burr app `a8d6e50e`. Turns 38–55 (18 consecutive) and 69–76+ were all `action=look`. Opened `burr_turn` on t38 and t70 — in both cases, `generate_action.reasoning` = `"LLM error: <failed_attempts>..."` with 3 Request-timed-out/Connection-error generations and a `last_exception`. The agent's fallback when Instructor retries exhaust is the literal string `look`, which the critic reflexively accepts at ~0.3–0.5 ("examining the surroundings is a fundamental information-gathering action"). Result: an 18-turn degenerate loop that spends turns without advancing state.
+
+- `grep -c "action=look" run_log_ep84.txt` → 53 (vs. ep82's ~few)
+- Avg critic 0.46 (lowest in last 8 episodes) is an artifact of the critic repeatedly scoring fallback `look`s, not a regression caused by the navigation prompt.
+- The ep83→84 navigation prompt fix CANNOT be evaluated from this episode — the agent rarely reached the decision paths the fix targets because it was offline for most of the second half.
+
+### Confounding change: uncommitted pyproject.toml model switch
+`git status` at session start showed `pyproject.toml` modified (since BEFORE ep83, not from this session). Diff:
+```
+-critic_model    = "mistralai/ministral-3-14b-reasoning"
+-extractor_model = "mistralai/ministral-3-14b-reasoning"
+-analysis_model  = "mistralai/ministral-3-14b-reasoning"
+-memory_model    = "mistralai/ministral-3-14b-reasoning"
++critic_model    = "remote/claude-sonnet-4-6"
++extractor_model = "remote/claude-haiku-4-5-20251001"
++analysis_model  = "remote/claude-sonnet-4-6"
++memory_model    = "remote/claude-sonnet-4-6"
+```
+Every subsystem now hits the remote Claude proxy. This change was never committed and never journaled — it silently bridges ep82→ep83→ep84 and is the most plausible explanation for both (a) the score crash ep82:64 → ep83:35 → ep84:39 and (b) the network-saturation-driven timeout cascade. Cannot attribute score regression to any prompt change while this is in flight.
+
+### Pending resolutions
+- **ep83→84 navigation prompt fix:** **Result:** PENDING (still) — episode did not exercise the code path reliably; defer judgment to a clean-network episode.
+- **ep81→82 maze disambiguation:** already resolved IMPROVED — unaffected.
+
+### Blocker findings (NOT dispatching — surface to user)
+1. **Fallback behavior on LLM failure is silently destructive.** When `generate_action` fails, the system emits `look` without any signal to the orchestrator. Suggested fix (pipeline-level, needs discussion): either (a) propagate a `generate_action_failed` flag that either aborts the episode or injects a "noop / wait for network" action that the critic recognizes as a blocker, or (b) log a dedicated `LLM_ERROR` line to the run log so the orchestrator can detect it instantly instead of reverse-engineering it from 50+ `action=look` lines. A hard abort on N consecutive generate_action failures would also be reasonable.
+2. **Uncommitted critic/extractor/analysis/memory model switch** in `pyproject.toml`. This is a multi-subsystem change masquerading as untracked drift. Must be either committed with a dedicated journal entry ("BLOCKER: switched all subsystems to remote Claude — expected effects X, Y") or reverted before the next episode. I will not proceed until the user decides.
+
+### Running Score Table
+| Episode | Score | vs Prev | Best So Far | Turns to 1st Score | Locations | End Reason |
+|---------|-------|---------|-------------|-------------------|-----------|------------|
+| ep80 | 45 | +1 | 54 | 7 | 28 | max_turns |
+| ep81 | 60 | +15 | 60 | 6 | 24 | max_turns |
+| ep82 | 64 | +4 | 64 | 6 | 17 | max_turns |
+| ep83 | 35 | -29 | 64 | 7 | 10 | max_turns (confounded — model switch) |
+| ep84 | 39 | +4 | 64 | 6 | 10 | max_turns (uninterpretable — LLM timeouts) |
+
+**Trend:** Two consecutive confounded episodes. The ep82→ep83 drop is almost certainly the uncommitted model switch, not anything the orchestrator changed. Until pyproject.toml is resolved and the network is stable, further prompt changes are unfalsifiable.
+
+---
+
+## Episode 84 → 85 — IMPROVEMENT (retroactively journaled)
+**Trigger:** User intent — pre-existing uncommitted change in `pyproject.toml` never journaled. Clarified in session on 2026-04-07 that this WAS the intended incremental for ep85.
+**Hypothesis:** All subsystems on remote Claude will produce higher-quality critic/extractor/memory/analysis output than `ministral-3-14b-reasoning`. The earlier 0.63–0.65 avg-critic plateau may have been a ceiling on the local critic's judgment quality, not the agent. Scoring ceiling ep82=64 may lift with better critic and cleaner memory synthesis.
+**Change:** `pyproject.toml` — switched `critic_model`, `analysis_model`, `memory_model` from `mistralai/ministral-3-14b-reasoning` → `remote/claude-sonnet-4-6`; `extractor_model` → `remote/claude-haiku-4-5-20251001`. Agent model unchanged (`remote/claude-sonnet-4-6`).
+**Reasoning:** The user asked for this change between ep82 and ep83 but it never got committed or journaled, so ep83 and ep84 silently ran under it. Committing retroactively so ep85 is the first *attributable* episode of the new configuration.
+**Target metric:** Any improvement in KB/memory quality (strategic vs. noise ratio) and score; ep85 baseline under clean network.
+**Validation:** N/A — this is a config commit, not a prompt change. Validation happens by observing ep85 end-to-end.
+**Result:** PENDING
+
+---
+
+## Episode 84 → 85 — IMPROVEMENT (BLOCKER — LLM failure circuit breaker)
+**Trigger:** ep84 silently produced 53/100 `action=look` fallbacks when the LLM provider was down. The fallback in `zorkburr/actions/agent.py:69-74` emits literal `"look"` with no signal to the run loop, so the episode continued for 100 turns wasting budget. User agreed this needs a circuit breaker.
+**Hypothesis:** N/A — this is an infrastructure fix, not a gameplay experiment.
+**Change:** (pending subagent) — Add LLM-failure circuit breaker: count consecutive `generate_action` failures in state, emit a dedicated `LLM_ERROR` log line per failure, abort the episode with `reason=llm_circuit_breaker` after N consecutive failures (default 5). Counter resets on any successful LLM call.
+**Reasoning:** Silent fallback masks provider outages, consumes turns, and makes prompt experiments unfalsifiable. A loud failure mode is strictly better — either the network recovers before the threshold or the episode aborts cleanly and the orchestrator can see it.
+**Validation:** Unit test that simulates 5 consecutive LLM exceptions and asserts the state field increments and the run loop exit reason is `llm_circuit_breaker`.
+**Result:** PENDING (implementation)
+
+---
+
+## Session — Ep85 Preparation
+**Episodes run this session:** 1 (ep84 observed to completion; no new episodes started)
+**Improvements dispatched:** 0
+**Status:** BLOCKED
+
+**Why paused:** (1) ep84 was sabotaged by repeated LLM timeouts — 53/100 actions were `look` fallbacks; (2) `pyproject.toml` has a pre-existing uncommitted change switching critic/extractor/analysis/memory to remote Claude, which confounds ep83 and ep84 and cannot be resolved without user intent. No improvement dispatched because no clean signal is available.
+
+**Needed from user:** decide whether to (a) commit the model switch with an explicit journal entry and rerun on a stable network, (b) revert `pyproject.toml` and rerun ep85 to get a clean reading on the ep83→84 navigation prompt fix, or (c) address the fallback-on-LLM-failure blocker first so future network hiccups don't silently produce 50-turn `look` loops.
+
+---
+
+## Episode 84 — Turn 25 Checkpoint (Sonnet 4.6, navigation prompt fix UNDER TEST)
+**Type:** CONCERN — same score as ep83 (35), wall-clock slow but that's Anthropic API latency, not the prompt
+**Score:** 35/350 (kitchen +10 t6, cellar +25 t15)
+**Locations visited (t1-25):** ~9 (West_House, South_House, Behind_House, Kitchen, Living, Cellar, East_Chasm, Gallery, Studio)
+**Avg critic score:** 0.55 (slightly above ep83's 0.53)
+**Rejection rate:** 6/25 (24%) — below threshold
+**Rejections >=3:** 2 (t11 take sword, t12 move rug — BOTH non-movement, vs ep83 had 2 in this block too)
+**Triggers:** none firing
+**Gameplay quality:** DRIFTING — but the navigation prompt fix has not yet been stress-tested. The t34/t35-equivalent pattern requires the agent to be in a state where Available Exits contradicts its mental model. Hasn't happened in t1-25.
+**Notes:** Wall-clock pace is slower than ep83 but this is Anthropic API latency affecting everyone right now — no evidence the prompt change is responsible (do not attribute slowness to the prompt without evidence). Agent dropped sword at Gallery t22 (smart — KB says painting requires light inventory) but then went straight to Studio without taking painting first. Strategic mistake but not a system bug. Continuing to monitor for the t26-50 critic-rejection-on-movement pattern that triggered the ep83→84 fix.
+
+---
