@@ -950,13 +950,23 @@ Every subsystem now hits the remote Claude proxy. This change was never committe
 ---
 
 ## Session — Ep85 Preparation
-**Episodes run this session:** 1 (ep84 observed to completion; no new episodes started)
-**Improvements dispatched:** 0
-**Status:** BLOCKED
 
-**Why paused:** (1) ep84 was sabotaged by repeated LLM timeouts — 53/100 actions were `look` fallbacks; (2) `pyproject.toml` has a pre-existing uncommitted change switching critic/extractor/analysis/memory to remote Claude, which confounds ep83 and ep84 and cannot be resolved without user intent. No improvement dispatched because no clean signal is available.
+**User clarified 2026-04-07:** ep84 was killed by genuine Anthropic provider outage, not an API key / budget issue. The `pyproject.toml` model switch WAS the intended next change and just never got committed/journaled. User agreed circuit breaker is needed.
 
-**Needed from user:** decide whether to (a) commit the model switch with an explicit journal entry and rerun on a stable network, (b) revert `pyproject.toml` and rerun ep85 to get a clean reading on the ep83→84 navigation prompt fix, or (c) address the fallback-on-LLM-failure blocker first so future network hiccups don't silently produce 50-turn `look` loops.
+**Resolutions landed before ep85:**
+1. Model switch committed (commit `9ad631b`) as the ep84→85 INCREMENTAL.
+2. BLOCKER circuit breaker implemented (commit `8c794fe`) — state field, counter logic, log line, run loop abort. 3/3 new tests pass. Evaluator ACCEPT on all 13 checks.
+
+**Evaluator-noted concern (not blocking):** consecutive-counter resets on any successful LLM call. If an outage is flappy (success every 4th call), threshold=5 never trips and the episode silently burns turns on `look`. Fine for ep84's pattern (two long consecutive streaks); revisit with rolling-window counter if flappy outages appear.
+
+**Pre-existing unrelated test failure:** `test_config.py::test_load_config_from_toml` broken at HEAD — fixture expects `google/gemma-4-31b-it` but pyproject.toml now has `claude-sonnet-4-6` after the ep84→85 switch. TODO: update fixture.
+
+**Ep85 launch preconditions (all green):**
+- Circuit breaker armed at threshold=5
+- All subsystems on remote Claude (critic/analysis/memory Sonnet 4.6, extractor Haiku 4.5)
+- Burr tracker on :7241 running
+- User confirmed providers are back up
+- Working tree clean except untracked ep83 fixtures (safe)
 
 ---
 
