@@ -939,6 +939,28 @@ Every subsystem now hits the remote Claude proxy. This change was never committe
 
 ---
 
+## Episode 85 → 86 — IMPROVEMENT (revert critic to local Ministral)
+**Trigger:** ep85 retry attempt with proxy healthy revealed Sonnet silently fails structured-output for the critic. Two consecutive retries observed on turn 1: (1) Sonnet replied conversationally — *"It looks like you're playing Zork! ... To open the mailbox, type `open mailbox` in your Zork interpreter..."*; (2) Sonnet attempted JSON but invented its own fields `{approved, reasoning}` instead of `CriticResponse.{score, justification, confidence}`. After 2 Instructor retries the critic silently fell back to `score=0.5, confidence=0.0` and the turn proceeded with no `LLM_ERROR` line emitted (circuit breaker only watches `generate_action`).
+
+Direct probe of the local proxy at `http://127.0.0.1:8002/v1` confirmed it strips both `tools` AND `response_format` parameters before forwarding to Anthropic — every API-level structured-output enforcement mechanism is unavailable. Only Instructor's prompt-injection JSON modes can possibly work, and Sonnet's instruction-following is pulling it toward "be helpful" instead of returning the schema.
+
+**Hypothesis:** Critic is the most schema-sensitive subsystem (small response, very specific field names not naturally produced by Sonnet). Reverting just the critic to the local Ministral model that worked through ep82 sidesteps Sonnet's structured-output drift without a wide-surface fix to the proxy or to all 7 secondary subsystems. Other subsystems remain on remote Claude — they'll be monitored in ep86 and reverted individually if they show the same drift.
+
+**Change:** `pyproject.toml:48` — `critic_model` reverted from `remote/claude-sonnet-4-6` → `mistralai/ministral-3-14b-reasoning`. Single-line revert. Local llama-server is already started by `run_episode.py` (`use_local_models=true`).
+
+**Reasoning:** Surgical revert is much smaller blast radius than (a) hardening 7 subsystem prompts to be more directive, (b) switching the proxy to one that supports `tools`/`response_format`, or (c) implementing per-subsystem fallback monitoring. ep82's score=64 was achieved with this exact critic model — known good. We learn nothing about whether Sonnet-as-critic could be made to work, but we get a measurable ep86.
+
+**Validation:** N/A (config revert, not a prompt change). Validation is observing ep86 — critic scores should once again show distribution rather than the suspicious flat 0.50 fallback pattern.
+
+**Result:** PENDING
+
+**Open follow-ups (NOT in this change):**
+- Other subsystems on remote Claude (extractor/analysis/memory/knowledge) may be silently failing the same way. Monitor ep86 for fallback signatures (e.g. memory `should_remember=False` everywhere, extractor returning empty exits/objects).
+- Silent failures across `zorkburr/actions/{critic,extract,memory,objectives,knowledge,grounding}.py` should eventually emit `LLM_ERROR` lines like `agent.py` does, so the orchestrator can see them. Filed as future work — out of scope for this revert.
+- Proxy strips `tools` and `response_format`. If you control the proxy, this is worth fixing upstream — it would unblock `instructor.Mode.TOOLS` for all subsystems.
+
+---
+
 ## Episode 85 — COMPLETE (aborted by circuit breaker — validation run)
 **Turns:** 5
 **Final score:** 0/350
