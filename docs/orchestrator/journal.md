@@ -884,8 +884,8 @@ The SOTA experiment has already justified itself: Sonnet solved the Mirror Room 
 **Change:** prompts/agent.md — added rule 0 in NAVIGATION PROTOCOL directing the agent to consult the "Available Exits" section as authoritative engine ground truth, with a mandatory pre-movement ritual: locate the line, quote it verbatim in `thinking`, confirm the intended direction appears, and ABORT if not (pick a listed direction or take a non-movement action). Explicitly overrides World Map, KB, memories, and prior plans.
 **Reasoning:** If the agent treats Available Exits as ground truth, it cannot propose "down" when "down" is not in the list. This breaks the reject-retry-reject loop and lets the agent re-plan to a valid direction or non-movement action. Prior fix searches in journal/journal_archive: None — first attempt at directing the agent to consult Available Exits as ground truth.
 **Target metric:** Avg critic in any 25-turn block returns to ≥0.5; rejection rate <30%; no movement direction proposed 3x in a row when not in Available Exits.
-**Validation:** PARTIAL — 4/5 structural checks passed (t31, t39, t40 healthy unchanged; t35 problem now correctly proposes "w" with reasoning that quotes the Available Exits list verbatim and notes "no `down` listed", proving the new ritual works when invoked). t34 still proposes "down" — that fixture has NO recent rejection signal in context, and the agent's KB confidence about the chimney overrides the (unrationalized) Available Exits check. The rule clearly works once the agent has any empirical signal that the direction failed (t35), which is sufficient to break the 3x retry spiral. Healthy fixtures all preserved. No game-specific knowledge added (pure meta-rule about reading the engine exit list — applies to any text adventure with an exit ground-truth field).
-**Result:** PENDING
+**Validation:** PARTIAL — 4/5 structural checks passed (t31, t39, t40 healthy unchanged; t35 problem now correctly proposes "w" with reasoning that quotes the Available Exits list verbatim and notes "no `down` listed", proving the new ritual works when invoked). t34 still proposes "down" — that fixture has NO recent rejection signal in context, and the agent's KB confidence about the chimney overrides the (unrationalized) Available Exits check. The rule clearly works once the agent has any empirical signal that the direction failed (t35), which is sufficient to break the 3x retry spiral. Healthy fixtures all preserved.
+**Result:** UNVERIFIABLE (deferred) — ep84 sabotaged by LLM outage, ep85/86 were validation aborts, ep87 had different agent config (Sonnet) and the chronic painting-loss bug dominated the score signal. Fix is in place and offline-validated; deferring verdict to a future episode where the 3x-retry-against-Available-Exits pattern is the dominant signal.
 
 ---
 ## Episode 84 — COMPLETE (UNINTERPRETABLE — LLM network failures)
@@ -926,15 +926,18 @@ Every subsystem now hits the remote Claude proxy. This change was never committe
 2. **Uncommitted critic/extractor/analysis/memory model switch** in `pyproject.toml`. This is a multi-subsystem change masquerading as untracked drift. Must be either committed with a dedicated journal entry ("BLOCKER: switched all subsystems to remote Claude — expected effects X, Y") or reverted before the next episode. I will not proceed until the user decides.
 
 ### Running Score Table
-| Episode | Score | vs Prev | Best So Far | Turns to 1st Score | Locations | End Reason |
-|---------|-------|---------|-------------|-------------------|-----------|------------|
-| ep80 | 45 | +1 | 54 | 7 | 28 | max_turns |
-| ep81 | 60 | +15 | 60 | 6 | 24 | max_turns |
-| ep82 | 64 | +4 | 64 | 6 | 17 | max_turns |
-| ep83 | 35 | -29 | 64 | 7 | 10 | max_turns (confounded — model switch) |
-| ep84 | 39 | +4 | 64 | 6 | 10 | max_turns (uninterpretable — LLM timeouts) |
+| Episode | Score | vs Prev | Best So Far | Turns to 1st Score | Locations | Mems | End Reason |
+|---------|-------|---------|-------------|-------------------|-----------|------|------------|
+| ep80 | 45 | +1 | 54 | 7 | 28 | — | max_turns |
+| ep81 | 60 | +15 | 60 | 6 | 24 | — | max_turns |
+| ep82 | 64 | +4 | 64 | 6 | 17 | — | max_turns |
+| ep83 | 35 | -29 | 64 | 7 | 10 | — | max_turns (confounded — silent model switch) |
+| ep84 | 39 | +4 | 64 | 6 | 10 | — | max_turns (uninterpretable — LLM timeouts + silent model switch) |
+| ep85 | 0 | — | 64 | — | 1 | — | llm_circuit_breaker (validation abort, t5) |
+| ep86 | — | — | 64 | — | — | — | killed (memory drift detected, t4) |
+| ep87 | 44 | +5 | 64 | 6 | 17 | 3 | max_turns (clean signal — no failures, painting never deposited) |
 
-**Trend:** Two consecutive confounded episodes. The ep82→ep83 drop is almost certainly the uncommitted model switch, not anything the orchestrator changed. Until pyproject.toml is resolved and the network is stable, further prompt changes are unfalsifiable.
+**Trend:** ep87 is the first clean signal in 5 episodes (ep83-87 were all confounded by Sonnet schema drift, network outage, validation aborts, or both). ep87=44 vs ep82=64 — still 20 below best, but the gap is now attributable to two specific things: (1) chronic painting-loss from incorrect KB chimney rule (fix dispatched as ep87→88), (2) Ministral critic hallucinating rejection justifications (separate follow-up). Memory throughput is also concerning — only 3 memories synthesized in 100 turns vs ep82's much higher volume — this starves the cross-episode `summaries.json` and may be a reason ep87 didn't carry forward as much learning as expected.
 
 ---
 
@@ -945,7 +948,42 @@ Every subsystem now hits the remote Claude proxy. This change was never committe
 **Reasoning:** The user asked for this change between ep82 and ep83 but it never got committed or journaled, so ep83 and ep84 silently ran under it. Committing retroactively so ep85 is the first *attributable* episode of the new configuration.
 **Target metric:** Any improvement in KB/memory quality (strategic vs. noise ratio) and score; ep85 baseline under clean network.
 **Validation:** N/A — this is a config commit, not a prompt change. Validation happens by observing ep85 end-to-end.
-**Result:** PENDING
+**Result:** FALSIFIED (DEGRADED) — ep85/86/87 conclusively showed Sonnet cannot produce valid `CriticResponse` / `MemorySynthesisResponse` schemas through the local proxy (which strips `tools` and `response_format`). Drift pattern: conversational reply on retry 1, JSON with invented fields on retry 2, silent fallback to defaults. Memory pipeline silently corrupted. Hypothesis verdict: **FALSIFIED — Sonnet quality cannot be accessed for schema-heavy subsystems via this proxy.** Reverted in ep85→86 (critic) and ep86→87 (memory/extractor/analysis).
+
+---
+
+## Episode 87 — COMPLETE
+**Turns:** 100
+**Final score:** 44/350
+**Locations visited:** 17 (best in 5 episodes)
+**Objectives found:** 11
+**End reason:** max_turns
+**Improvement dispatched:** yes (ep87→88 KB chimney fix)
+**Failures:** 0 (the only "fail" line was a Langfuse telemetry HTTP timeout — telemetry, not gameplay)
+**Memories synthesized:** 3 total — extremely low
+
+### Score milestones
+- t6 +10 — kitchen entry
+- t13 +25 — cellar descent
+- t17 +4 — painting pickup (Gallery)
+- t72 +5 — troll cleared (East-West Passage entry)
+- t17 → t100: 0 delta on the painting (never deposited)
+
+### Validation of pre-ep87 changes
+- **ep85→86 critic revert (Ministral):** IMPROVED — real critic distribution observed (0.30/0.50/0.60/0.70/0.80/-0.60/-0.80/-0.90), no flat 0.50 fallback pattern.
+- **ep86→87 secondary reverts (memory/extractor/analysis):** IMPROVED — 0 subsystem failure blocks across 100 turns.
+- **ep84→85 BLOCKER circuit breaker:** Already validated in ep85 abort, did not fire in ep87 (as expected — no LLM outages).
+- **ep83→84 navigation prompt fix:** UNVERIFIABLE (deferred) — ep87's dominant signals were the chimney bug and critic hallucinations, not the 3x-retry-against-Available-Exits pattern this fix targets.
+- **ep84→85 model switch (all subsystems on Sonnet):** FALSIFIED — Sonnet cannot produce valid Pydantic schemas through the local proxy, drift confirmed across critic and memory.
+
+### New problems surfaced (priorities for future episodes)
+1. **KB chimney rule incorrect** → ep87→88 fix dispatched (commit 299ffd7).
+2. **Ministral critic hallucinates rejection justifications** — confidently rejected `move rug`, `climb chimney with lantern`, `climb chimney empty` with fabricated reasons. Only the rejection cap saved gameplay. Two distinct failure modes: (a) hallucinated negatives on correct plays, (b) approves treasure-loss with vague positive justification.
+3. **Memory pipeline producing only 3 memories per 100 turns** — extremely low. Either grounding validator is rejecting most syntheses or Ministral is being conservative. This starves `data/summaries.json` (currently only 3 entries despite 17 locations visited in ep87 + history). Cross-episode learning is degraded.
+4. **Cross-episode KB poisoning** — t36 trace caught the agent reasoning about platinum bar/bag/sack being in Studio because they were dropped there in ep82. KB conflates ep-specific facts with general game knowledge. Pre-existing design tension.
+
+### Note on summaries.json injection (verified during this checkpoint)
+Confirmed `data/summaries.json` IS being injected into the agent context. Loaded at episode start by `zorkburr/actions/episode.py:72-78` into `state[S.LOCATION_SUMMARIES]`, written to formatted context by `zorkburr/actions/context.py:108-124` under section header `**Explored locations (from PREVIOUS episodes, state has reset):**`. Excludes current room and 1-hop neighbors (those get full memories above), lists rest as `- {RoomName} (R{id}): {summary}`. Mechanism works; throughput problem is upstream in the memory→consolidation→summary pipeline.
 
 ---
 
@@ -1029,7 +1067,7 @@ After 2 Instructor retries, memory synthesis silently falls back to its default 
 
 **Validation:** N/A (config revert). Validation = ep87 producing real critic-score distribution AND no `Memory synthesis failed` / `Extractor LLM call failed` / objective failure blocks in the run log.
 
-**Result:** PENDING
+**Result:** IMPROVED — ep87 ran 100 turns with **0** subsystem failure blocks (no `Memory synthesis failed`, no `Critic LLM call failed`, no `Extractor LLM call failed`, no `Objective.*failed`). All schema-heavy secondary subsystems on Ministral worked. Hypothesis confirmed. Caveat: memory pipeline produced only 3 memories total in ep87 — that's downstream throughput, not a structured-output drift issue, and is filed as a separate follow-up.
 
 **Open follow-ups (still not in this change):**
 - Silent failures across `zorkburr/actions/{critic,extract,memory,objectives,knowledge,grounding}.py` should eventually emit `LLM_ERROR` lines like `agent.py` does. The fact that ep86 silently corrupted memory state for 4 turns before I noticed is the strongest argument for this. Filed as future work.
@@ -1050,7 +1088,7 @@ Direct probe of the local proxy at `http://127.0.0.1:8002/v1` confirmed it strip
 
 **Validation:** N/A (config revert, not a prompt change). Validation is observing ep86 — critic scores should once again show distribution rather than the suspicious flat 0.50 fallback pattern.
 
-**Result:** PENDING
+**Result:** IMPROVED (ep87) — critic scores in ep87 show real distribution (0.30, 0.50, 0.60, 0.70, 0.80, -0.60, -0.80, -0.90 across 100 turns; avg 0.47). No silent fallback pattern. Hypothesis confirmed: Ministral critic can be schema-constrained via prompt-only JSON mode, Sonnet cannot. Caveat: ep87 also surfaced a SEPARATE Ministral-critic quality issue (hallucinated rejection justifications on `move rug`, `climb chimney with lantern`) — that's a different bug requiring its own fix, not a reason to revert this revert.
 
 **Open follow-ups (NOT in this change):**
 - Other subsystems on remote Claude (extractor/analysis/memory/knowledge) may be silently failing the same way. Monitor ep86 for fallback signatures (e.g. memory `should_remember=False` everywhere, extractor returning empty exits/objects).
@@ -1084,7 +1122,7 @@ The provider is still unstable — every generate_action call failed. Circuit br
 **Change:** Implemented consecutive-LLM-failure circuit breaker (threshold = 5, configurable via `llm_failure_circuit_breaker_threshold`). Files touched: `zorkburr/state.py` (new `LLM_FAILURE_COUNT` state key, initialized to 0), `zorkburr/actions/agent.py` (increments counter in the `except` branch, resets to 0 on success, emits `LLM_ERROR | turn=N | consecutive=K | error=...` to stdout per failure; added `LLM_FAILURE_COUNT` to `@action` reads/writes), `zorkburr/config.py` (new `llm_failure_circuit_breaker_threshold: int = 5` field), `pyproject.toml` (matching `[tool.zorkburr]` entry), `run_episode.py` (post-execute_action check that aborts the loop with `end_reason = "llm_circuit_breaker"` when the counter hits the threshold). Unit tests in `tests/test_llm_circuit_breaker.py` cover increment-after-1, increment-to-5, and reset-on-success (1→2→3→0).
 **Reasoning:** Silent fallback masks provider outages, consumes turns, and makes prompt experiments unfalsifiable. A loud failure mode is strictly better — either the network recovers before the threshold or the episode aborts cleanly and the orchestrator can see it.
 **Validation:** Unit test that simulates 5 consecutive LLM exceptions and asserts the state field increments and the run loop exit reason is `llm_circuit_breaker`.
-**Result:** PENDING (implementation)
+**Result:** IMPROVED — fired correctly on first live provider outage during ep85 first launch. Episode aborted at t5 after 5 consecutive `LLM_ERROR | turn=K | consecutive=N | error=Connection error` lines, with `EPISODE_END | reason=llm_circuit_breaker` instead of running out the full 100 turns on `look` fallbacks. Wall clock: ~60s vs ~30+ min that ep84 wasted under the old behavior.
 
 ---
 
