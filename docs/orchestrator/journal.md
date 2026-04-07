@@ -939,6 +939,42 @@ Every subsystem now hits the remote Claude proxy. This change was never committe
 
 ---
 
+## Episode 86 → 87 — IMPROVEMENT (revert memory/extractor/analysis to local Ministral)
+**Trigger:** ep86 turn 3 — `Memory synthesis failed` block in `run_log_ep86.txt:8-46`. Same exact drift pattern as the critic on Sonnet:
+- Retry 1: conversational reply — *"It looks like you're playing a text adventure game (Zork, by the look of it)! However, I'm not sure what you're asking me to do here. Are you: 1. Sharing game state and want me to suggest the next action? 2. Looking for help with a specific puzzle? ..."*
+- Retry 2: returned JSON with WRONG fields — `{"memory_synthesis": "Agent is at North of House..."}` instead of the schema's required `{should_remember, reasoning, category, memory_title, memory_text, persistence, status, supersedes_titles}`.
+
+After 2 Instructor retries, memory synthesis silently falls back to its default (likely `should_remember=False`) and the turn proceeds. This means `MEMORIES_BY_LOCATION` was not being populated from any ep83/84/85 turn that ran on remote-Sonnet-memory. Cross-episode learning was silently degraded throughout the entire model-switch period.
+
+**Hypothesis:** The drift hits every secondary subsystem with a non-trivial Pydantic schema. Critic was just the loudest. Memory has 8 fields and is firing the same pattern. Extractor (3 simple fields) and analysis (used for objective discovery and grounding, both nested-list schemas) are likely affected too. Knowledge update is free-text markdown — should survive Sonnet, keep on remote.
+
+**Change:** `pyproject.toml:48-52` — three more model reverts:
+- `extractor_model`: `remote/claude-haiku-4-5-20251001` → `mistralai/ministral-3-14b-reasoning`
+- `analysis_model`: `remote/claude-sonnet-4-6` → `mistralai/ministral-3-14b-reasoning`
+- `memory_model`: `remote/claude-sonnet-4-6` → `mistralai/ministral-3-14b-reasoning`
+
+**Final ep87 model layout:**
+| Subsystem | Model |
+|---|---|
+| agent | `remote/claude-sonnet-4-6` |
+| knowledge (free-text MD) | `remote/claude-sonnet-4-6` |
+| critic | `mistralai/ministral-3-14b-reasoning` |
+| extractor | `mistralai/ministral-3-14b-reasoning` |
+| analysis (objectives, grounding) | `mistralai/ministral-3-14b-reasoning` |
+| memory | `mistralai/ministral-3-14b-reasoning` |
+
+**Reasoning:** ep82's score=64 was achieved with this exact secondary-subsystem layout. The only difference vs. ep82 is agent now on Sonnet (which works) and knowledge on Sonnet (free-text — no schema risk). This is the minimum-blast-radius config that should produce a clean ep87.
+
+**Validation:** N/A (config revert). Validation = ep87 producing real critic-score distribution AND no `Memory synthesis failed` / `Extractor LLM call failed` / objective failure blocks in the run log.
+
+**Result:** PENDING
+
+**Open follow-ups (still not in this change):**
+- Silent failures across `zorkburr/actions/{critic,extract,memory,objectives,knowledge,grounding}.py` should eventually emit `LLM_ERROR` lines like `agent.py` does. The fact that ep86 silently corrupted memory state for 4 turns before I noticed is the strongest argument for this. Filed as future work.
+- Proxy strips `tools` and `response_format`. If you control the proxy, fixing this upstream would unblock `instructor.Mode.TOOLS` and let Sonnet be used for any subsystem.
+
+---
+
 ## Episode 85 → 86 — IMPROVEMENT (revert critic to local Ministral)
 **Trigger:** ep85 retry attempt with proxy healthy revealed Sonnet silently fails structured-output for the critic. Two consecutive retries observed on turn 1: (1) Sonnet replied conversationally — *"It looks like you're playing Zork! ... To open the mailbox, type `open mailbox` in your Zork interpreter..."*; (2) Sonnet attempted JSON but invented its own fields `{approved, reasoning}` instead of `CriticResponse.{score, justification, confidence}`. After 2 Instructor retries the critic silently fell back to `score=0.5, confidence=0.0` and the turn proceeded with no `LLM_ERROR` line emitted (circuit breaker only watches `generate_action`).
 
