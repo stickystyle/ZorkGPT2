@@ -61,7 +61,37 @@ Started: 2026-03-30
 **Reasoning:** This is a BLOCKER fix — the learning loop has been inert for the entire gemini-3-flash test series (ep91, ep92). Without working memory synthesis, every episode starts with the same stale pre-ep87 KB content and no new learning carries forward. Agent-model improvements are capped by this regardless of cost. Diagnostic probe gives direct before/after evidence on the exact failing event.
 **Target metric:** ep93 mem_new ≥ 10 (vs ep91's 1, ep92's 2). Bonus: at least one memory about the cyclops (so future episodes don't repeat the attack-with-axe death).
 **Validation:** Already validated against fixture tests/fixtures/ep91_t47_record_memory.json — gemini-3-flash produced a structurally valid, semantically correct memory for the event where Ministral returned should_remember=false.
-**Result:** PENDING
+**Result:** IMPROVED — ep93 final 79/350, peak 79, 29 locations, mem_new=24 (12× ep91/92). The learning loop is alive; memories are being created, used, and informing next-turn reasoning. Notable: the cyclops memory created at ep93 t34 enabled the agent to use `odysseus`/`ulysses` at t128 and survive — avoiding the ep92 death entirely.
+**Hypothesis verdict:** CONFIRMED — Ministral was the blocker; gemini-3-flash on the memory_model role produces actionable, well-classified memories at ~24/episode.
+---
+
+## Episode 93 — COMPLETE (session high, learning loop alive)
+**Turns:** 200 (max_turns)
+**Peak score:** 79/350 (SESSION HIGH — previous best 55 in ep92, 45 in ep88/91)
+**Final score:** 79/350 (no death, no deposit loss)
+**Locations visited:** 29 (2× ep92's 14 — Strange Passage, Loud Room, Dome Room, Engravings Cave, Mirror Room, Winding Passage, Cave, etc.)
+**Objectives found:** 15
+**End reason:** max_turns
+**Model stack:** agent + knowledge + memory all on `remote/google/gemini-3-flash-preview`; critic/extractor/analysis on local Ministral-3-14B
+**Memory stats:** mem_total=34, mem_new=24, mem_dedup_rejected=1, mem_superseded=2, grounding_rejected=7 (from earlier probe)
+**Key milestones:**
+- t5-30: standard early-game path + bag from maze skeleton room → score 45
+- t72-76: unlocked grating, escaped maze via Clearing (same path as ep91)
+- t80-88: took and deposited jeweled egg → score 55
+- t92: east from Troll Room (+5) → score 60 (ep88 Sonnet path)
+- t128: **`say odysseus` — cyclops fled**. Agent used training-data world knowledge triggered by memory ("Cyclops Blocks Upward Staircase" created at t34).
+- t130-131: discovered Cyclops Room → Strange Passage → Living Room shortcut (bypasses cellar+maze entirely on future runs)
+- t144-145: Loud Room `echo` puzzle — used KB knowledge, took platinum bar → score 70
+- t154: took painting (first time this episode, +4) → 74
+- t158-160: **dropped painting in Studio as chimney ballast** — repeats ep82-87 bug for gemini-3-flash, cost ~10 potential points
+- t162: deposited platinum bar → score 79 (final)
+- t183-190: explored Engravings Cave, Dome Room, Mirror Room, Cave, Winding Passage — no new scoring but broad mapping
+**Notable failure modes:**
+- **Inventory-change blindness**: the painting-drop at t158 was never seen by memory synthesis (should_synthesize gate). Agent has no record of leaving it behind.
+- **Forgot already-completed tasks**: at t132 tried to re-deposit the egg (was deposited at t88). COMPLETED_OBJECTIVES not shown in context.
+- **Maze wandering**: ~40 turns in the maze without routing assistance despite having a clear destination. Motivates the ep94 nav_target work.
+- **Chimney ballast bug**: dropped painting in Studio despite KB explicitly warning against dropping treasures there. Symptom: agent reads KB rules but doesn't apply them under inventory pressure.
+
 ---
 
 ## Episode 92 — COMPLETE (new session high, cyclops death)
