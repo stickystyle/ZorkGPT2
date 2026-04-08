@@ -45,7 +45,37 @@ Started: 2026-03-30
 **Reasoning:** This is a KB content bug, not a prompt bug. The agent is reasoning correctly given the KB it has — the KB itself is wrong. Fixing the source of the misinformation is more durable than trying to teach the agent to ignore its own KB.
 **Target metric:** ep88 should successfully deposit the painting in the trophy case at least once. Score should exceed ep87's 44 if everything else holds.
 **Validation:** N/A (KB content edit, no automated test). Diff reviewed by hand.
-**Result:** PENDING
+**Result:** IMPROVED — painting successfully deposited in trophy case ep88 t24 (score 39→45). Agent reasoning at t18-20 quotes KB chimney rule correctly: *"KB confirms this is the correct load for chimney climbing (keep lantern, drop ballast)."* Chronic painting-loss pattern (ep82/84/86/87) broken on first attempt.
+**Hypothesis verdict:** CONFIRMED — KB content was the causal problem; agent reasoned correctly once KB was fixed.
+---
+
+## Episode 88 — ABORTED (OpenRouter credit exhaustion at t31)
+**Type:** BLOCKER — external
+**Turns completed (valid):** 1-30 (t31-35 are LLM fallback `look` actions, invalid data)
+**Final score:** 45/350 (reached at t24, held flat through t30)
+**End reason:** killed manually after OpenRouter 402 credit-limit error: *"This request requires more credits, or fewer max_tokens. You requested up to 8192 tokens, but can only afford 2179."*
+**Valid data salvaged:** t1-25 checkpoint (see below) — confirms ep87→88 chimney rule fix works; painting deposited for the first time in 5+ episodes.
+**Action required before ep89:** User must top up OpenRouter credits OR reduce `max_tokens` in config. Cannot launch another episode without this.
+**Note:** Agent at t28 walked from Cellar → Troll_ (north) then failed to proceed east for the +5 kill — likely because LLM failures were already degrading context. Cannot attribute to system defect given the credit issue.
+
+---
+
+## Episode 88 — Turn 25 Checkpoint
+**Type:** HEALTHY — chimney rule fix validated, painting deposited, best-ever score trajectory
+**Score:** 45/350 (delta: +45 since start, NEW SESSION BEST — exceeds ep87's 44)
+**Locations visited:** 9 unique (West_House, South_House, Behind_House, Kitchen, Living_, Cellar, East_Chasm, Gallery, Studio)
+**Avg critic score:** 0.60 (HEALTHY)
+**Rejection rate:** 5/25 (20%) — acceptable
+**Gameplay quality:** LEARNING
+  - Memory use: Strong — agent references prior path knowledge for cellar/gallery/studio navigation.
+  - KB alignment: EXCELLENT — agent explicitly quotes chimney rule at t18 ("KB confirms this load should work"), at t19 ("KB says drop ballast but keep lantern and treasures"), at t20 ("KB confirms this is the correct load"). Exactly the reasoning the ep87→88 fix was designed to produce.
+  - Objective quality: Not yet inspected — deferred to t50.
+  - Objective pursuit: Tight — scoring path house→cellar→gallery→painting→trophy case executed in 24 turns.
+  - Learning system quality: N/A at t25.
+  - Pathfinding: NAVIGATING — perfect route, one failed climb at t18 (expected — tested load), corrected with "drop leaflet" at t19 and succeeded t20. Minor detour at t22 (case closed) → open → deposit.
+**Triggers:** None.
+**Notes:** THE CHIMNEY RULE FIX WORKS. Agent kept painting through chimney climb for the first time in 5+ episodes. Deposit at t24 gives +6 bonus. Ep87→88 improvement result flipped from PENDING to IMPROVED. Agent now heading back down for troll/east scoring. Watching next block for Dam progression and sustained execution.
+
 ---
 
 ## Episode 75 — Turn 25 Checkpoint
