@@ -38,6 +38,16 @@ Started: 2026-03-30
 
 ---
 
+## Episode 91 → 92 — IMPROVEMENT (max_turns bump — user-directed)
+**Trigger:** ep91 gemini-3-flash-preview reached 45/350 at t78 and was still making structural progress at t100 (explored attic, tried unlocking wooden door, cycling through scoring path). max_turns=100 cut the run off mid-exploration. gemini's velocity is ~4× slower than Sonnet's per-point, so 100 turns isn't enough runway to show whether it can push past 45.
+**Hypothesis:** Giving gemini-3-flash-preview 200 turns instead of 100 will let it push past the 45 plateau. Even if velocity stays ~17 turns/point, another 100 turns at that rate could add ~5-6 more points (50-51). Better outcomes possible if the agent finds the east-from-troll +5 kill, the dam puzzle (historically unsolved), or underground exploration yielding more treasures.
+**Change:** Orchestrator launch command — `--max-turns 100` → `--max-turns 200`. No code or prompt changes. pyproject.toml `max_turns_per_episode=1000` is unchanged (that's an upper bound, CLI flag is the binding limit).
+**Reasoning:** Cost stays reasonable — 200 turns of gemini-3-flash ≈ $3.16, still ~3× cheaper than a single Sonnet 100-turn episode. Best-case: gemini clears past 50 and shows a new score ceiling. Worst-case: agent plateaus at 45-ish, which tells us the blocker is puzzle-solving capability rather than turn budget.
+**Target metric:** Final score > 45 (any improvement over ep91's ceiling). Stretch: find the dam puzzle or reach 55+.
+**Validation:** N/A (launch parameter change, no prompt/code modification).
+**Result:** PENDING
+---
+
 ## Episode 90 → 91 — IMPROVEMENT (MODEL SWAP — user-directed, new family)
 **Trigger:** Both gpt-5.x-mini variants failed (ep89 inventory hallucination, ep90 ungrounded KB application). Pattern suggests a family-level weakness in OpenAI's mini tier for context-grounded agentic play. Time to sample a different model family.
 **Hypothesis:** `google/gemini-3-flash-preview` ($0.50/$3.00 per M, 1M ctx, structured_outputs supported) is a different model family (Google, not OpenAI or Anthropic) with a different training recipe, and may exhibit different failure modes than gpt-5.x-mini. Cost ~$1.58/episode — still ~5× cheaper than Sonnet. User wants to explore non-Claude, non-OpenAI families before falling back to Haiku 4.5.
