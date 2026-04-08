@@ -38,6 +38,11 @@ Started: 2026-03-30
 
 ---
 
+## Future Work Queue
+- **Nav-target route injection (ep94 or later):** Add a `nav_target` field to the agent's response schema (location ID or name). On the next turn, `assemble_context` runs BFS over `MAP_DATA.connections` from current_loc → nav_target and injects the shortest route into the formatted context as text (e.g., *"Planned route to Gallery: w → down → s → e"*). Passive, no tool-call wiring needed. Motivated by watching ep91/ep92 agents wander the Maze for 20+ turns despite having a clear destination. Zork I maze is deterministic with distinct internal room IDs, so BFS over MAP_DATA works without special-casing — the agent's difficulty is visual recognition ("all rooms say Maze") which the router bypasses by reading location_id directly. Route injection is NOT game-specific knowledge (it's the agent's own learned map). Do AFTER ep93 validates the memory_model fix, so we're not stacking effects.
+
+---
+
 ## Episode 91 → 92 — IMPROVEMENT (max_turns bump — user-directed)
 **Trigger:** ep91 gemini-3-flash-preview reached 45/350 at t78 and was still making structural progress at t100 (explored attic, tried unlocking wooden door, cycling through scoring path). max_turns=100 cut the run off mid-exploration. gemini's velocity is ~4× slower than Sonnet's per-point, so 100 turns isn't enough runway to show whether it can push past 45.
 **Hypothesis:** Giving gemini-3-flash-preview 200 turns instead of 100 will let it push past the 45 plateau. Even if velocity stays ~17 turns/point, another 100 turns at that rate could add ~5-6 more points (50-51). Better outcomes possible if the agent finds the east-from-troll +5 kill, the dam puzzle (historically unsolved), or underground exploration yielding more treasures.
@@ -45,7 +50,38 @@ Started: 2026-03-30
 **Reasoning:** Cost stays reasonable — 200 turns of gemini-3-flash ≈ $3.16, still ~3× cheaper than a single Sonnet 100-turn episode. Best-case: gemini clears past 50 and shows a new score ceiling. Worst-case: agent plateaus at 45-ish, which tells us the blocker is puzzle-solving capability rather than turn budget.
 **Target metric:** Final score > 45 (any improvement over ep91's ceiling). Stretch: find the dam puzzle or reach 55+.
 **Validation:** N/A (launch parameter change, no prompt/code modification).
+**Result:** MIXED — peak score 55 (NEW SESSION HIGH, beats ep88/91's 45) at t63 via bag from Maze skeleton room (+10). Final score 45 after cyclops death at t133 (−10 respawn penalty). 133 turns used of 200 budget, 14 locations, mem_new=2.
+**Hypothesis verdict:** PARTIALLY CONFIRMED — extra turns enabled discovery of new scoring path (bag). But agent then burned ~70 turns wandering the Maze (t64–t131) because it had no way to route back to the scoring path, and the cyclops encounter at t131 killed the experiment. The bottleneck is no longer "not enough turns" — it is navigation planning. Motivates the ep94 nav-target tool.
+---
+
+## Episode 92 → 93 — IMPROVEMENT (BLOCKER: memory_model swap)
+**Trigger:** Direct diagnostic probe (scripts/_probe_memory_synthesis.py) replayed ep91 t47 "open grate, go up" fixture against 3 models. Ministral-3-14B returned `should_remember=false` with reasoning *"This is a simple movement action ... The game state (location change) is already tracked by the map, and the description of the clearing is flavor text."* — misclassifying a puzzle-solve as movement. Gemini-3-flash-preview returned a perfect memory (`"Exit Maze via Grating" — Once unlocked and opened, the grating allows passage 'up' from the maze into the Clearing`). gpt-5-mini also correctly concluded should_remember=true but failed due to 832 reasoning tokens exceeding the hard-coded max_tokens=512 in record_memory. Ep91 showed 99 record_memory invocations producing only 1 pending memory; ep92 produced 2. The memory system is nearly-inert with Ministral as memory_model.
+**Hypothesis:** Swapping memory_model from local Ministral to `remote/google/gemini-3-flash-preview` will restore memory synthesis. Expected impact: mem_new count per episode jumps from ~1-2 to 15+ (approximately one memory per score change + significant puzzle-solve). Over episodes, accumulated memories will teach the agent the bag/cyclops/maze scoring mechanics that ep92 discovered but couldn't record.
+**Change:** `pyproject.toml` — `memory_model` swapped from `mistralai/ministral-3-14b-reasoning` → `remote/google/gemini-3-flash-preview`. Agent + knowledge already on gemini-3-flash, so this unifies the stack. Critic/extractor/analysis remain local Ministral (unchanged).
+**Reasoning:** This is a BLOCKER fix — the learning loop has been inert for the entire gemini-3-flash test series (ep91, ep92). Without working memory synthesis, every episode starts with the same stale pre-ep87 KB content and no new learning carries forward. Agent-model improvements are capped by this regardless of cost. Diagnostic probe gives direct before/after evidence on the exact failing event.
+**Target metric:** ep93 mem_new ≥ 10 (vs ep91's 1, ep92's 2). Bonus: at least one memory about the cyclops (so future episodes don't repeat the attack-with-axe death).
+**Validation:** Already validated against fixture tests/fixtures/ep91_t47_record_memory.json — gemini-3-flash produced a structurally valid, semantically correct memory for the event where Ministral returned should_remember=false.
 **Result:** PENDING
+---
+
+## Episode 92 — COMPLETE (new session high, cyclops death)
+**Turns:** 133 (of 200 max_turns)
+**Peak score:** 55/350 (NEW SESSION HIGH) at t63
+**Final score:** 45/350 (−10 from cyclops respawn)
+**Locations visited:** 14
+**Objectives found:** 15
+**End reason:** game_over_death (cyclops, killed with axe)
+**Model:** remote/google/gemini-3-flash-preview (second episode, 200-turn budget)
+**Memory activity:** mem_new=2, dedup_rejected=1, superseded=1 (still mostly inert — Ministral memory_model bug unfixed)
+**Key milestones:**
+- t5-29: house → cellar → troll → gallery → painting → trophy case deposit (score 45 by t29, ~2.7× faster than ep91's t78)
+- t44: grating opened → Clearing (same discovery as ep91, courtesy of KB carryover)
+- t63: bag taken from Maze skeleton room (+10 → **55, new session high**)
+- t64-t131: ~68 turns wandering Maze trying to navigate out (never exited via grating despite knowing the path)
+- t131-132: Cyclops Room encountered, `attack cyclops with axe` — wrong approach
+- t133: killed and respawned in Forest, score 55 → 45
+**Notes:** ep92 proves gemini-3-flash can find scoring paths Sonnet didn't reach in ep88 (neither of which ever found the bag). The velocity advantage of ep91's accumulated KB is real — painting deposited at t29 vs t78 in ep91. But the memory system is still nearly-inert (2 new memories across 133 turns) so ep92's own discoveries (bag mechanics, cyclops death) may not carry forward. This episode makes the case for BOTH the memory_model fix (ep93) and the nav-target route tool (ep94): the agent found new treasures but couldn't navigate back, and couldn't remember what killed it.
+
 ---
 
 ## Episode 90 → 91 — IMPROVEMENT (MODEL SWAP — user-directed, new family)
