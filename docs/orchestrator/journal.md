@@ -45,7 +45,19 @@ Started: 2026-03-30
 **Reasoning:** ep89 showed gpt-5-mini maintains a weaker internal model of cumulative inventory than Sonnet (took lantern t9, believed it had a sword at t14 without ever taking one). gpt-5.4-mini is 2 minor-version generations newer (5.0→5.1→5.2→5.3→5.4) and 3× more expensive on input — expected quality jump. User-directed choice over haiku-4.5 to answer "is 5.4 meaningfully better than 5.0 at agentic state tracking."
 **Target metric:** Agent must pick up the sword in Living Room AND not hallucinate inventory it doesn't have. Concretely: score ≥45 by t25 (match ep88 Sonnet baseline), painting deposited, no death before t50.
 **Validation:** N/A (model swap). Behavioral validation happens in ep90.
-**Result:** PENDING
+**Result:** DEGRADED — ep90 killed at t27 (score stagnant at 10 since t5). Worse than both ep88 Sonnet (45 by t24) and ep89 gpt-5-mini (35 by t12). Different failure mode than gpt-5-mini, but equally broken.
+**Hypothesis verdict:** FALSIFIED — gpt-5.4-mini is NOT meaningfully better than gpt-5-mini on this workload. Specific failure mode: **context-ungrounded KB rule application**. Burr trace ep90 t20 reasoning (verbatim): *"I'm in the Kitchen with the lantern already lit, but the chimney route to the Studio is not currently available from the exit list. The sword is the only obvious non-treasure ballast I'm carrying, and prior chimney notes say light load matters, so dropping it is the best way to try to restore access."* Agent read the KB chimney-ballast rule and applied it in Kitchen — wrong location entirely (the chimney is in Studio). Then went "up" to Attic (t21), not Studio. Sonnet ep88 grounded the same KB rule to Studio correctly. Upside: gpt-5.4-mini DID take sword+lantern together at t9, which fixes the ep89 inventory hallucination — but the navigation/KB grounding is worse.
+---
+
+## Episode 90 — KILLED (early, score stagnant, gpt-5.4-mini ungrounded KB use)
+**Turns:** 27 (killed manually)
+**Final score:** 10/350 (stagnant since t5)
+**Locations visited:** 6 (West_House, North_House, Behind_House, Kitchen, Living_, Attic)
+**End reason:** manual kill — score stagnation trigger (22 consecutive turns with no score change)
+**Model:** remote/openai/gpt-5.4-mini (first episode)
+**Key failure mode:** context-ungrounded KB rule application. Agent correctly reads KB but applies rules in the wrong location — dropped sword in Kitchen "as chimney ballast" despite chimney being in Studio. Also wasted t10-20 oscillating Kitchen↔Living↔Behind_House with no clear plan.
+**Notes:** The fix for ep89's inventory hallucination is present (took "lantern, sword" together at t9), but a new failure replaced it: rule-location mismatch. This is a different instruction-following weakness that suggests the whole gpt-5.x-mini family underweights current-state grounding vs rule recall.
+
 ---
 
 ## Episode 88 → 89 — IMPROVEMENT (MODEL SWAP — user-directed, cost)
