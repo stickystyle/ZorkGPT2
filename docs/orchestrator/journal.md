@@ -45,7 +45,21 @@ Started: 2026-03-30
 **Reasoning:** gpt-5-mini has native structured_outputs (Instructor-compatible), optional reasoning mode, 400K context. Of the shortlist {gpt-5-mini, glm-4.6, gemini-2.5-flash, haiku-4.5} it has the strongest reputation for agentic structured-output reliability. xAI/Grok models excluded by policy.
 **Target metric:** ep89 should match or beat ep88's t1-25 trajectory (painting deposited by t24, score ≥45). Cost per episode should drop to ~$1 vs Sonnet's ~$8.
 **Validation:** N/A (model swap, no prompt/code change to validate against fixtures). Behavioral validation happens in the episode itself.
-**Result:** PENDING
+**Result:** DEGRADED — ep89 died at t23, score 25/350 (game_over_death to troll). Sonnet ep88 had 45/350 by t24. gpt-5-mini is materially weaker on this workload.
+**Hypothesis verdict:** FALSIFIED — gpt-5-mini does NOT preserve Sonnet-level quality at 1/8 cost. Specific failure mode: **inventory hallucination**. Burr trace ep89 t9 agent reasoning: *"I scanned all KB for Living Room: the brass lantern sits on the trophy case ... and the oriental rug hides the trap door"* — took lantern but never mentions/takes sword. Then at t14 in Troll Room: *"I'll attack the troll with my sword to clear the room"* — game: *"You don't have that!"* Agent then tried "throw bottle at troll", "attack troll with sack", "attack troll with lantern" across t15-20 and got killed. Sonnet ep88 t8 combined "take lamp, take sword" in a single action; gpt-5-mini split them and forgot the sword.
+---
+
+## Episode 89 — COMPLETE (early death, gpt-5-mini regression)
+**Turns:** 23
+**Final score:** 25/350 (−20 from troll death)
+**Locations visited:** 8
+**Objectives found:** 9
+**End reason:** game_over_death (troll, no weapon)
+**Model:** remote/openai/gpt-5-mini (first episode)
+**Improvement dispatched:** no (awaiting user decision on next model)
+**Key failure mode:** inventory hallucination — agent believed it had items it never picked up. Not a KB problem (KB scanning reasoning was present at t9); a state-tracking regression vs Sonnet.
+**Notes:** Ep88's Sonnet run took sword+lantern in one combined action at t8. gpt-5-mini took only the lantern, then 5 turns later hallucinated having the sword in Troll Room. Suggests gpt-5-mini maintains a weaker internal model of cumulative actions/inventory than Sonnet, even with the same prompt and KB.
+
 ---
 
 ## Episode 87 → 88 — IMPROVEMENT (KB content fix — chimney rule)
