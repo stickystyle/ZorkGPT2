@@ -38,6 +38,16 @@ Started: 2026-03-30
 
 ---
 
+## Episode 89 → 90 — IMPROVEMENT (MODEL SWAP — user-directed, cost)
+**Trigger:** ep89 gpt-5-mini died at t23 (score 25) to troll via inventory hallucination. gpt-5-mini degraded vs Sonnet. Need next candidate.
+**Hypothesis:** `openai/gpt-5.4-mini` ($0.75/$4.50 per M, 400K ctx, newer generation post-knowledge-cutoff) has meaningfully better state tracking and instruction-following than gpt-5-mini while remaining ~3.5× cheaper than Sonnet 4.6 (~$2.36/episode vs ~$8.25). If the 5.4 generation fixes the inventory-hallucination class of bugs, it's the right spot on the cost/capability curve.
+**Change:** `pyproject.toml` — `agent_model` and `knowledge_model` both swapped `remote/openai/gpt-5-mini` → `remote/openai/gpt-5.4-mini`. Critic/extractor/analysis/memory remain local Ministral-3-14B (unchanged).
+**Reasoning:** ep89 showed gpt-5-mini maintains a weaker internal model of cumulative inventory than Sonnet (took lantern t9, believed it had a sword at t14 without ever taking one). gpt-5.4-mini is 2 minor-version generations newer (5.0→5.1→5.2→5.3→5.4) and 3× more expensive on input — expected quality jump. User-directed choice over haiku-4.5 to answer "is 5.4 meaningfully better than 5.0 at agentic state tracking."
+**Target metric:** Agent must pick up the sword in Living Room AND not hallucinate inventory it doesn't have. Concretely: score ≥45 by t25 (match ep88 Sonnet baseline), painting deposited, no death before t50.
+**Validation:** N/A (model swap). Behavioral validation happens in ep90.
+**Result:** PENDING
+---
+
 ## Episode 88 → 89 — IMPROVEMENT (MODEL SWAP — user-directed, cost)
 **Trigger:** Sonnet 4.6 is dramatically better than Ministral-3-14B at Zork but dramatically more expensive — ep88 hit OpenRouter credit exhaustion at t31 (402 error, 8192 max_tokens ceiling). Need a cheaper capable model.
 **Hypothesis:** `openai/gpt-5-mini` at $0.25/$2.00 per M (~8× cheaper than Sonnet's ~$8.25/episode → ~$0.99/episode) will preserve enough reasoning and structured-output quality to sustain the progress Sonnet demonstrated (45/350 by t24, painting deposited, chimney rule followed correctly).
