@@ -38,6 +38,16 @@ Started: 2026-03-30
 
 ---
 
+## Episode 90 → 91 — IMPROVEMENT (MODEL SWAP — user-directed, new family)
+**Trigger:** Both gpt-5.x-mini variants failed (ep89 inventory hallucination, ep90 ungrounded KB application). Pattern suggests a family-level weakness in OpenAI's mini tier for context-grounded agentic play. Time to sample a different model family.
+**Hypothesis:** `google/gemini-3-flash-preview` ($0.50/$3.00 per M, 1M ctx, structured_outputs supported) is a different model family (Google, not OpenAI or Anthropic) with a different training recipe, and may exhibit different failure modes than gpt-5.x-mini. Cost ~$1.58/episode — still ~5× cheaper than Sonnet. User wants to explore non-Claude, non-OpenAI families before falling back to Haiku 4.5.
+**Change:** `pyproject.toml` — `agent_model` and `knowledge_model` both swapped `remote/openai/gpt-5.4-mini` → `remote/google/gemini-3-flash-preview`. Critic/extractor/analysis/memory remain local Ministral-3-14B (unchanged).
+**Reasoning:** The failures in ep89/ep90 are family-specific patterns (both OpenAI mini). Sampling Google's newest flash-tier model tests whether another family has the same failure modes or different ones. gemini-3-flash has 1M context (largest of any candidate) and supports structured_outputs (Instructor-compatible). xAI excluded by policy.
+**Target metric:** Score ≥35 by t25 (match gpt-5-mini), ideally ≥45 (match Sonnet). No early death before t50. Ground KB rules to current location (don't drop sword in Kitchen).
+**Validation:** N/A (model swap). Behavioral validation happens in ep91.
+**Result:** PENDING
+---
+
 ## Episode 89 → 90 — IMPROVEMENT (MODEL SWAP — user-directed, cost)
 **Trigger:** ep89 gpt-5-mini died at t23 (score 25) to troll via inventory hallucination. gpt-5-mini degraded vs Sonnet. Need next candidate.
 **Hypothesis:** `openai/gpt-5.4-mini` ($0.75/$4.50 per M, 400K ctx, newer generation post-knowledge-cutoff) has meaningfully better state tracking and instruction-following than gpt-5-mini while remaining ~3.5× cheaper than Sonnet 4.6 (~$2.36/episode vs ~$8.25). If the 5.4 generation fixes the inventory-hallucination class of bugs, it's the right spot on the cost/capability curve.
