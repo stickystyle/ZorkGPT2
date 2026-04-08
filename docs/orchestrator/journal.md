@@ -38,6 +38,16 @@ Started: 2026-03-30
 
 ---
 
+## Episode 88 → 89 — IMPROVEMENT (MODEL SWAP — user-directed, cost)
+**Trigger:** Sonnet 4.6 is dramatically better than Ministral-3-14B at Zork but dramatically more expensive — ep88 hit OpenRouter credit exhaustion at t31 (402 error, 8192 max_tokens ceiling). Need a cheaper capable model.
+**Hypothesis:** `openai/gpt-5-mini` at $0.25/$2.00 per M (~8× cheaper than Sonnet's ~$8.25/episode → ~$0.99/episode) will preserve enough reasoning and structured-output quality to sustain the progress Sonnet demonstrated (45/350 by t24, painting deposited, chimney rule followed correctly).
+**Change:** `pyproject.toml` — `agent_model` and `knowledge_model` both swapped from `remote/anthropic/claude-sonnet-4.6` to `remote/openai/gpt-5-mini`. Critic/extractor/analysis/memory remain local Ministral-3-14B (unchanged).
+**Reasoning:** gpt-5-mini has native structured_outputs (Instructor-compatible), optional reasoning mode, 400K context. Of the shortlist {gpt-5-mini, glm-4.6, gemini-2.5-flash, haiku-4.5} it has the strongest reputation for agentic structured-output reliability. xAI/Grok models excluded by policy.
+**Target metric:** ep89 should match or beat ep88's t1-25 trajectory (painting deposited by t24, score ≥45). Cost per episode should drop to ~$1 vs Sonnet's ~$8.
+**Validation:** N/A (model swap, no prompt/code change to validate against fixtures). Behavioral validation happens in the episode itself.
+**Result:** PENDING
+---
+
 ## Episode 87 → 88 — IMPROVEMENT (KB content fix — chimney rule)
 **Trigger:** Chronic painting-loss across ep82/84/86/87. ep87 t43 agent reasoning verbatim from Burr trace: *"I need to drop the painting so my hands are empty to climb the chimney from Studio to Kitchen."* This is the agent applying KB rule line 30 literally.
 **Hypothesis:** The KB chimney rule is incomplete and is causing the agent to drop the painting before every chimney climb. Fixing the KB rule to require keeping the lantern AND adding an explicit "do not drop treasures to climb" note will break the chronic pattern and let the painting actually reach the trophy case.
