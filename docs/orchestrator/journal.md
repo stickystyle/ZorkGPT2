@@ -45,7 +45,46 @@ Started: 2026-03-30
 **Reasoning:** The failures in ep89/ep90 are family-specific patterns (both OpenAI mini). Sampling Google's newest flash-tier model tests whether another family has the same failure modes or different ones. gemini-3-flash has 1M context (largest of any candidate) and supports structured_outputs (Instructor-compatible). xAI excluded by policy.
 **Target metric:** Score ≥35 by t25 (match gpt-5-mini), ideally ≥45 (match Sonnet). No early death before t50. Ground KB rules to current location (don't drop sword in Kitchen).
 **Validation:** N/A (model swap). Behavioral validation happens in ep91.
-**Result:** PENDING
+**Result:** IMPROVED — ep91 completed full 100 turns, final score 45/350 (MATCHES Sonnet ep88's peak of 45), 16 locations (most of session), no deaths, no credit exhaustion. ~1/5 the cost of Sonnet.
+**Hypothesis verdict:** CONFIRMED — different family (Google Gemini) avoided both OpenAI-mini failure modes (inventory hallucination, ungrounded KB). gemini-3-flash-preview is the first non-Sonnet model in this session to reach score 45 and deposit the painting in the trophy case. Slower execution (45 by t78 vs t24) but full quality.
+---
+
+## Episode 91 — COMPLETE (gemini-3-flash-preview, full 100 turns)
+**Turns:** 100 (max_turns)
+**Final score:** 45/350
+**Locations visited:** 16 (most of any episode this session)
+**Objectives found:** 15
+**End reason:** max_turns (healthy, no death, no credit issue)
+**Model:** remote/google/gemini-3-flash-preview (first episode)
+**Improvement dispatched:** no (this model is viable, stick with it)
+**Peak milestones:**
+- t6: Kitchen (house entry +10)
+- t9: took sword+lantern together (no inventory hallucination)
+- t13: Cellar (trap door +25 → 35)
+- t15: killed troll with sword (weapon available — correct inventory state)
+- t20-43: wandered Maze (time-sink, not a defect)
+- t45: unlocked grating with skeleton key (new area — Clearing/Forest)
+- t63: took painting (+4 → 39)
+- t78: painting deposited in trophy case (+6 → 45) — matches ep88 Sonnet peak
+- t91: tried "unlock wooden door with skeleton key" (creative, though door is nailed shut not locked)
+**Notes:** gemini-3-flash matched Sonnet's peak score at ~1/5 the cost (~$1.58 vs ~$8.25). The agent's velocity is ~4× slower per point (t78 vs t24 for 45) but the quality is there — no death, no hallucination, no ungrounded KB application, correct chimney-rule application (dropped sword+rope in Studio as ballast per KB, not in Kitchen). Got stuck in the Maze for ~20 turns (normal first-visit behavior) but escaped via grating and discovered the Clearing path — a genuine exploration advance. Minor confusion at t99 (tried to re-deposit already-deposited painting) but harmless. **VIABLE MODEL** for this workload.
+
+---
+
+## Episode 91 — Turn 25 Checkpoint (gemini-3-flash-preview first run)
+**Type:** HEALTHY
+**Score:** 35/350 (delta: +35 since start)
+**Locations visited:** 8 unique (West_House, North_House, Behind_House, Kitchen, Living_, Cellar, Troll_, Maze)
+**Avg critic score:** 0.51 (acceptable)
+**Rejection rate:** 5/25 (20%) — acceptable
+**Gameplay quality:** LEARNING (provisional)
+  - Memory use: Agent took the standard scoring path house→kitchen→living→cellar→troll without hesitation.
+  - KB alignment: CORRECT — at t9 took sword+lantern together (fixing ep89's hallucination); at t13 descended trap door with lit lantern per KB rule; at t15 killed troll with sword (+0 score but path secured); at t17 took the troll's axe as a bonus.
+  - Objective quality/pursuit: Not yet inspected.
+  - Pathfinding: MIXED — excellent through t19 (perfect Sonnet-matching route to Troll Room), then wandered west into the Maze at t20 instead of east for the +5 kill. Stuck wandering Maze/Dead_End t20-25.
+**Triggers:** None — no urgent pattern. Maze wandering is a known Zork time-sink, not a system defect; any model without mapping experience would struggle there.
+**Notes:** Score 35 at t25 is **best non-Sonnet result of the session** (ep89: 25 dead, ep90: 10 stagnant). Critically, gemini-3-flash does NOT exhibit the ep89 inventory hallucination OR the ep90 ungrounded KB application. Both previous failure modes are absent. Only weakness so far is navigation choice at Troll Room (chose Maze over east). Will watch for dam/east progression in next block.
+
 ---
 
 ## Episode 89 → 90 — IMPROVEMENT (MODEL SWAP — user-directed, cost)
