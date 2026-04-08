@@ -125,7 +125,8 @@ You must respond with valid JSON containing four fields:
   "thinking": "Your reasoning - what you observe, analyze, and why",
   "action": "single_command_here",
   "next_steps": "Your plan for the next 2-3 turns, if pursuing a multi-turn goal",
-  "new_objective": null
+  "new_objective": null,
+  "nav_target": ""
 }
 ```
 
@@ -134,6 +135,7 @@ You must respond with valid JSON containing four fields:
 - **thinking**: Your reasoning following the thinking guidelines above. Keep concise for standard exploration, expand for puzzles/strategic decisions. CRITICAL: Never generate repetitive loops or exceed reasonable length.
 - **action**: A single game command (one direction, or comma-separated non-movement actions)
 - **next_steps**: Your tactical plan for the next 2-3 turns. This is shown back to you next turn as "Current Plan" so you can maintain continuity across turns. Set when you're pursuing a multi-step goal (navigating multiple rooms, solving a puzzle sequence, collecting then depositing items). Clear (set to empty string) when the plan is complete or abandoned. Keep it short and concrete — e.g., "Go north to tree, climb tree, take egg (step 1 of 3)".
+- **nav_target**: (Optional) A location name or ID you want to head toward across multiple turns. When set, subsequent turns will show you a "**Planned route to ...**" section with the shortest path from your current position, recomputed each turn. Use this when you have picked a destination and want the system to remind you of the route without re-planning from scratch. Leave as empty string `""` when you have no multi-turn nav goal, or clear it once you arrive. It is independent of the objective system — it is your private shortcut for "where am I heading right now".
 - **new_objective**: (Optional) Set when starting a goal that will take 3+ turns to complete
   - Should reference specific locations when possible (e.g., "get lamp from L124")
   - Check your current objectives before declaring — only add if meaningfully different

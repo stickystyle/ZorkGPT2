@@ -1348,6 +1348,21 @@ The provider is still unstable — every generate_action call failed. Circuit br
 
 ---
 
+## Episode 93 → 94 — IMPROVEMENT (BLOCKER bundle — episode visibility — USER APPROVED BUNDLING)
+**Trigger:** ep93 t112/t132/t158 trace evidence of four related visibility failures. At t112 the agent planned to deposit a "sack" and a "skeleton key" (neither a treasure) while having no idea what it had already banked; at t132 it tried `put egg in case` despite depositing the egg at t88; at t158 it dropped the painting in the Studio as chimney ballast and `should_synthesize` never fired (Δ=0, no location change) so memory synthesis skipped the event entirely. Score-event timeline in the KB was still ep92's snapshot, and the maze-routing code already existed but was only wired to `update_objectives` (every 10 turns) with no turn-by-turn nav handle.
+**Hypothesis:** The agent needs better in-episode state visibility — completed objectives, score events, ad-hoc navigation routes, and inventory-change awareness. All four symptoms share the same root cause: the agent cannot see its own episode progress.
+**Change:** Bundled infrastructure changes to `zorkburr/actions/context.py`, `zorkburr/actions/memory.py`, `zorkburr/llm/models.py`, `zorkburr/actions/agent.py`, `zorkburr/state.py`, `prompts/agent.md`, `prompts/memory_synthesis.md`. Details:
+  1. Render `COMPLETED_OBJECTIVES` in assembled context under a "**Completed this episode:**" section (only when non-empty; the list resets at episode start via `create_initial_state`).
+  2. Render a score-event timeline derived from `ACTION_HISTORY` entries (which already carry `score_before` / `score_after`) under "**Score events this episode:**" — no new state field needed.
+  3. Add `nav_target: str` to `AgentResponse`, plumb through `generate_action` into new `S.NAV_TARGET` state key, resolve int-or-name in `context.py`, inject a "**Planned route to ...**" section that reuses `mg.shortest_path`.
+  4. Extend `should_synthesize` with `inventory_changed` (default False, additive — all existing triggers still fire). `record_memory` now computes `set(INVENTORY) != set(PRE_INVENTORY)` and passes it; the synthesis context also now shows BEFORE/AFTER inventory. Added persistence classification guidance to `memory_synthesis.md` with generic (non-Zork-specific) GOOD/BAD examples, per prompt rules.
+**Reasoning:** All four fixes address the same hypothesis — they're all "make episode progress visible to the agent" changes at the state/context/model layer. User explicitly approved bundling as a BLOCKER bundle; the alternative would be four sequential episodes measuring near-noise effects against each other. One-change-per-episode remains the default; this is a documented exception.
+**Target metric:** ep94 `mem_new` includes at least one ephemeral drop memory AND no "re-deposit already-deposited treasure" events in the trace AND agent uses `nav_target` at least once.
+**Validation:** `uv run pytest tests/ --ignore=tests/test_llm_client.py` — 191 passed, 1 pre-existing unrelated failure (`test_config.py::test_load_config_from_toml`, same fixture-drift failure already noted in ep84→85 entry).
+**Result:** PENDING
+
+---
+
 ## Episode 84 — Turn 25 Checkpoint (Sonnet 4.6, navigation prompt fix UNDER TEST)
 **Type:** CONCERN — same score as ep83 (35), wall-clock slow but that's Anthropic API latency, not the prompt
 **Score:** 35/350 (kitchen +10 t6, cellar +25 t15)

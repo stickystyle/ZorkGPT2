@@ -26,6 +26,11 @@ def test_should_synthesize_on_location_change():
 def test_should_not_synthesize_no_change():
     assert should_synthesize(score_delta=0, location_changed=False, died=False) is False
 
+def test_should_synthesize_on_inventory_change():
+    assert should_synthesize(
+        score_delta=0, location_changed=False, died=False, inventory_changed=True
+    ) is True
+
 def test_record_memory_with_synthesis():
     mock_client = _mock_client_with_synthesis(MemorySynthesisResponse(
         should_remember=True, category="DISCOVERY", memory_title="Found leaflet",

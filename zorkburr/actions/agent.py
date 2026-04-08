@@ -32,7 +32,7 @@ def _get_system_prompt(knowledge_base: str = "") -> str:
 
 @action(
     reads=[S.FORMATTED_CONTEXT, S.REJECTION_COUNT, S.CRITIC_JUSTIFICATION, S.KNOWLEDGE_BASE, S.TURN_COUNT, S.LLM_FAILURE_COUNT],
-    writes=[S.PROPOSED_ACTION, S.AGENT_REASONING, S.NEW_OBJECTIVE, S.NEXT_STEPS, S.ACTION_TO_TAKE, S.LLM_FAILURE_COUNT],
+    writes=[S.PROPOSED_ACTION, S.AGENT_REASONING, S.NEW_OBJECTIVE, S.NEXT_STEPS, S.ACTION_TO_TAKE, S.LLM_FAILURE_COUNT, S.NAV_TARGET],
 )
 @observe()
 def generate_action(state: State, client: instructor.Instructor, config: GameConfig, use_thinking: bool = False) -> tuple[dict, State]:
@@ -66,6 +66,7 @@ def generate_action(state: State, client: instructor.Instructor, config: GameCon
         reasoning = response.thinking
         new_objective = response.new_objective
         next_steps = response.next_steps
+        nav_target = response.nav_target
         new_failure_count = 0
     except Exception as e:
         logger.error(f"Agent LLM call failed: {e}")
@@ -73,6 +74,7 @@ def generate_action(state: State, client: instructor.Instructor, config: GameCon
         reasoning = f"LLM error: {e}"
         new_objective = ""
         next_steps = ""
+        nav_target = ""
         new_failure_count = state[S.LLM_FAILURE_COUNT] + 1
         print(
             f"LLM_ERROR | turn={state[S.TURN_COUNT]} | consecutive={new_failure_count} | error={e}",
@@ -86,6 +88,7 @@ def generate_action(state: State, client: instructor.Instructor, config: GameCon
         S.NEXT_STEPS: next_steps,
         S.ACTION_TO_TAKE: action_text,
         S.LLM_FAILURE_COUNT: new_failure_count,
+        S.NAV_TARGET: nav_target,
     })
     return {"action": action_text}, new_state
 

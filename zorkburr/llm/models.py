@@ -10,8 +10,16 @@ class AgentResponse(BaseModel):
     action: str = Field(description="The game command to execute")
     next_steps: str = Field(default="", description="Your plan for the next 2-3 turns, if pursuing a multi-turn goal")
     new_objective: str = Field(default="", description="Optional new objective")
+    nav_target: str = Field(
+        default="",
+        description=(
+            "Optional. A location name or ID you want to head toward over multiple turns. "
+            "On the next turn, you'll see a computed route from your current position. "
+            "Leave empty if you don't have a nav destination."
+        ),
+    )
 
-    @field_validator("new_objective", "next_steps", mode="before")
+    @field_validator("new_objective", "next_steps", "nav_target", mode="before")
     @classmethod
     def coerce_none(cls, v: object) -> str:
         return v if v is not None else ""

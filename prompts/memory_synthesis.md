@@ -41,4 +41,15 @@ SUPERSESSION — replacing outdated memories:
 
 - Memories are stored at the SOURCE location (where the action was taken)
 
+**Persistence — choose carefully, memories may survive across episodes:**
+- `permanent`: reusable mechanics that apply regardless of current game state. Phrase as conditions/instructions, not state descriptions.
+  - GOOD: "Unlocking obstacle X with tool Y, then opening it, reveals a direction-Z exit to area A"
+  - BAD: "Obstacle X is unlocked and open" (this is state, not mechanic — mark ephemeral)
+- `ephemeral`: episode-scoped facts that will be wrong at the start of the next episode. Good for items you've dropped at specific locations, doors you've opened, enemies you've already dealt with.
+  - GOOD: "Dropped item X on the floor of location Y this episode"
+  - GOOD: "Container Z has been opened and currently contains item W"
+- `core`: foundational rules that never change (e.g., scoring model, universal environmental constraints). Use sparingly.
+
+**Disambiguation rule:** If an observation mixes state and mechanic in one sentence, split it into two separate memories — one permanent mechanic, one ephemeral state.
+
 If should_remember=true, provide category, memory_title (3-6 words), memory_text (1-2 sentences), persistence (core|permanent|ephemeral), status (ACTIVE|TENTATIVE).

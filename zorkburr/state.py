@@ -48,6 +48,7 @@ class S:
     PRE_INVENTORY = "pre_inventory"
     LOCATION_SUMMARIES = "location_summaries"
     PENDING_MEMORY = "pending_memory"
+    NAV_TARGET = "nav_target"
 
 def create_initial_state(episode_id: str | None = None) -> State:
     return State({
@@ -94,4 +95,5 @@ def create_initial_state(episode_id: str | None = None) -> State:
         S.PRE_INVENTORY: [],
         S.LOCATION_SUMMARIES: {},
         S.PENDING_MEMORY: None,
+        S.NAV_TARGET: "",
     })

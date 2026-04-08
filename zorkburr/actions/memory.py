@@ -85,8 +85,13 @@ class Memory:
     def to_dict(self) -> dict:
         return asdict(self)
 
-def should_synthesize(score_delta: int, location_changed: bool, died: bool) -> bool:
-    return score_delta != 0 or location_changed or died
+def should_synthesize(
+    score_delta: int,
+    location_changed: bool,
+    died: bool,
+    inventory_changed: bool = False,
+) -> bool:
+    return score_delta != 0 or location_changed or inventory_changed or died
 
 @action(
     reads=[S.PRE_LOCATION_ID, S.PRE_LOCATION_NAME, S.PRE_SCORE, S.PRE_INVENTORY,
@@ -99,20 +104,25 @@ def should_synthesize(score_delta: int, location_changed: bool, died: bool) -> b
 def record_memory(state: State, client: instructor.Instructor, config: GameConfig) -> tuple[dict, State]:
     score_delta = state[S.SCORE] - state[S.PRE_SCORE]
     location_changed = state[S.LOCATION_ID] != state[S.PRE_LOCATION_ID]
+    inventory_changed = set(state[S.INVENTORY]) != set(state[S.PRE_INVENTORY])
     died = state[S.GAME_OVER] and state[S.GAME_OVER_REASON] == "death"
 
-    if not should_synthesize(score_delta, location_changed, died):
+    if not should_synthesize(score_delta, location_changed, died, inventory_changed):
         return {"synthesized": False}, state
 
     pre_inv = state[S.PRE_INVENTORY]
     inv_str = ", ".join(pre_inv) if pre_inv else "(empty)"
+    post_inv = state[S.INVENTORY]
+    post_inv_str = ", ".join(post_inv) if post_inv else "(empty)"
     context = (
         f"Location: {state[S.PRE_LOCATION_NAME]} (ID: {state[S.PRE_LOCATION_ID]})\n"
-        f"Inventory (items agent was CARRYING, not found here): {inv_str}\n"
+        f"Inventory BEFORE action (items carried): {inv_str}\n"
+        f"Inventory AFTER action (items carried): {post_inv_str}\n"
         f"Action: {state[S.ACTION_TO_TAKE]}\n"
         f"Agent reasoning: {state[S.AGENT_REASONING]}\n"
         f"Response: {state[S.GAME_RESPONSE][:500]}\n\n"
-        f"Score change: {score_delta}\nLocation changed: {location_changed}\nDied: {died}\n"
+        f"Score change: {score_delta}\nLocation changed: {location_changed}\n"
+        f"Inventory changed: {inventory_changed}\nDied: {died}\n"
     )
 
     loc_key = str(state[S.PRE_LOCATION_ID])

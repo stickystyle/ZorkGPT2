@@ -5,9 +5,9 @@ from zorkburr.state import S
 
 @action(
     reads=[S.GAME_RESPONSE, S.LOCATION_NAME, S.LOCATION_ID, S.INVENTORY, S.SCORE,
-           S.ACTION_HISTORY, S.EXITS, S.DISCOVERED_OBJECTIVES, S.KNOWLEDGE_BASE,
-           S.MEMORIES_BY_LOCATION, S.MAP_DATA, S.IN_COMBAT, S.TURN_COUNT,
-           S.TURNS_SINCE_PROGRESS, S.NEXT_STEPS, S.LOCATION_SUMMARIES],
+           S.ACTION_HISTORY, S.EXITS, S.DISCOVERED_OBJECTIVES, S.COMPLETED_OBJECTIVES,
+           S.KNOWLEDGE_BASE, S.MEMORIES_BY_LOCATION, S.MAP_DATA, S.IN_COMBAT, S.TURN_COUNT,
+           S.TURNS_SINCE_PROGRESS, S.NEXT_STEPS, S.LOCATION_SUMMARIES, S.NAV_TARGET],
     writes=[S.FORMATTED_CONTEXT],
 )
 def assemble_context(state: State) -> tuple[dict, State]:
@@ -123,6 +123,73 @@ def assemble_context(state: State) -> tuple[dict, State]:
                 + "\n".join(global_lines)
             )
 
+    # Score event timeline for the current episode (derived from ACTION_HISTORY)
+    score_event_history = state[S.ACTION_HISTORY]
+    if score_event_history:
+        score_events = []
+        for entry in score_event_history:
+            sb = entry.get("score_before")
+            sa = entry.get("score_after")
+            if sb is None or sa is None:
+                continue
+            delta = sa - sb
+            if delta == 0:
+                continue
+            loc = entry.get("location_name", "")
+            act = entry.get("action", "")
+            score_events.append(
+                f"t{entry.get('turn', '?')} {delta:+d} ({act} at {loc})"
+            )
+        if score_events:
+            sections.append(
+                "**Score events this episode:**\n  " + " · ".join(score_events)
+            )
+
+    # Ad-hoc navigation target set by the agent on a prior turn
+    nav_target = state[S.NAV_TARGET]
+    if nav_target and mg:
+        target_id = 0
+        try:
+            target_id = int(nav_target)
+            if target_id not in mg.rooms:
+                target_id = 0
+        except (ValueError, TypeError):
+            norm = nav_target.strip().lower()
+            # Exact match first, then substring
+            for rid, rname in mg.rooms.items():
+                if rname.strip().lower() == norm:
+                    target_id = rid
+                    break
+            if target_id == 0:
+                for rid, rname in mg.rooms.items():
+                    rn = rname.strip().lower()
+                    if norm in rn or rn in norm:
+                        target_id = rid
+                        break
+        if target_id:
+            target_name = mg.get_room_name(target_id)
+            if target_id == loc_id:
+                sections.append(
+                    f"**Planned route to {target_name}:** (you are here)"
+                )
+            else:
+                path = mg.shortest_path(loc_id, target_id)
+                if path is not None:
+                    steps = " → ".join(
+                        f"{d} → {mg.get_room_name(rid)}" for d, rid in path
+                    )
+                    sections.append(
+                        f"**Planned route to {target_name}:** {steps} ({len(path)} moves)"
+                    )
+                else:
+                    sections.append(
+                        f"**Planned route to {target_name}:** (no known route)"
+                    )
+        else:
+            sections.append(
+                f"**Nav target:** '{nav_target}' — could not resolve to a known location."
+            )
+
     objectives = state[S.DISCOVERED_OBJECTIVES]
     if objectives:
         obj_lines = []
@@ -148,6 +215,19 @@ def assemble_context(state: State) -> tuple[dict, State]:
             else:
                 obj_lines.append(f"  - {o}")
         sections.append("**Active Objectives:**\n" + "\n".join(obj_lines))
+
+    # Objectives completed in the current episode (resets each episode via create_initial_state)
+    completed = state[S.COMPLETED_OBJECTIVES]
+    if completed:
+        done_lines = []
+        for rec in completed:
+            if isinstance(rec, dict):
+                text = rec.get("objective", str(rec))
+                turn = rec.get("completed_turn", "?")
+                done_lines.append(f"  - [t{turn}] {text}")
+            else:
+                done_lines.append(f"  - {rec}")
+        sections.append("**Completed this episode:**\n" + "\n".join(done_lines))
 
     turns_stuck = state[S.TURNS_SINCE_PROGRESS]
     if turns_stuck >= 20:

@@ -20,6 +20,8 @@ def test_assemble_context_basic():
         S.TURNS_SINCE_PROGRESS: 0,
         S.NEXT_STEPS: "",
         S.LOCATION_SUMMARIES: {},
+        S.COMPLETED_OBJECTIVES: [],
+        S.NAV_TARGET: "",
     })
     _, new_state = assemble_context.run(state)
     ctx = new_state[S.FORMATTED_CONTEXT]
@@ -50,6 +52,8 @@ def test_assemble_context_with_history():
         S.TURNS_SINCE_PROGRESS: 0,
         S.NEXT_STEPS: "",
         S.LOCATION_SUMMARIES: {},
+        S.COMPLETED_OBJECTIVES: [],
+        S.NAV_TARGET: "",
     })
     _, new_state = assemble_context.run(state)
     ctx = new_state[S.FORMATTED_CONTEXT]
@@ -87,6 +91,8 @@ def test_assemble_context_with_map_diagram():
         S.TURNS_SINCE_PROGRESS: 0,
         S.NEXT_STEPS: "",
         S.LOCATION_SUMMARIES: {},
+        S.COMPLETED_OBJECTIVES: [],
+        S.NAV_TARGET: "",
     })
     _, new_state = assemble_context.run(state)
     ctx = new_state[S.FORMATTED_CONTEXT]
@@ -117,6 +123,8 @@ def test_assemble_context_legacy_string_objectives():
         S.TURNS_SINCE_PROGRESS: 0,
         S.NEXT_STEPS: "",
         S.LOCATION_SUMMARIES: {},
+        S.COMPLETED_OBJECTIVES: [],
+        S.NAV_TARGET: "",
     })
     _, new_state = assemble_context.run(state)
     ctx = new_state[S.FORMATTED_CONTEXT]
@@ -149,6 +157,8 @@ def test_assemble_context_filters_superseded_memories():
         S.TURNS_SINCE_PROGRESS: 0,
         S.NEXT_STEPS: "",
         S.LOCATION_SUMMARIES: {},
+        S.COMPLETED_OBJECTIVES: [],
+        S.NAV_TARGET: "",
     })
     _, new_state = assemble_context.run(state)
     ctx = new_state[S.FORMATTED_CONTEXT]
@@ -188,6 +198,8 @@ def test_assemble_context_filters_superseded_adjacent_memories():
         S.TURNS_SINCE_PROGRESS: 0,
         S.NEXT_STEPS: "",
         S.LOCATION_SUMMARIES: {},
+        S.COMPLETED_OBJECTIVES: [],
+        S.NAV_TARGET: "",
     })
     _, new_state = assemble_context.run(state)
     ctx = new_state[S.FORMATTED_CONTEXT]
