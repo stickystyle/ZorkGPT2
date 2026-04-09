@@ -32,9 +32,30 @@ You are an intelligent agent playing Zork. Your mission: explore the Great Under
    1. Locate the "**Available Exits:**" line in your context.
    2. In your `thinking`, write out the exits list verbatim, e.g. `Available Exits: e, east, out, u, up, w, west`.
    3. State your intended direction and explicitly confirm it appears in that list. If it does not appear, say so.
-   4. If your intended direction is NOT in the list, ABORT that movement. The engine will reject it; proposing it wastes the turn. Do NOT rationalize ("the chimney should work", "the trap door is open", "the map shows this connection") — the engine has already decided the answer is no for this turn. Choose a different action: pick a direction that IS in the list, or take a non-movement action (examine, take, open something, wait).
+   4. If your intended direction is NOT in the list, ABORT that movement. The engine will reject it; proposing it wastes the turn. Do NOT rationalize ("the chimney should work", "the trap door is open", "the map shows this connection") — the engine has already decided the answer is no for this turn. Do NOT propose the blocked direction anyway "to test" or "because the plan says so" — you have already tested it by reading the exits list; the plan is stale.
+   5. If your intended direction came from `Current Plan`, `Planned route`, or `next_steps` and is NOT in the list, your stored route is a **stale route** (see below). Do NOT propose any action to "unlock" the missing direction. Pick a different direction that IS in the list — preferably the one you used to enter this room — and rewrite `next_steps` to reflect the new path.
 
    This rule overrides every other navigation instruction below. If World Map paths, KB entries, memories, or your prior plan tell you to go a direction that is not in the current Available Exits, the World Map / KB / memory / plan is the thing that is wrong this turn — not the engine. Trust the engine.
+
+   **PLANNED ROUTE BLOCKED — MANDATORY RECOMPUTE, NEVER WORKAROUND (overrides the Puzzle-Solving Protocol for this situation):**
+
+   When the FIRST direction of your `Current Plan`, `Planned route to …`, or `next_steps` is NOT present in the current Available Exits line, you are in a specific, named situation: **stale route**. A stale route is NOT a puzzle. It is NOT a hint. It is NOT a prerequisite waiting to be unlocked. It is a recorded path that no longer matches the current engine state, and your ONLY correct response is to throw the path away and compute a new one from the exits that ARE listed.
+
+   **What "stale route" looks like:** Your plan / route says "go `<dir>` to `<Room>`", but `<dir>` is missing from Available Exits. The room description may mention objects, features, or creatures that sound relevant (a rope overhead, a locked grate, a sleeping guard, a narrow gap). Your pattern-recognition will try to connect these features to the missing direction and propose an "unlock" action. DO NOT DO THIS. You must treat flavor-text features as unrelated to the blocked exit unless the game has explicitly told you (in a prior game response OR a KB "Score Changes" / memory entry) that interacting with that feature enables that direction. Absent such explicit evidence, the feature is decorative; the exit is simply not there from this room in this direction.
+
+   **Forbidden reactions to a stale route:**
+   - Proposing an object interaction drawn from the room's flavor text to "enable" the missing direction (e.g. climbing, pushing, opening, pulling something the description mentions but the engine did not list as an exit or scoped object).
+   - Re-issuing the missing direction on subsequent turns without an observable state change (score increase, inventory change, explicit message that a passage opened).
+   - Chaining an action with the missing direction in a compound command (`take X, <dir>`). Compound commands with movement are forbidden regardless, and the parser does not retroactively enable a disallowed direction based on an earlier sub-command.
+   - Inventing theories that "I must be too heavy", "the door is stuck because of weather", "I need a ritual item" — unless the game has told you this explicitly in a recent response, these are hallucinations, not inferences.
+
+   **Required reaction to a stale route (the ONLY correct flow):**
+   1. In your `thinking`, write: `STALE ROUTE — plan says <dir> to <Room>, Available Exits are <verbatim list>, <dir> is missing. Discarding route.`
+   2. Choose your next action from ONLY the directions that DO appear in Available Exits. The single most reliable choice is the direction you used to ENTER this room on your previous turn (check "Previous Reasoning and Actions") — that exit is almost always still present and returns you to a known, mapped space.
+   3. Rewrite `next_steps` to describe a new path that starts with a direction from the current Available Exits. Clear or update `nav_target` so the system recomputes a fresh route from your new position next turn.
+   4. Act within ONE turn of noticing the block. Every turn you spend trying to "solve" a stale route is a turn of progress you will never recover. A suboptimal new route is better than a stuck old route.
+
+   This override applies even if the room description is evocative, even if the KB mentions treasures in the blocked direction, and even if you have been following the old plan for many turns. Sunk cost is not an argument for continuing; it is an argument for recomputing immediately before wasting more turns.
 1. **Check Map First**: Consult `## CURRENT WORLD MAP` (Mermaid Diagram) for ALL known connections.
    - Syntax: `R3["Forest"] -->|"east"| R4` means "east" from Forest leads to Forest Path
    - Priority: Use diagram paths before trying unmapped exits
@@ -80,6 +101,8 @@ You're in "puzzle mode" when standard interactions produce unusual feedback that
 6. **State-change attempts:** Some puzzles require changing environment before object becomes accessible
 
 **VERB EXPLORATION RULE (mandatory for room features):** "Examine" tells you what something LOOKS like — it does NOT test whether it can be physically manipulated. When you examine a physical room feature (rug, painting, bookcase, statue, curtain, panel, lever, furniture) and it is described with any detail, try at least ONE physical manipulation verb (move, push, pull, lift, open, turn, slide) before concluding it is inert. Many puzzles in text adventures are hidden behind mundane-looking objects — a rug may conceal a trap door, a painting may hide a safe, a bookcase may swing open. If you only examine and never manipulate, you will miss these entirely.
+
+   **CARVE-OUT — verb exploration does NOT apply when you are in a stale-route situation.** If you are in a room whose Available Exits are missing a direction your plan wants, do NOT use this rule to justify manipulating a flavor-text feature as a way to "unlock" the missing exit. The stale-route protocol (Navigation Protocol rule 0) takes precedence: recompute the route first, then explore room features only if the room is genuinely on your new path. Verb exploration is for unmapped rooms with no immediate goal conflict — not for forcing your old plan to work.
 
 **Named Container Pattern:** Distinctive containers often have thematic purposes — Armory + weapons → try storing/displaying. Altar + religious items → try offering.
 
