@@ -41,13 +41,16 @@ class MapGraph:
         return self.rooms.get(room_id, "Unknown")
 
     def add_connection(self, from_id: int, direction: str, to_id: int) -> None:
+        """Record an observed edge from_id --direction--> to_id.
+
+        Only the forward edge is recorded. Reverse edges (to_id --opposite--> from_id)
+        are NOT automatically added — they must be learned from actual observed
+        movement in the reverse direction. This correctly handles one-way passages
+        (chimney, chasm drops, slide room) where the reverse direction does not work.
+        """
         direction = normalize_direction(direction) or direction
         self.connections[from_id][direction] = to_id
         self.connection_confidence[(from_id, direction)] += 1
-        opposite = _OPPOSITE_DIRS.get(direction)
-        if opposite:
-            self.connections[to_id][opposite] = from_id
-            self.connection_confidence[(to_id, opposite)] += 1
 
     def get_exits(self, room_id: int) -> dict[str, int]:
         return dict(self.connections.get(room_id, {}))

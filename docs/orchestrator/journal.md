@@ -833,6 +833,17 @@ If ep98's score is within ±10% of ep97 with no new defect patterns, the LLM cri
 
 ---
 
+## Episode 98 → 99 — IMPROVEMENT (BLOCKER: map_graph reverse-edge bug)
+**Trigger:** User observed at ep98 t44 that pathfinding doesn't respect one-way passages. Code review of `zorkburr/game/map_graph.py:43-50` confirmed the `add_connection` method unconditionally writes a reverse edge every time the agent moves — `self.connections[to_id][opposite] = from_id` at line 49. Every one-way Zork passage (chimney climb from Studio to Kitchen, chasm drops from Cellar to East Chasm, slide room descents) has been polluted with a fabricated reverse edge in the map graph since ep1. `shortest_path()` BFS then uses those fabricated edges to produce routes that fail when executed against the live engine.
+**Hypothesis:** The bug is that `add_connection` assumes bidirectionality. The fix is to learn edges ONLY from observed movement: when the agent walks A → direction → B, record only that edge. When the agent later walks B → opposite_direction → A and the engine confirms arrival at A, `add_connection` is called again and records the real reverse edge. One-way passages naturally stay one-way because the reverse `add_connection` call never happens.
+**Change:** `zorkburr/game/map_graph.py` — removed the 4 lines at 47-50 that wrote the fabricated reverse edge (`opposite = _OPPOSITE_DIRS.get(direction)`, the `if opposite:` block, the reverse connection write, and the reverse confidence increment). `_OPPOSITE_DIRS` dict is retained because `normalize_direction` still uses it. Added 3 unit tests to `tests/test_map_graph.py`: `test_add_connection_does_not_create_reverse_edge`, `test_add_connection_bidirectional_observed`, and `test_shortest_path_respects_one_way`. Zero changes to prompts, models, config, or persisted data.
+**Reasoning:** Pure code correctness fix — the old behavior was a silent assumption that one-way passages don't exist, which is wrong for Zork. Unit-testable, attributable, reversible. The persisted `data/map.json` still has accumulated false reverse edges from ep1-ep98 (not touched by this commit), but no NEW false edges will be added starting ep99+. Over time the agent's movement will override bad edges where the reverse actually works, and leave the truly-one-way rooms correctly non-reversible.
+**Target metric:** Functional: all map_graph unit tests pass (including the 3 new tests). Behavioral: ep99+ `shortest_path` calls should no longer produce routes that include a fabricated reverse edge step, and `next_steps` navigation plans should become more reliable when the agent needs to backtrack across truly-one-way passages. Not directly score-measurable in a single episode because the persisted map still has old bad edges, but pathfinding defects should decline over several episodes.
+**Validation:** `uv run pytest tests/test_map_graph.py -v` — 9 passed in 0.02s. Full suite: `uv run pytest tests/ --ignore=tests/test_llm_client.py` — 192 passed, 1 pre-existing failure (`tests/test_config.py::test_load_config_from_toml`).
+**Result:** PENDING — indirect behavioral validation over next several episodes; no single-episode metric applies directly.
+
+---
+
 ## Episode 97 — Turn 50 Checkpoint
 **Type:** HEALTHY (deposit completed via Cyclops shortcut — a first for this session)
 **Score:** 55/350 (delta: +5 since t25 — **platinum bar deposited at t46, new behavior**)
