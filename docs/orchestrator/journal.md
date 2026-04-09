@@ -833,6 +833,59 @@ If ep98's score is within ±10% of ep97 with no new defect patterns, the LLM cri
 
 ---
 
+## Episode 100 — COMPLETE (death to thief in Forest at t106, score 50/350, peak 60)
+**Turns:** 106 (early death)
+**Final score:** 50/350 (peak 60 at t37, −10 respawn penalty at t106)
+**Locations visited:** 18
+**Objectives found:** 15
+**End reason:** `game_over_death` — agent executed `attack man with axe` at Forest (respawn location after exiting Maze east → Grating → Clearing → Forest), almost certainly the thief based on location and "man" description. Same thief-combat pattern as ep97 (died to thief in Treasure Room) and ep98 (silent thief loss of bar during chimney drop).
+**Memory stats:** mem_total=42, mem_new=26, mem_dedup_rejected=2, mem_superseded=4, mem_ephemeral_pruned=3, **mem_consolidated=8** (FIRST non-zero consolidation count across recent episodes)
+
+### Score milestones
+- t6: 10 (kitchen entry)
+- t13: 35 (cellar descent)
+- t17: 40 (east from troll)
+- t21: 50 (platinum bar take — ep98 pace exactly)
+- t30: 54 (painting take at Gallery)
+- **t37: 60 (painting deposited via chimney — ep98 was at 60 at t30, ep100 is 7 turns slower)**
+- t38-40: **Attic visit — rope + nasty knife taken at t41** (FIRST ep98+ run to collect the rope, unlocks the Dome → Torch descent path)
+- t42-105: **Zero score progress for 64 turns.** Agent had the rope but never used it at Dome Room. Instead: went back to Studio t52 for platinum bar (already stolen by thief, silent failure at t53 `take bar` with 3 programmatic rejections), ate lunch at Gallery t78, wandered through Maze t82-90 and t101-105 without finding any new treasures.
+- t106: 60 → 50 (death by thief in Forest, respawn)
+
+### Key findings from ep100
+
+1. **Consolidation fix is finally validated end-to-end.** `mem_consolidated=8` is the first non-zero count since the routing change at commit `5d7bb77`. The consolidation log shows sensible gemini-3-flash decisions: dropped "Items Dropped in Gallery" (correctly identified as transient state), merged "Painting Treasure in Gallery" + "Painting Collected from Gallery" into a single entry, rejected a self-reference merge attempt. One error: consolidation tried to drop "Painting Collected from Gallery" after already merging it, producing "title matched 0 active memories, expected 1". Minor robustness issue in `apply_consolidation_actions` — not critical since the error is logged and the consolidation continues. Earlier episodes (ep98, ep99) had `mem_consolidated=0` because neither hit the 5-memory-per-location threshold for consolidation to trigger.
+
+2. **Silent thief loss reproduced AGAIN.** At t52-53 the agent returned to Studio expecting the platinum bar (dropped at t33 for the chimney climb) and the `take bar` action silently failed. Inventory showed no bar. The thief had taken it during the agent's 19-turn absence. Agent made no mental correction to its plan. Same pattern as ep98.
+
+3. **Rope taken but NEVER used for Dome descent.** At t41 the agent went to the Attic and took the rope — this was the missing prerequisite from ep94's +28 deep-zone scoring path. But the agent then spent 64 turns wandering through Studio/Gallery/Maze/Troll without ever navigating back to Dome Room. The KB doesn't record the rope-at-Dome sequence from ep94 explicitly enough for the agent to act on it.
+
+4. **Thief killed the agent in Forest.** At t106 `attack man with axe` executed while the agent was in Forest (almost certainly after the thief wandered into that zone). This is the third cross-episode thief-related gameplay defect in four episodes.
+
+### Running Score Table (updated through ep100)
+| Episode | Score | vs Prev | Best | Locations | Mems | mem_cons | End Reason | Key Note |
+|---------|-------|---------|------|-----------|------|----------|------------|----------|
+| ep94 | **102** | +23 | **102** | 32 | 49 | 0 | max_turns | visibility bundle, +28 Torch/Egyptian |
+| ep95 | 90 | −12 | 102 | 24 | 31 | 0 | killed | +15 Reservoir trunk (new) |
+| ep96 | 54 | −36 | 102 | 21 | ~30 | 0 | killed | thief loss + ballast bug |
+| ep97 | 70 | +16 | 102 | 16 | 22 | 0 | death (thief) | critic swap confirmed |
+| **ep98** | **90** | **+20** | **102** | **34** | **33** | 0 | max_turns | critic-disable CONFIRMED, Atlantis trident |
+| ep99 | 65* | −25 | 102 | 23 | 19 | 0 | CRASH (DB lock) | KB ignore: Dam bolt loop; *crashed at t87 |
+| **ep100** | **50** | **−15** | **102** | **18** | **26** | **8** | death (thief, Forest) | Rope taken + never used for Dome; consolidation working |
+
+**Trend (ep98→100):** 90 → 65 (crash) → 50 (death). The 90 peak of ep98 has NOT been matched in either follow-up. Variance alone doesn't explain this — ep99 and ep100 both underperform on the same pattern: the agent executes the early game correctly, gets to Gallery+chimney deposit, and then wastes 60-80+ turns on one of {Dam puzzle loop, Maze wandering, fruitless rope navigation} before dying or max-turning out. The critic-disable experiment result from ep98 is not obviously regressed — ep100's early-game was actually faster than ep98's in turns-to-first-deposit — but the back half of each episode has been unproductive.
+
+### Top pattern across ep97-100 (ordered by frequency)
+1. **Thief combat defect** (ep97 died, ep98 lost bar silently, ep100 died) — 3/4 recent episodes. Agent engages or carelessly drops treasure around the thief. KB has warnings ("thief dodges, disarms, leaves when finding nothing of value") but the agent doesn't apply them.
+2. **Object permanence / KB-ignore** (ep99 Dam bolt loop, ep100 rope unused at Dome, ep100 silent bar take failure) — agent reads the KB but doesn't reconcile it against live state or act on its warnings.
+3. **Chimney ballast bug** (ep94/95/96/99 dropped treasures; ep98 correctly surgical; ep100 correctly surgical) — trending toward fixed but still intermittent.
+
+The session has landed 5 confirmed infrastructure wins (memory-consolidation routing, analysis_model rename, critic-model swap, critic disable, extractor deletion, map_graph reverse-edge fix) plus 1 environmental fix (SQLite WAL mode for the burr tracker DB). But score trend is flat to slightly down, because the remaining defects are all at the GAMEPLAY REASONING level, not the infrastructure level.
+
+**Next priority (clearly): thief combat gameplay defect.** Three episodes in a row have been affected. The KB has the knowledge; the agent doesn't apply it. This is the object permanence / belief reconciliation pattern in its most concrete form, AND it's directly score-limiting (≥ -30 points per episode from thief interactions).
+
+---
+
 ## Episode 99 — ABORTED (SQLite DB lock at t87, score 65/350)
 **Turns:** 87 of 200 (crashed mid-episode, did NOT complete naturally)
 **Final score:** 65/350 before crash
