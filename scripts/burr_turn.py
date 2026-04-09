@@ -156,16 +156,6 @@ def show_step(idx, step, prev_state, full):
             inv_str += " (unchanged)"
         print(f"  Inventory: {inv_str}")
 
-    elif action == "extract_info":
-        exits = state.get("exits", [])
-        objects = state.get("visible_objects", [])
-        combat = state.get("in_combat", False)
-        exit_names = [e if isinstance(e, str) else str(e) for e in exits]
-        obj_names = [o["name"] if isinstance(o, dict) else str(o) for o in objects]
-        print(f"  Exits: {', '.join(exit_names) if exit_names else '(none)'}")
-        print(f"  Objects: {', '.join(obj_names) if obj_names else '(none)'}")
-        print(f"  Combat: {'yes' if combat else 'no'}")
-
     elif action == "record_results":
         tsp = state.get("turns_since_progress", 0)
         visited = state.get("visited_locations", [])

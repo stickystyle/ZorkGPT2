@@ -1,7 +1,7 @@
 from unittest.mock import MagicMock
 from pydantic import ValidationError
 import pytest
-from zorkburr.llm.models import AgentResponse, CriticResponse, ExtractorResponse
+from zorkburr.llm.models import AgentResponse, CriticResponse
 from zorkburr.llm.prompts import load_prompt
 from zorkburr.utils import clean_action
 
@@ -20,10 +20,6 @@ def test_critic_response_model():
 def test_critic_response_rejects_out_of_range():
     with pytest.raises(ValidationError):
         CriticResponse(score=2.0, justification="bad", confidence=0.5)
-
-def test_extractor_response_model():
-    r = ExtractorResponse(exits=["north", "south"], in_combat=False, is_room_description=True)
-    assert len(r.exits) == 2
 
 def test_clean_action():
     assert clean_action("  NORTH  ") == "north"

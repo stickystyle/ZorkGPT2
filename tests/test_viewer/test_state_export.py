@@ -123,14 +123,12 @@ class TestGameState:
         assert gs["inventory"] == ["leaflet", "sword"]
         assert gs["exits"] == ["north", "south", "west"]
 
-    def test_combat_and_objects(self):
+    def test_visible_objects(self):
         state = create_initial_state("ep").update(**{
-            S.IN_COMBAT: True,
             S.VISIBLE_OBJECTS: [{"name": "troll", "id": 99}],
         })
         result = export_turn_state(state)
         gs = result["game_state"]
-        assert gs["in_combat"] is True
         assert gs["visible_objects"] == [{"name": "troll", "id": 99}]
 
     def test_progress_tracking(self):

@@ -27,7 +27,7 @@ ACTION_SCHEMA = {
     "evaluate_action": {
         "state_keys": [
             "proposed_action", "game_response", "action_history", "exits",
-            "inventory", "location_name", "rejection_count", "in_combat",
+            "inventory", "location_name", "rejection_count",
         ],
         "output_keys": [
             "critic_score", "critic_justification", "critic_confidence",
@@ -52,14 +52,6 @@ ACTION_SCHEMA = {
         ],
         "output_keys": ["knowledge_base"],
     },
-    "extract_info": {
-        "state_keys": [
-            "game_response", "location_name", "location_id", "in_combat",
-        ],
-        "output_keys": [
-            "exits", "in_combat", "is_room_description", "visible_objects",
-        ],
-    },
     "update_objectives": {
         "state_keys": [
             "discovered_objectives", "completed_objectives", "action_history",
@@ -82,7 +74,7 @@ _PRE_EXECUTE = {"assemble_context", "generate_action", "evaluate_action"}
 
 # Post-execute action types — found by walking forwards from execute_action
 _POST_EXECUTE = {
-    "extract_info", "record_memory", "update_knowledge",
+    "record_memory", "update_knowledge",
     "update_objectives", "check_objective_completion",
 }
 

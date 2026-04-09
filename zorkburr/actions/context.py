@@ -6,7 +6,7 @@ from zorkburr.state import S
 @action(
     reads=[S.GAME_RESPONSE, S.LOCATION_NAME, S.LOCATION_ID, S.INVENTORY, S.SCORE,
            S.ACTION_HISTORY, S.EXITS, S.DISCOVERED_OBJECTIVES, S.COMPLETED_OBJECTIVES,
-           S.KNOWLEDGE_BASE, S.MEMORIES_BY_LOCATION, S.MAP_DATA, S.IN_COMBAT, S.TURN_COUNT,
+           S.KNOWLEDGE_BASE, S.MEMORIES_BY_LOCATION, S.MAP_DATA, S.TURN_COUNT,
            S.TURNS_SINCE_PROGRESS, S.NEXT_STEPS, S.LOCATION_SUMMARIES, S.NAV_TARGET],
     writes=[S.FORMATTED_CONTEXT],
 )
@@ -44,9 +44,6 @@ def assemble_context(state: State) -> tuple[dict, State]:
     knowledge = state[S.KNOWLEDGE_BASE]
     if knowledge:
         sections.append(f"**Strategic Knowledge:**\n{knowledge}")
-
-    if state[S.IN_COMBAT]:
-        sections.append("**COMBAT ACTIVE — prioritize combat actions**")
 
     # Current plan (forward-looking multi-turn intent)
     next_steps = state[S.NEXT_STEPS]

@@ -61,7 +61,7 @@ class TestHookOnlyUploadsAfterRecordResults:
             hook = S3ViewerHook(bucket="test-bucket")
             state = _make_state()
             for action_name in ["generate_action", "evaluate_action", "execute_action",
-                                "extract_info", "assemble_context", "record_memory"]:
+                                "assemble_context", "record_memory"]:
                 hook.post_run_step(
                     state=state,
                     action=_mock_action(action_name),

@@ -48,12 +48,10 @@ def build_turns(steps):
             continue
 
         if tc not in turns:
-            turns[tc] = {"exec_state": None, "extract_state": None, "eval_states": []}
+            turns[tc] = {"exec_state": None, "eval_states": []}
 
         if action == "execute_action":
             turns[tc]["exec_state"] = state
-        elif action == "extract_info":
-            turns[tc]["extract_state"] = state
         elif action == "evaluate_action":
             turns[tc]["eval_states"].append(state)
 
@@ -125,16 +123,13 @@ def show_turn(tc, turn_data, verbose):
 
     # Verbose extras
     if verbose:
-        ext_state = turn_data.get("extract_state") or state
-        exits = ext_state.get("exits", [])
+        exits = state.get("exits", [])
         exit_names = [e if isinstance(e, str) else str(e) for e in exits]
-        objects = ext_state.get("visible_objects", [])
+        objects = state.get("visible_objects", [])
         obj_names = [o["name"] if isinstance(o, dict) else str(o) for o in objects]
-        combat = ext_state.get("in_combat", False)
         print(
             f"    Exits: {', '.join(exit_names) if exit_names else '(none)'}"
             f" | Objects: {', '.join(obj_names) if obj_names else '(none)'}"
-            f" | Combat: {'yes' if combat else 'no'}"
         )
 
         overridden = state.get("was_overridden", False)

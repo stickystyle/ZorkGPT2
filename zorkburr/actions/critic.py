@@ -83,7 +83,7 @@ def validate_against_object_tree(
 @action(
     reads=[
         S.PROPOSED_ACTION, S.GAME_RESPONSE, S.ACTION_HISTORY, S.EXITS,
-        S.INVENTORY, S.LOCATION_NAME, S.REJECTION_COUNT, S.IN_COMBAT,
+        S.INVENTORY, S.LOCATION_NAME, S.REJECTION_COUNT,
     ],
     writes=[
         S.CRITIC_SCORE, S.CRITIC_JUSTIFICATION, S.CRITIC_CONFIDENCE,
@@ -141,7 +141,6 @@ def evaluate_action(
         f"**Location:** {state[S.LOCATION_NAME]}",
         f"**Available Exits:** {', '.join(state[S.EXITS]) if state[S.EXITS] else 'unknown'}",
         f"**Inventory:** {', '.join(state[S.INVENTORY]) if state[S.INVENTORY] else '(empty)'}",
-        f"**In Combat:** {state[S.IN_COMBAT]}",
     ]
     if recent_lines:
         context_parts.append("**Recent Actions:**\n" + "\n".join(recent_lines))

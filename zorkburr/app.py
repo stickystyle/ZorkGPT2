@@ -8,7 +8,6 @@ from zorkburr.actions.agent import generate_action
 from zorkburr.actions.context import assemble_context
 from zorkburr.actions.critic import evaluate_action
 from zorkburr.actions.execute import execute_action
-from zorkburr.actions.extract import extract_info
 from zorkburr.actions.memory import record_memory
 from zorkburr.actions.objectives import check_objective_completion, update_objectives
 from zorkburr.actions.grounding import validate_memory
@@ -58,7 +57,6 @@ def build_turn_app(
     bound_agent = generate_action.bind(client=client, config=config, use_thinking=True)
     bound_critic = evaluate_action.bind(llm=client, jericho=jericho, config=config)
     bound_execute = execute_action.bind(jericho=jericho)
-    bound_extract = extract_info.bind(client=client, jericho=jericho, config=config)
     bound_memory = record_memory.bind(client=client, config=config)
     bound_completion = check_objective_completion.bind(client=client, config=config)
     bound_objectives = update_objectives.bind(client=client, config=config, use_thinking=False)
@@ -78,7 +76,6 @@ def build_turn_app(
             generate_action=bound_agent,
             evaluate_action=bound_critic,
             execute_action=bound_execute,
-            extract_info=bound_extract,
             record_results=record_results.bind(config=config),
             record_memory=bound_memory,
             check_objective_completion=bound_completion,
@@ -97,8 +94,7 @@ def build_turn_app(
             # Rejected — retry
             ("evaluate_action", "generate_action", default),
             # Post-execution pipeline
-            ("execute_action", "extract_info"),
-            ("extract_info", "record_results"),
+            ("execute_action", "record_results"),
             ("record_results", "record_memory"),
             ("record_memory", "validate_memory"),
             ("validate_memory", "check_objective_completion"),

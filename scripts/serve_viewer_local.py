@@ -100,7 +100,6 @@ def _state_to_viewer_json(state: dict) -> dict:
             "location_id": location_id,
             "inventory": state.get("inventory", []),
             "exits": state.get("exits", []),
-            "in_combat": state.get("in_combat", False),
             "visible_objects": state.get("visible_objects", []),
             "turns_since_progress": state.get("turns_since_progress", 0),
         },

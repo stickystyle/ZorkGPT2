@@ -29,11 +29,6 @@ class CriticResponse(BaseModel):
     justification: str = Field(description="Why this score was given")
     confidence: float = Field(ge=0.0, le=1.0, description="Confidence in evaluation")
 
-class ExtractorResponse(BaseModel):
-    exits: list[str] = Field(default_factory=list, description="Available exit directions")
-    in_combat: bool = Field(default=False, description="Whether combat is active")
-    is_room_description: bool = Field(default=False, description="Whether text is a room description")
-
 class MemorySynthesisResponse(BaseModel):
     should_remember: bool = Field(description="Whether to remember this")
     reasoning: str = Field(description="Why or why not")

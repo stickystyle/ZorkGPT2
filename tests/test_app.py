@@ -5,7 +5,6 @@ from zorkburr.config import GameConfig
 from zorkburr.llm.models import (
     AgentResponse,
     CriticResponse,
-    ExtractorResponse,
     GroundingJudgment,
     GroundingValidationResponse,
     MemorySynthesisResponse,
@@ -21,8 +20,6 @@ def _mock_llm_side_effect(**kwargs):
         return AgentResponse(thinking="test", action="look", new_objective="")
     elif model == CriticResponse:
         return CriticResponse(score=0.8, justification="ok", confidence=0.9)
-    elif model == ExtractorResponse:
-        return ExtractorResponse(exits=["north"], in_combat=False, is_room_description=False)
     elif model == MemorySynthesisResponse:
         return MemorySynthesisResponse(should_remember=False, reasoning="skip")
     elif model == ObjectiveCompletionResponse:
@@ -83,8 +80,6 @@ def test_turn_graph_with_critic(jericho):
             if call_count[0] == 1:
                 return CriticResponse(score=-0.5, justification="jumping is pointless", confidence=0.9)
             return CriticResponse(score=0.7, justification="good interaction", confidence=0.8)
-        elif model == ExtractorResponse:
-            return ExtractorResponse(exits=["north"], in_combat=False, is_room_description=False)
         elif model == MemorySynthesisResponse:
             return MemorySynthesisResponse(should_remember=False, reasoning="skip")
         elif model == ObjectiveCompletionResponse:

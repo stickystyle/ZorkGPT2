@@ -29,8 +29,6 @@ class S:
     ACTION_HISTORY = "action_history"
     REASONING_HISTORY = "reasoning_history"
     EXITS = "exits"
-    IN_COMBAT = "in_combat"
-    IS_ROOM_DESCRIPTION = "is_room_description"
     VISIBLE_OBJECTS = "visible_objects"
     MEMORIES_BY_LOCATION = "memories_by_location"
     MEMORY_STATS = "memory_stats"
@@ -76,8 +74,6 @@ def create_initial_state(episode_id: str | None = None) -> State:
         S.ACTION_HISTORY: [],
         S.REASONING_HISTORY: [],
         S.EXITS: [],
-        S.IN_COMBAT: False,
-        S.IS_ROOM_DESCRIPTION: False,
         S.VISIBLE_OBJECTS: [],
         S.MEMORIES_BY_LOCATION: {},
         S.MEMORY_STATS: {"new": 0, "dedup_rejected": 0, "superseded": 0},

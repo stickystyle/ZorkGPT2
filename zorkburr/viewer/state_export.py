@@ -65,7 +65,6 @@ def export_turn_state(state: State) -> dict:
             "location_id": location_id,
             "inventory": state[S.INVENTORY],
             "exits": state[S.EXITS],
-            "in_combat": state[S.IN_COMBAT],
             "visible_objects": state[S.VISIBLE_OBJECTS],
             "turns_since_progress": state[S.TURNS_SINCE_PROGRESS],
         },

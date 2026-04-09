@@ -45,7 +45,6 @@ def test_find_action_step_post_execute():
     """Post-execute actions like record_memory should be found by walking forward."""
     steps = [
         _make_step("execute_action", {"turn_count": 1}),
-        _make_step("extract_info", {"turn_count": 1, "exits": ["north", "south"]}),
         _make_step("record_memory", {"turn_count": 1, "memories_by_location": {"10": []}}),
         _make_step("assemble_context", {"turn_count": 1}),
     ]

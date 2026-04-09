@@ -24,7 +24,6 @@ def _make_state(**overrides):
         S.INVENTORY: [],
         S.LOCATION_NAME: "Clearing",
         S.REJECTION_COUNT: 0,
-        S.IN_COMBAT: False,
     }
     defaults.update(overrides)
     return State(defaults)

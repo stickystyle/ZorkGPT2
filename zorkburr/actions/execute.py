@@ -13,7 +13,8 @@ logger = logging.getLogger(__name__)
            S.AGENT_REASONING, S.CRITIC_SCORE, S.CRITIC_JUSTIFICATION, S.WAS_OVERRIDDEN, S.REJECTION_COUNT],
     writes=[S.GAME_RESPONSE, S.SCORE, S.MAX_SCORE, S.LOCATION_ID, S.LOCATION_NAME, S.INVENTORY,
             S.GAME_OVER, S.GAME_OVER_REASON, S.PRE_LOCATION_ID, S.PRE_LOCATION_NAME,
-            S.PRE_SCORE, S.PRE_INVENTORY, S.ACTION_HISTORY, S.TURN_COUNT],
+            S.PRE_SCORE, S.PRE_INVENTORY, S.ACTION_HISTORY, S.TURN_COUNT,
+            S.EXITS, S.VISIBLE_OBJECTS],
 )
 def execute_action(state: State, jericho: JerichoInterface) -> tuple[dict, State]:
     """Send the chosen action to Jericho and capture the resulting game state."""
@@ -34,6 +35,8 @@ def execute_action(state: State, jericho: JerichoInterface) -> tuple[dict, State
     score, max_score = jericho.get_score()
     inventory = jericho.get_inventory()
     game_over, reason = jericho.is_game_over(response)
+    exits = jericho.get_valid_exits()
+    visible_objects = jericho.get_visible_objects()
 
     # Build action history entry (includes critic/reasoning for viewer)
     history_entry = {
@@ -68,6 +71,8 @@ def execute_action(state: State, jericho: JerichoInterface) -> tuple[dict, State
             S.PRE_SCORE: pre_score,
             S.PRE_INVENTORY: pre_inventory,
             S.TURN_COUNT: turn + 1,
+            S.EXITS: exits,
+            S.VISIBLE_OBJECTS: visible_objects,
         })
         .append(**{S.ACTION_HISTORY: history_entry})
     )

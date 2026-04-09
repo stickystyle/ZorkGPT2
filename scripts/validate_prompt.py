@@ -31,9 +31,6 @@ def _get_action_runner(action_type):
     elif action_type == "update_knowledge":
         from zorkburr.actions.knowledge import update_knowledge
         return update_knowledge.run
-    elif action_type == "extract_info":
-        from zorkburr.actions.extract import extract_info
-        return extract_info.run
     elif action_type == "update_objectives":
         from zorkburr.actions.objectives import update_objectives
         return update_objectives.run
@@ -53,11 +50,6 @@ def _build_action_kwargs(action_type, client, config):
         mock_jericho.get_visible_objects.return_value = []
         mock_jericho.get_inventory.return_value = []
         return {"llm": client, "jericho": mock_jericho, "config": config}
-    elif action_type == "extract_info":
-        mock_jericho = MagicMock()
-        mock_jericho.get_visible_objects.return_value = []
-        mock_jericho.get_valid_exits.return_value = []
-        return {"client": client, "jericho": mock_jericho, "config": config}
     elif action_type in ("update_knowledge", "update_objectives"):
         return {"client": client, "config": config, "use_thinking": False}
     else:
@@ -131,9 +123,6 @@ def structural_check(fixture, new_output):
         if not kb:
             return {"passed": False, "detail": "Empty knowledge base output"}
         return {"passed": True, "detail": f"KB: {len(kb)} chars"}
-
-    elif action_type == "extract_info":
-        return {"passed": True, "detail": "Extract info completed"}
 
     elif action_type in ("update_objectives", "check_objective_completion"):
         return {"passed": True, "detail": "Objectives step completed"}
