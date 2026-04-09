@@ -68,7 +68,7 @@ def test_minimal_turn_graph(jericho):
 
 def test_turn_graph_with_critic(jericho):
     """Critic rejects first action, agent retries, second accepted."""
-    config = GameConfig(openrouter_api_key="test-key")
+    config = GameConfig(openrouter_api_key="test-key", enable_critic=True)
 
     call_count = [0]
 

@@ -747,6 +747,22 @@ Fixture probe for critic swap showed 5/5 problem flips (revisit bias + compound-
 
 ---
 
+## Episode 97 → 98 — EXPERIMENT (enable_critic = false)
+**Trigger:** ep97 first-proposal accept rate = 91.2% (62/68 turns with 0 rejections). Zero spirals. All 6 rejections resolved on first retry. At gemini-3-flash-preview / gemini-3-flash-preview parity between agent and critic, the LLM critic layer is agreeing with the agent ~91% of the time; the remaining 9% are conservative-caution rejections that clear on retry with no observable improvement in replacement proposals. User-raised design question: what is the critic doing besides costing an LLM call per turn?
+**Hypothesis:** When agent and critic share the same model, the LLM critic layer contributes marginal value over the programmatic `validate_against_object_tree` check at `zorkburr/actions/critic.py:38-80` (which runs regardless of `enable_critic` and catches object-not-in-context parse errors deterministically). Dropping the LLM layer should:
+  - NOT meaningfully degrade gameplay (agent reasoning already covers what the critic rechecks)
+  - Reduce per-turn latency (~5-10s saved on the critic LLM call)
+  - Reduce per-episode cost (~1 LLM call × 200 turns × gemini-3-flash pricing)
+  - Preserve safety against parse errors (the programmatic validator is unchanged)
+If ep98's score is within ±10% of ep97 with no new defect patterns, the LLM critic layer is net cost and should stay disabled. If ep98 shows worse gameplay (more dead-ends, more invalid compound actions, lower score), the critic was adding value we didn't measure.
+**Change:** `pyproject.toml` line 57 — `enable_critic = true` → `false`. Single line. No prompt or code changes. The existing code path at `critic.py:117-125` handles `enable_critic=false` by running the programmatic validator first, then auto-accepting with score 0.5 if it passes, then entering the normal retry loop if the validator rejects. No new code needed.
+**Reasoning:** This is a MEASUREMENT experiment, not a fix. The hypothesis is neutral — the critic may or may not be adding value, and the only way to find out is to run an episode without it and compare metrics. Toggle is one line and instantly reversible.
+**Target metric:** ep98 score ≥ 63 (within 10% of ep97's 70) AND rejection rate drops to programmatic-only (<5% expected — previously 8.8% in ep97 with critic enabled). Bonus signal: per-turn latency noticeably lower. If ep98 matches ep97 on score with lower latency and fewer rejections, disabling the LLM critic is the right move going forward.
+**Validation:** N/A — no fixture probe applies to a runtime-behavior toggle. Test suite re-run (`uv run pytest tests/ --ignore=tests/test_llm_client.py`) for regression safety: 191 passed, 1 pre-existing failure (`tests/test_config.py::test_load_config_from_toml`). Production validation is ep98 itself.
+**Result:** PENDING
+
+---
+
 ## Episode 97 — Turn 50 Checkpoint
 **Type:** HEALTHY (deposit completed via Cyclops shortcut — a first for this session)
 **Score:** 55/350 (delta: +5 since t25 — **platinum bar deposited at t46, new behavior**)
