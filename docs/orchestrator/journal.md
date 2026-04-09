@@ -506,6 +506,27 @@ Quality judgment: the change is an improvement — the core problem turns (t166,
 
 ---
 
+## Episode 95 → 96 — ENVIRONMENTAL FIX (not a hypothesis change)
+**Trigger:** OpenRouter credit balance: 251.58 credits / 251.68 used = ~0.11 overdrawn. Max_tokens=8192 requests rejected with "you requested 8192 but can only afford 6239". Small test call with max_tokens=50 succeeded. Problem is specifically that upfront budget estimate scales linearly with max_tokens, and 8192 tokens * ~$0.00000X per token exceeds remaining budget per call.
+**Hypothesis:** Reducing `default_max_tokens` from 8192 → 4096 will fit the pre-estimate under the affordable limit while keeping enough headroom for normal agent responses (rarely exceed ~1500 tokens). This is an environmental unblock, not a strategic improvement — the RL hypothesis being tested is still ep94→95 (stale-route), which needs a deep-zone run to fully validate.
+**Change:** `pyproject.toml` — `default_max_tokens = 8192` → `4096`. No prompt changes.
+**Reasoning:** Minimal, reversible. Agent responses rarely approach even the 4096 cap. If empirical truncation happens mid-episode, revert. This change is BLOCKER-class (the episode can't even run without it).
+**Target metric:** ep96 runs to completion without 402 errors.
+**Validation:** Single small API call (max_tokens=50) returned successfully with the existing credentials. Running ep96 IS the validation for this change.
+**Result:** PARTIALLY FAILED — ep96 still hit 402 errors at t7 ("requested 4096, can afford 3499"). The credit budget was actively decreasing *during* ep96 attempts (from 6239 affordable at ep95 end to 3499 at ep96 turn 7), so 4096 was insufficient. Killed ep96 at t7.
+**Follow-up:** Keeping default_max_tokens=4096 (it's a sane default for agent tasks once credits are topped up). The immediate blocker is the OpenRouter credit balance (251.58 / 251.72 used), not the config. Next orchestrator session should check credit balance first; if still overdrawn, wait for user to top up. If refreshed, resume with ep96.
+---
+
+## Episode 96 — ABORTED (credit exhaustion, t7)
+**Turns:** 7 of 200 planned
+**Reason:** OpenRouter daily credit limit. Every agent call beyond t6 failed with 402 "requested 4096 tokens, can afford ~3500". Agent fell back to `look` at t7, orchestrator killed the process before circuit breaker fired.
+**Score at abort:** 10/350 (Kitchen entry; standard early-game was progressing before the crash)
+**Notes:** No meaningful data. This run does NOT count for improvement validation. Next viable run is ep96 (re-numbered) once credits are restored.
+
+---
+
+
+
 ## Episode 94 → 95 — IMPROVEMENT RESOLUTION
 **Result:** BEHAVIORALLY CONFIRMED, OUTCOME NOT TESTABLE — At t77 the agent explicitly wrote "This is a STALE ROUTE" when up-from-Cellar was missing from engine exits, then backtracked via Troll Room. The named frame ("stale route") from the prompt was picked up and applied. However, the target metric (turns-to-deposit after deep-zone treasure acquisition) was not testable because the agent never reached Torch/Dome/Egyptian in ep95 — so the specific ep94 bug the change targeted never resurfaced for direct comparison.
 
