@@ -209,14 +209,13 @@ def update_knowledge(state: State, client: instructor.Instructor, config: GameCo
         f"Existing knowledge:\n{existing or '(none yet)'}\n\nRecent gameplay:\n{action_summary}"
     )
     try:
-        kb_model = config.knowledge_model or config.analysis_model
-        raw_client, model = client.raw_client_for(kb_model)
+        raw_client, model = client.raw_client_for(config.knowledge_model)
         response = raw_client.chat.completions.create(
             model=model,
             messages=[{"role": "system", "content": _get_knowledge_prompt()}, {"role": "user", "content": user_msg}],
             temperature=0.2, max_tokens=2048,
             timeout=config.llm_request_timeout,
-            **thinking_kwargs(config, kb_model, False),
+            **thinking_kwargs(config, config.knowledge_model, False),
         )
         llm_output = response.choices[0].message.content or ""
 

@@ -5,7 +5,7 @@ from zorkburr.state import S
 
 
 def _mock_config(**kwargs):
-    defaults = dict(analysis_model="test", knowledge_model="", use_local_models=False)
+    defaults = dict(objective_model="test", knowledge_model="test", use_local_models=False)
     defaults.update(kwargs)
     return MagicMock(**defaults)
 
@@ -93,12 +93,3 @@ def test_update_knowledge_uses_knowledge_model():
     mock_client.raw_client_for.assert_called_with("remote/anthropic/claude-sonnet-4.6")
 
 
-def test_update_knowledge_falls_back_to_analysis_model():
-    mock_client, _ = _mock_client_with_raw()
-
-    update_knowledge.run(
-        _base_state(), client=mock_client,
-        config=_mock_config(knowledge_model=""),
-        use_thinking=False,
-    )
-    mock_client.raw_client_for.assert_called_with("test")

@@ -72,8 +72,8 @@ class GameConfig(BaseSettings):
     agent_model: str = "anthropic/claude-sonnet-4.6"
     critic_model: str = "anthropic/claude-sonnet-4.6"
     extractor_model: str = "anthropic/claude-haiku-4.5"
-    analysis_model: str = "anthropic/claude-sonnet-4.6"
-    knowledge_model: str = ""
+    objective_model: str = "anthropic/claude-sonnet-4.6"
+    knowledge_model: str = "anthropic/claude-sonnet-4.6"
     memory_model: str = "anthropic/claude-haiku-4.5"
 
     # LLM sampling

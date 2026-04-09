@@ -81,11 +81,11 @@ def update_objectives(state: State, client: instructor.Instructor, config: GameC
     )
     try:
         response: ObjectiveDiscoveryResponse = client.create(
-            model=config.analysis_model,
+            model=config.objective_model,
             response_model=ObjectiveDiscoveryResponse,
             messages=[{"role": "system", "content": _get_discovery_prompt()}, {"role": "user", "content": user_msg}],
             temperature=0.7, max_tokens=512, max_retries=2,
-            **thinking_kwargs(config, config.analysis_model, use_thinking),
+            **thinking_kwargs(config, config.objective_model, use_thinking),
         )
         # Resolve location_id from location_name using map data
         map_data = state[S.MAP_DATA]
@@ -146,10 +146,10 @@ def check_objective_completion(state: State, client: instructor.Instructor, conf
     )
     try:
         response: ObjectiveCompletionResponse = client.create(
-            model=config.analysis_model, response_model=ObjectiveCompletionResponse,
+            model=config.objective_model, response_model=ObjectiveCompletionResponse,
             messages=[{"role": "system", "content": _get_completion_prompt()}, {"role": "user", "content": user_msg}],
             temperature=0.0, max_tokens=256, max_retries=2,
-            **thinking_kwargs(config, config.analysis_model, False),
+            **thinking_kwargs(config, config.objective_model, False),
         )
         completed = set(response.completed_objectives)
         if completed:

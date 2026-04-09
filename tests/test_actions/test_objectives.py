@@ -6,7 +6,7 @@ from zorkburr.state import S
 
 
 def _mock_config(**kwargs):
-    defaults = dict(analysis_model="test", use_local_models=False)
+    defaults = dict(objective_model="test", use_local_models=False)
     defaults.update(kwargs)
     return MagicMock(**defaults)
 

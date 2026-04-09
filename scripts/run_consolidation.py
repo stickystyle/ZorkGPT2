@@ -53,7 +53,7 @@ def main():
 
     # Override config to use OpenRouter model
     config.agent_model = "mistralai/ministral-14b-2512"
-    config.analysis_model = "mistralai/ministral-14b-2512"
+    config.memory_model = "mistralai/ministral-14b-2512"
     config.use_local_models = False
 
     total_stats = {"kept": 0, "dropped": 0, "merged": 0, "superseded": 0, "rejected": 0}
