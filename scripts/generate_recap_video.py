@@ -35,6 +35,22 @@ CHARACTER_REFERENCE = RECAPS_DIR / "character_reference.png"
 MODEL_ID = "veo-3.1-lite-generate-preview"
 MAX_DURATION_SECONDS = 8  # Veo 3.1 caps at 8s per clip
 
+# Veo 3.1 Lite only accepts a discrete set of durations. The error message
+# claims "between 4 and 8 inclusive" but in practice it rejects 5 and 7.
+# The working set is {4, 6, 8}. We snap the director's requested duration UP
+# to the nearest valid value — any excess time at the end of a beat is
+# breathing room for the narration and the ambient audio.
+VALID_DURATIONS = (4, 6, 8)
+
+
+def snap_duration(requested: int) -> int:
+    """Snap a requested duration up to the nearest valid Veo duration."""
+    clamped = max(min(requested, MAX_DURATION_SECONDS), VALID_DURATIONS[0])
+    for valid in VALID_DURATIONS:
+        if clamped <= valid:
+            return valid
+    return VALID_DURATIONS[-1]
+
 # Style enforcement directives, appended to every scene prompt.
 #
 # The Gemini API (unlike Vertex) does NOT support negative_prompt, so our
@@ -178,49 +194,38 @@ def pick_beat(shot_list: dict, beat_index: int) -> dict:
     return match[0]
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--episode-id", required=True, help="e.g. ep98")
-    parser.add_argument("--beat-index", type=int, required=True,
-                        help="Beat number to render (1-based)")
-    parser.add_argument("--resolution", default="720p", choices=["720p", "1080p"])
-    parser.add_argument("--aspect-ratio", default="16:9", choices=["16:9", "9:16"])
-    parser.add_argument("--dry-run", action="store_true",
-                        help="Print the prompt and cost estimate, don't call the API")
-    parser.add_argument("--out-dir", type=Path, default=RECAPS_DIR)
-    parser.add_argument(
-        "--character-reference",
-        type=Path,
-        default=CHARACTER_REFERENCE,
-        help="Path to the character reference image (default: data/recaps/character_reference.png)",
-    )
-    parser.add_argument(
-        "--style",
-        choices=sorted(STYLE_ENFORCERS.keys()),
-        default="cinematic",
-        help="Visual style enforcer to append to the prompt (default: cinematic)",
-    )
-    args = parser.parse_args()
+def render_beat(
+    *,
+    client: "genai.Client | None",
+    shot_list: dict,
+    beat: dict,
+    args: argparse.Namespace,
+) -> float:
+    """Render a single beat. Returns the actual cost billed.
 
-    shot_list = load_shot_list(args.episode_id)
-    beat = pick_beat(shot_list, args.beat_index)
+    If client is None, runs in dry-run mode (prints the prompt + cost,
+    returns 0.0 without calling the API).
+    """
+    beat_index = beat["beat_index"]
 
-    # Clamp duration to Veo's 8s max, warn if truncated
+    # Snap duration to Veo's discrete valid set, warn if adjusted
     requested_duration = beat["duration_seconds"]
-    duration = min(requested_duration, MAX_DURATION_SECONDS)
-    if duration < requested_duration:
+    duration = snap_duration(requested_duration)
+    if duration != requested_duration:
         print(
-            f"  ⚠ Beat duration {requested_duration}s exceeds Veo's {MAX_DURATION_SECONDS}s "
-            f"cap — clamping. Fix the director schema to cap at 8s.",
+            f"  ⚠ Beat {beat_index} duration {requested_duration}s snapped to "
+            f"{duration}s (Veo 3.1 Lite only accepts {VALID_DURATIONS}).",
             file=sys.stderr,
         )
 
     prompt = build_prompt(beat, shot_list, args.style)
     cost = duration * PRICE_PER_SECOND[args.resolution]
 
+    out_path = args.out_dir / f"{args.episode_id}.beat{beat_index:02d}.{args.style}.mp4"
+
     print("=" * 72, file=sys.stderr)
     print(f"Episode:     {args.episode_id}", file=sys.stderr)
-    print(f"Beat:        {args.beat_index}/{len(shot_list['beats'])} — {beat['title']}", file=sys.stderr)
+    print(f"Beat:        {beat_index}/{len(shot_list['beats'])} — {beat['title']}", file=sys.stderr)
     print(f"Turn range:  {beat['turn_range']}", file=sys.stderr)
     print(f"Duration:    {duration}s  (requested {requested_duration}s)", file=sys.stderr)
     print(f"Resolution:  {args.resolution}", file=sys.stderr)
@@ -228,32 +233,21 @@ def main() -> int:
     print(f"Reference:   {args.character_reference.name}", file=sys.stderr)
     print(f"Model:       {MODEL_ID}", file=sys.stderr)
     print(f"Cost est:    ${cost:.3f}", file=sys.stderr)
+    print(f"Output:      {out_path.name}", file=sys.stderr)
     print("=" * 72, file=sys.stderr)
-    print(f"\nPROMPT:\n{prompt}\n", file=sys.stderr)
-    print("=" * 72, file=sys.stderr)
 
-    if args.dry_run:
-        print("\n(--dry-run — not calling the API)", file=sys.stderr)
-        return 0
+    if args.verbose_prompt:
+        print(f"\nPROMPT:\n{prompt}\n", file=sys.stderr)
+        print("=" * 72, file=sys.stderr)
 
-    # --- live path ---
-    api_key = load_api_key()
-    client = genai.Client(api_key=api_key)
+    if client is None:
+        print("(dry-run — not calling the API)\n", file=sys.stderr)
+        return 0.0
 
-    # Note on image conditioning: the Gemini API does NOT support
-    # `reference_images` (that's Vertex-only). It DOES support first-frame
-    # image-to-video via the top-level `image=` parameter. We pass the
-    # character reference PNG as the starting frame, and Veo animates
-    # forward from it. A better approach for future work is to pre-generate
-    # a scene-specific first-frame image per beat (nano banana) and use
-    # THAT as the starting frame — same cost for the video call, much
-    # better framing.
-    #
-    # Similarly, `generate_audio` is Vertex-AI-only. On the Gemini API,
-    # Veo 3.1's audio generation is always-on and the parameter is rejected.
-    # Gemini API rejects `negative_prompt`, `reference_images`, and
-    # `generate_audio` — all three are Vertex-AI-only. All our style
-    # steering must happen inside the positive `prompt` via STYLE_ENFORCER.
+    if out_path.exists() and args.skip_existing:
+        print(f"(already exists — skipping: {out_path.name})\n", file=sys.stderr)
+        return 0.0
+
     config = types.GenerateVideosConfig(
         aspect_ratio=args.aspect_ratio,
         resolution=args.resolution,
@@ -261,7 +255,6 @@ def main() -> int:
         number_of_videos=1,
     )
 
-    print(f"\nCharacter reference: {args.character_reference}", file=sys.stderr)
     print("Submitting video generation request...", file=sys.stderr)
     operation = client.models.generate_videos(
         model=MODEL_ID,
@@ -269,7 +262,6 @@ def main() -> int:
         image=load_reference_image(args.character_reference),
         config=config,
     )
-    print(f"Operation: {operation.name if hasattr(operation, 'name') else '(submitted)'}", file=sys.stderr)
 
     start = time.time()
     while not operation.done:
@@ -279,30 +271,85 @@ def main() -> int:
         print(f"  [{elapsed:>3}s] generating...", file=sys.stderr)
         time.sleep(POLL_INTERVAL_SECONDS)
         operation = client.operations.get(operation)
-
     elapsed = int(time.time() - start)
     print(f"  [{elapsed}s] complete.", file=sys.stderr)
 
-    # Error check
     if hasattr(operation, "error") and operation.error:
-        raise SystemExit(f"Generation failed: {operation.error}")
+        raise SystemExit(f"Generation failed on beat {beat_index}: {operation.error}")
 
     response = operation.response
     if not response or not getattr(response, "generated_videos", None):
-        raise SystemExit(f"No video in response: {response}")
+        raise SystemExit(f"No video in response for beat {beat_index}: {response}")
 
     generated = response.generated_videos[0]
-    args.out_dir.mkdir(parents=True, exist_ok=True)
-    out_path = args.out_dir / f"{args.episode_id}.beat{args.beat_index:02d}.{args.style}.mp4"
-
-    print(f"\nDownloading to {out_path}...", file=sys.stderr)
     client.files.download(file=generated.video)
     generated.video.save(str(out_path))
 
     size_mb = out_path.stat().st_size / (1024 * 1024)
-    print(f"Saved {size_mb:.1f} MB -> {out_path}", file=sys.stderr)
-    print(f"Open it: open {out_path}", file=sys.stderr)
-    print(f"\nActual cost: ${cost:.3f}", file=sys.stderr)
+    print(f"Saved {size_mb:.1f} MB -> {out_path}\n", file=sys.stderr)
+    return cost
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--episode-id", required=True, help="e.g. ep98")
+    parser.add_argument("--beat-index", type=int, default=None,
+                        help="Beat number to render (1-based). Required unless --all-beats is set.")
+    parser.add_argument("--all-beats", action="store_true",
+                        help="Render every beat in the shot list sequentially. "
+                             "Skips beats whose output file already exists (use "
+                             "--no-skip-existing to force).")
+    parser.add_argument("--no-skip-existing", dest="skip_existing",
+                        action="store_false", default=True,
+                        help="With --all-beats, regenerate beats even if output exists.")
+    parser.add_argument("--resolution", default="720p", choices=["720p", "1080p"])
+    parser.add_argument("--aspect-ratio", default="16:9", choices=["16:9", "9:16"])
+    parser.add_argument("--dry-run", action="store_true",
+                        help="Print the prompt and cost estimate, don't call the API")
+    parser.add_argument("--verbose-prompt", action="store_true",
+                        help="Print the full assembled prompt for each beat")
+    parser.add_argument("--out-dir", type=Path, default=RECAPS_DIR)
+    parser.add_argument(
+        "--character-reference",
+        type=Path,
+        default=CHARACTER_REFERENCE,
+        help="Path to the character reference image",
+    )
+    parser.add_argument(
+        "--style",
+        choices=sorted(STYLE_ENFORCERS.keys()),
+        default="cinematic",
+        help="Visual style enforcer to append to the prompt (default: cinematic)",
+    )
+    args = parser.parse_args()
+
+    if not args.all_beats and args.beat_index is None:
+        parser.error("Either --beat-index N or --all-beats is required.")
+
+    args.out_dir.mkdir(parents=True, exist_ok=True)
+    shot_list = load_shot_list(args.episode_id)
+
+    # Select which beats to render
+    if args.all_beats:
+        beats_to_render = shot_list["beats"]
+    else:
+        beats_to_render = [pick_beat(shot_list, args.beat_index)]
+
+    # Instantiate client only in live mode
+    client = None
+    if not args.dry_run:
+        api_key = load_api_key()
+        client = genai.Client(api_key=api_key)
+
+    total_cost = 0.0
+    for beat in beats_to_render:
+        total_cost += render_beat(
+            client=client, shot_list=shot_list, beat=beat, args=args,
+        )
+
+    print("=" * 72, file=sys.stderr)
+    print(f"Rendered {len(beats_to_render)} beat(s). Actual cost: ${total_cost:.3f}",
+          file=sys.stderr)
     return 0
 
 

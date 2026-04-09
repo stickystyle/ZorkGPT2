@@ -60,7 +60,14 @@ class RecapBeat(BaseModel):
     )
     on_screen_action: str = Field(description="One-line summary of what the viewer sees")
     narration: str = Field(description="Attenborough voiceover line(s) for this beat")
-    duration_seconds: int = Field(ge=3, le=10)
+    duration_seconds: int = Field(
+        ge=3,
+        le=8,
+        description=(
+            "Beat duration in seconds, hard-capped at 8 by the downstream "
+            "video generator (Veo 3.1 Lite)."
+        ),
+    )
 
 
 class RecapShotList(BaseModel):
@@ -75,7 +82,14 @@ class RecapShotList(BaseModel):
         )
     )
     visual_style: str = Field(description="Visual style phrase reused in every scene prompt")
-    total_duration_seconds: int = Field(ge=45, le=90)
+    total_duration_seconds: int = Field(
+        ge=36,
+        le=64,
+        description=(
+            "Sum of all beat durations. At most 8 beats × 8s = 64s. "
+            "Video generator hard-caps individual clips at 8 seconds."
+        ),
+    )
     final_score_stinger: str = Field(description="End title card line (display only, not spoken)")
     beats: list[RecapBeat] = Field(min_length=6, max_length=8)
 

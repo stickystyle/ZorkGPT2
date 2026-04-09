@@ -1,0 +1,210 @@
+#!/usr/bin/env python3
+"""Assemble per-beat Veo clips + narration mp3 into a final ZorkBurr recap mp4.
+
+Takes all epNNN.beatNN.<style>.mp4 files for an episode, concatenates them in
+beat order using ffmpeg's concat demuxer, then mixes the narration mp3 on top
+of the concatenated ambient audio (ambient ducked to ~25%, narration at full
+volume). Output: data/recaps/epNNN.final.<style>.mp4.
+
+Prerequisites:
+  1. Shot list exists at data/recaps/epNNN.shotlist.json
+  2. Per-beat clips exist (run scripts/generate_recap_video.py --all-beats)
+  3. Narration mp3 exists (run scripts/render_recap_audio.py)
+  4. ffmpeg is installed (brew install ffmpeg)
+
+Usage:
+    uv run scripts/assemble_recap.py --episode-id ep98
+    uv run scripts/assemble_recap.py --episode-id ep98 --style cinematic
+    uv run scripts/assemble_recap.py --episode-id ep98 --ambient-volume 0.20
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import shutil
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+RECAPS_DIR = Path(__file__).parent.parent / "data" / "recaps"
+
+
+def check_ffmpeg() -> None:
+    if shutil.which("ffmpeg") is None:
+        raise SystemExit(
+            "ffmpeg not found on PATH. Install with: brew install ffmpeg"
+        )
+
+
+def find_beat_clips(episode_id: str, style: str, recaps_dir: Path) -> list[Path]:
+    """Return per-beat mp4s sorted by beat index."""
+    pattern = f"{episode_id}.beat*.{style}.mp4"
+    clips = sorted(recaps_dir.glob(pattern))
+    if not clips:
+        raise SystemExit(
+            f"No beat clips found matching {recaps_dir / pattern}\n"
+            f"Run: uv run scripts/generate_recap_video.py "
+            f"--episode-id {episode_id} --all-beats --style {style}"
+        )
+    return clips
+
+
+def run_ffmpeg(args: list[str]) -> None:
+    """Run ffmpeg, surfacing errors clearly."""
+    result = subprocess.run(
+        ["ffmpeg", "-y", "-hide_banner", "-loglevel", "error", *args],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        print(result.stderr, file=sys.stderr)
+        raise SystemExit(f"ffmpeg failed with exit code {result.returncode}")
+    if result.stderr.strip():
+        # Pass through any warnings even on success
+        print(result.stderr.strip(), file=sys.stderr)
+
+
+def concat_videos(clips: list[Path], out_path: Path) -> None:
+    """Concatenate clips losslessly using the concat demuxer.
+
+    Requires all input clips to have matching codec / resolution / framerate,
+    which Veo 3.1 Lite produces consistently.
+    """
+    with tempfile.NamedTemporaryFile(
+        mode="w", suffix=".txt", delete=False, dir=out_path.parent
+    ) as listfile:
+        for clip in clips:
+            # Concat demuxer requires POSIX-style paths inside the list file
+            listfile.write(f"file '{clip.name}'\n")
+        list_path = Path(listfile.name)
+
+    try:
+        run_ffmpeg([
+            "-f", "concat",
+            "-safe", "0",
+            "-i", str(list_path),
+            "-c", "copy",
+            str(out_path),
+        ])
+    finally:
+        list_path.unlink(missing_ok=True)
+
+
+def mix_narration(
+    video_path: Path,
+    narration_path: Path,
+    out_path: Path,
+    ambient_volume: float,
+) -> None:
+    """Mix a narration mp3 over the video's ambient audio.
+
+    The ambient track is attenuated by `ambient_volume` (0.0 = silent,
+    1.0 = original) so the narration sits clearly on top of the Veo-generated
+    ambient bed. The final audio duration is the *longest* of the two — if
+    the narration is shorter than the video, the tail will be pure ambient.
+    """
+    filter_complex = (
+        f"[0:a]volume={ambient_volume}[ambient];"
+        f"[ambient][1:a]amix=inputs=2:duration=longest:dropout_transition=0[aout]"
+    )
+    run_ffmpeg([
+        "-i", str(video_path),
+        "-i", str(narration_path),
+        "-filter_complex", filter_complex,
+        "-map", "0:v",
+        "-map", "[aout]",
+        "-c:v", "copy",
+        "-c:a", "aac",
+        "-b:a", "192k",
+        "-movflags", "+faststart",
+        str(out_path),
+    ])
+
+
+def probe_duration(path: Path) -> float:
+    result = subprocess.run(
+        ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+         "-of", "default=noprint_wrappers=1:nokey=1", str(path)],
+        capture_output=True, text=True,
+    )
+    if result.returncode != 0:
+        return 0.0
+    return float(result.stdout.strip() or 0)
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--episode-id", required=True, help="e.g. ep98")
+    parser.add_argument("--style", default="cinematic",
+                        help="Style suffix of the beat clips (default: cinematic)")
+    parser.add_argument("--ambient-volume", type=float, default=0.25,
+                        help="Multiplier applied to the Veo ambient track (default: 0.25)")
+    parser.add_argument("--out-dir", type=Path, default=RECAPS_DIR)
+    parser.add_argument("--narration",
+                        type=Path, default=None,
+                        help="Path to narration mp3 (default: data/recaps/epNNN.narration.mp3)")
+    args = parser.parse_args()
+
+    check_ffmpeg()
+
+    clips = find_beat_clips(args.episode_id, args.style, args.out_dir)
+    narration_path = args.narration or (args.out_dir / f"{args.episode_id}.narration.mp3")
+    if not narration_path.exists():
+        raise SystemExit(
+            f"Narration not found: {narration_path}\n"
+            f"Run: uv run scripts/render_recap_audio.py --episode-id {args.episode_id}"
+        )
+
+    # Summary
+    total_video_duration = sum(probe_duration(c) for c in clips)
+    narration_duration = probe_duration(narration_path)
+    print("=" * 72, file=sys.stderr)
+    print(f"Episode:       {args.episode_id}", file=sys.stderr)
+    print(f"Style:         {args.style}", file=sys.stderr)
+    print(f"Beat clips:    {len(clips)}", file=sys.stderr)
+    for c in clips:
+        print(f"  {probe_duration(c):5.1f}s  {c.name}", file=sys.stderr)
+    print(f"Video total:   {total_video_duration:.1f}s", file=sys.stderr)
+    print(f"Narration:     {narration_duration:.1f}s  ({narration_path.name})", file=sys.stderr)
+    print(f"Ambient level: {args.ambient_volume:.0%}", file=sys.stderr)
+    print("=" * 72, file=sys.stderr)
+
+    if narration_duration > total_video_duration + 1.0:
+        print(
+            f"⚠ Narration is {narration_duration - total_video_duration:.1f}s "
+            f"longer than the video — the tail will be cut off. Consider "
+            f"regenerating the shot list with tighter per-beat word counts.",
+            file=sys.stderr,
+        )
+
+    # Step 1: concat videos to a temp file
+    print("\n[1/2] concatenating clips...", file=sys.stderr)
+    concat_path = args.out_dir / f"{args.episode_id}.concat.{args.style}.mp4"
+    concat_videos(clips, concat_path)
+    print(f"  -> {concat_path.name}", file=sys.stderr)
+
+    # Step 2: mix narration
+    print("\n[2/2] mixing narration over ambient...", file=sys.stderr)
+    final_path = args.out_dir / f"{args.episode_id}.final.{args.style}.mp4"
+    mix_narration(
+        video_path=concat_path,
+        narration_path=narration_path,
+        out_path=final_path,
+        ambient_volume=args.ambient_volume,
+    )
+
+    # Clean up the intermediate concat file
+    concat_path.unlink(missing_ok=True)
+
+    final_duration = probe_duration(final_path)
+    final_size_mb = final_path.stat().st_size / (1024 * 1024)
+    print("\n" + "=" * 72, file=sys.stderr)
+    print(f"Done. {final_duration:.1f}s, {final_size_mb:.1f} MB", file=sys.stderr)
+    print(f"  -> {final_path}", file=sys.stderr)
+    print(f"\nOpen it: open {final_path}", file=sys.stderr)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
