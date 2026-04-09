@@ -833,6 +833,48 @@ If ep98's score is within ±10% of ep97 with no new defect patterns, the LLM cri
 
 ---
 
+## Episode 99 — ABORTED (SQLite DB lock at t87, score 65/350)
+**Turns:** 87 of 200 (crashed mid-episode, did NOT complete naturally)
+**Final score:** 65/350 before crash
+**Peak score:** 65/350 at t82 (platinum bar deposit after chimney route)
+**Locations visited:** 23
+**Objectives found:** 0 (suspicious — objective tracking may have been disrupted by the crash)
+**End reason:** `sqlite3.OperationalError: database is locked` in `burr/core/persistence.py:542` during `post_run_step` state save. Burr's long-running tracker web server (PID 22680, uvicorn at port 7241, running since Wed 7am) was holding concurrent SQLite connections on `data/burr_state.db`. At ep99's ~3-turns/min rate (up from ep96's ~1.5/min after critic+extractor deletion), write pressure increased enough to hit a lock conflict the prior slower episodes avoided by luck. **Fixed post-mortem** by running `PRAGMA journal_mode=WAL` on `data/burr_state.db` — WAL mode allows concurrent readers and writers. ep100 onward should not hit this.
+
+### Score milestones
+- t6: 10 (kitchen entry)
+- t13: 35 (cellar descent)
+- t17: 40 (east from troll)
+- t20-36: 0 delta (detoured to Dam area, attempted `turn bolt with wrench` 5+ times — direct KB violation since the KB explicitly records this as a failed attempt)
+- t58: 50 (returned to Loud Room, took bar — 40 turns later than ep98 which had bar at t18)
+- t64: 54 (painting take at Gallery via Cellar → East Chasm → Gallery)
+- t68: **chimney ballast bug** — dropped platinum bar after first climb attempt failed with both bar + painting
+- t71: 60 (painting deposited via chimney route)
+- t79: went back to Studio, retook platinum bar (successfully this time)
+- t82: 65 (platinum bar deposited via chimney + Cellar + trap door)
+- t87: CRASHED — max_turns is misleading, the actual cause is the SQLite lock
+
+### Observations worth noting
+- **Score trajectory was ~20 points behind ep98 throughout** (ep98 had 50 at t21 vs ep99 at t58, and reached 60 at t30 vs ep99 at t71). The difference is a ~40-turn detour to the Dam area at ep99 t21-56 where the agent repeatedly tried the known-failing `turn bolt with wrench` puzzle.
+- **The KB ignore pattern is reproduced.** ep99's loaded KB (inspected via `burr_knowledge.py` at mid-episode) explicitly contains: *"`turn bolt with wrench` at Dam — 'The bolt won't turn with your best effort' (attempted multiple times)"*. The agent read this KB entry in its context every turn and still attempted the action 5+ times before giving up. Same pattern as the object permanence observations from ep98.
+- **The KB Score Changes section is stale.** At ep99 start, the KB's Score Changes showed only: kitchen +10, cellar +25, troll east +5 — total 40 points. The ep98 painting (+4 take, +6 deposit), trident (+4 take, +11 deposit), and trunk (+15 take) scoring events were NOT carried into the KB. This means `update_knowledge` at end-of-ep98 either dropped recent scoring events or the consolidation compressed them away. Worth investigating as part of the memory/KB propagation question raised earlier.
+- **KB has heavy duplication.** Key facts like "Moving rug reveals trap door" and "Trap door locks from above" appear 3× in slightly different phrasings. The consolidation is keeping redundant entries rather than merging them. This is worth flagging: commit 5d7bb77 moved consolidation to `memory_model` (gemini-3-flash) but `mem_consolidated=0` at ep99 crash (and ep98 end) — consolidation is technically running but producing zero actions. Either the prompt is too conservative or the consolidation is broken post-rename.
+- **ep99 validated the map_graph fix behaviorally only indirectly.** The agent still navigated correctly at all times (including across the Cellar → East Chasm one-way passage that was the user's original observation at ep98 t44). But without a wiped `data/map.json`, I can't attribute any pathfinding improvement to the fix — the old false reverse edges are still in the persisted file.
+
+### What ep99 does NOT prove
+- It does NOT prove the map_graph fix regressed gameplay (ep99 ran the same deposit logic as ep98 successfully; the lower score is from the Dam detour).
+- It does NOT prove the extractor deletion regressed gameplay (compound commands still worked — painting take + chimney climb + deposit all executed cleanly).
+- It does NOT prove the critic-disable regressed gameplay (ep98 already proved that with a clean 90).
+
+### What ep99 DOES surface as the next-priority investigation
+- **KB content quality at episode start.** The ep99 agent loaded a KB where Score Changes was missing recent episodes' deposits. That's a concrete, debuggable state. Inspecting `data/knowledge.md` + the memories file directly should reveal whether the consolidation fix has been producing a degraded KB for several episodes.
+- **Why the agent ignored a direct KB failure warning** ("bolt won't turn with wrench — attempted multiple times"). This is the object permanence / belief reconciliation pattern in its clearest form yet — the agent isn't ignoring a soft rule, it's ignoring an explicit recorded failure and repeating the failed action immediately.
+
+### Infrastructure fix applied post-crash
+- `sqlite3 data/burr_state.db "PRAGMA journal_mode=WAL"` — sets the DB to WAL mode, allowing concurrent readers (the Burr tracker web server) and writers (the episode's persister) without lock conflicts. This is a one-time DB-level setting, persists across connections. Not code, not committed — lives in the DB file header. Future episodes should not hit this crash.
+
+---
+
 ## Episode 98 → 99 — IMPROVEMENT (BLOCKER: map_graph reverse-edge bug)
 **Trigger:** User observed at ep98 t44 that pathfinding doesn't respect one-way passages. Code review of `zorkburr/game/map_graph.py:43-50` confirmed the `add_connection` method unconditionally writes a reverse edge every time the agent moves — `self.connections[to_id][opposite] = from_id` at line 49. Every one-way Zork passage (chimney climb from Studio to Kitchen, chasm drops from Cellar to East Chasm, slide room descents) has been polluted with a fabricated reverse edge in the map graph since ep1. `shortest_path()` BFS then uses those fabricated edges to produce routes that fail when executed against the live engine.
 **Hypothesis:** The bug is that `add_connection` assumes bidirectionality. The fix is to learn edges ONLY from observed movement: when the agent walks A → direction → B, record only that edge. When the agent later walks B → opposite_direction → A and the engine confirms arrival at A, `add_connection` is called again and records the real reverse edge. One-way passages naturally stay one-way because the reverse `add_connection` call never happens.
