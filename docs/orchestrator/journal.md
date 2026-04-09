@@ -905,6 +905,17 @@ The session has landed 5 confirmed infrastructure wins (memory-consolidation rou
 
 ---
 
+## Episode 101 → 102 — IMPROVEMENT (BLOCKER: objective_model Ministral → gemini-3-flash)
+**Trigger:** Last Ministral holdout in the model stack. Pattern evidence from two prior role swaps is strong: ep91-92 memory_synthesis fixture probe showed Ministral misclassified puzzle-solves as movement (fixed by gemini swap, delivered +34 score jump to ep93). ep96 critic fixture probe showed Ministral false-rejected 5/5 problem fixtures with hallucinated exit lists and compound-command misparsing (fixed by gemini swap, delivered ep97 clean critic avg 0.76 with zero spirals). The `objective_model` role in `zorkburr/actions/objectives.py` (used by `update_objectives` and `check_objective_completion`) performs the same class of structured reasoning that Ministral has been proven insufficient at twice.
+**Hypothesis:** Ministral's capacity ceiling that blocked memory synthesis and critic judgment also applies to objective tracking. Swapping to gemini-3-flash-preview will produce more accurate objective discovery and completion detection, reducing stale/wrong objectives in the agent's context. Cost: one more LLM call per 10 turns (objective updates) plus one per turn (completion checks) shifts from local/free Ministral to remote gemini-3-flash (~$0.50/$3.00 per M tokens). At ~200 calls/episode, additional cost is roughly $0.10-0.20 per episode — trivial.
+**Change:** `pyproject.toml` — `objective_model = "mistralai/ministral-3-14b-reasoning"` → `"remote/google/gemini-3-flash-preview"`. Single line. No prompt or code changes. No new config keys.
+**Reasoning:** BLOCKER-class infrastructure routing change. Pattern is established by two prior direct probes. This change eliminates the last Ministral role in the model stack — agent, critic, knowledge, memory, and now objective are all on gemini-3-flash-preview. Model-stack unification simplifies future debugging.
+**Target metric:** ep102 `discovered_objectives` list quality improves vs ep100 — fewer vague/stale/duplicate entries, more specific and attainable objectives. Indirect score signal: if objectives are better, the agent's plan quality should improve. Not a direct score target because this change is expected to produce a subtle improvement rather than a visible jump.
+**Validation:** No fixture probe (pattern established by prior probes). Test suite: `uv run pytest tests/ --ignore=tests/test_llm_client.py` — 192 passed, 1 pre-existing failure (test_load_config_from_toml). Production validation via ep102.
+**Result:** PENDING
+
+---
+
 ## Episode 99 — ABORTED (SQLite DB lock at t87, score 65/350)
 **Turns:** 87 of 200 (crashed mid-episode, did NOT complete naturally)
 **Final score:** 65/350 before crash
