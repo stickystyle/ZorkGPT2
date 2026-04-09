@@ -24,7 +24,7 @@ aws cloudfront create-invalidation \
 
 ## Architecture
 
-- `index.html` is the entire viewer — no build step, no dependencies
+- `index.html` is the entire viewer — no build step; CDN dependencies only (Cytoscape, marked)
 - Polls `live/current_state.json` from S3 for real-time updates
 - Historical turns fetched from `episodes/*/turns/*.json`
 - Episode index from `episodes/index.json`
