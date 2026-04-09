@@ -100,12 +100,20 @@ def update_objectives(state: State, client: instructor.Instructor, config: GameC
                     logger.debug(f"Resolved objective location '{obj.location_name}' -> ID {resolved}")
 
         completed = set(response.completed)
+        # Also exclude objectives already completed earlier in the episode —
+        # otherwise the LLM can re-propose a previously completed objective
+        # and it would be re-added to the active list.
+        already_done = {
+            rec["objective"] if isinstance(rec, dict) else str(rec)
+            for rec in state[S.COMPLETED_OBJECTIVES]
+        }
         updated = [o for o in current_objectives if _obj_text(o) not in completed]
         existing_texts = {_obj_text(o) for o in updated}
         for obj in response.objectives:
-            if obj.text not in existing_texts:
-                updated.append({"text": obj.text, "location_id": obj.location_id, "location_name": obj.location_name})
-                existing_texts.add(obj.text)
+            if obj.text in existing_texts or obj.text in already_done:
+                continue
+            updated.append({"text": obj.text, "location_id": obj.location_id, "location_name": obj.location_name})
+            existing_texts.add(obj.text)
         updated = updated[:15]
         completed_records = list(state[S.COMPLETED_OBJECTIVES])
         for obj_text in completed:

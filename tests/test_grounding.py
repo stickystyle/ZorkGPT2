@@ -241,6 +241,39 @@ def test_update_objectives_commits_directly():
     assert len(new_state[S.COMPLETED_OBJECTIVES]) == 1
 
 
+def test_update_objectives_skips_previously_completed():
+    """If the LLM re-proposes an objective that was completed earlier in the
+    episode, it must NOT be re-added to the active list. Regression test for
+    ep95 bug where 'Retrieve painting from Studio' appeared in both active
+    and completed lists at the same turn."""
+    mock_client = MagicMock()
+    # LLM re-proposes "Read the leaflet" but it was already completed earlier
+    mock_client.create.return_value = ObjectiveDiscoveryResponse(
+        objectives=[Objective(text="Read the leaflet", location_id=10, location_name="West of House")],
+        completed=[],
+    )
+    config = GameConfig(openrouter_api_key="test-key")
+    state = create_initial_state(episode_id="test-ep").update(**{
+        S.ACTION_HISTORY: _make_action_history([("read leaflet", "You read it.")]),
+        S.GAME_RESPONSE: "Nothing new happens.",
+        S.SCORE: 10,
+        S.LOCATION_NAME: "West of House",
+        S.LOCATION_ID: 10,
+        S.TURN_COUNT: 20,
+        S.KNOWLEDGE_BASE: "",
+        S.MAP_DATA: {"rooms": {"10": "West of House"}},
+        S.DISCOVERED_OBJECTIVES: [],  # no active objectives
+        S.COMPLETED_OBJECTIVES: [{"objective": "Read the leaflet", "completed_turn": 5}],
+    })
+
+    result, new_state = update_objectives.run(state, client=mock_client, config=config, use_thinking=False)
+    # The re-proposed "Read the leaflet" must be filtered out as already done
+    objs = new_state[S.DISCOVERED_OBJECTIVES]
+    assert objs == [], f"Expected empty active list, got {objs}"
+    # Completed list unchanged
+    assert len(new_state[S.COMPLETED_OBJECTIVES]) == 1
+
+
 def test_memory_pipeline_propose_then_validate():
     """Full pipeline: record_memory proposes -> validate_memory accepts or rejects."""
     # Step 1: record_memory produces a pending memory

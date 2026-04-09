@@ -525,6 +525,17 @@ Quality judgment: the change is an improvement — the core problem turns (t166,
 
 ---
 
+## Episode 95 → 96 — IMPROVEMENT (BLOCKER: active/completed objectives dedup)
+**Trigger:** ep95 t80 Burr context showed **active objectives list STILL contained "Retrieve the painting from the Studio and carry it to the Living Room to deposit in the trophy case" even though the same text was marked completed at t62 and t70 in the Completed this episode section**. This caused the agent at ep95 t83 to plan "Go north to Studio, take painting, climb chimney" even though the painting had already been deposited — wasting turns searching for an item that was already banked.
+**Hypothesis:** `update_objectives` in `zorkburr/actions/objectives.py:102-108` filters new objectives against the *current LLM response's* `completed` set only, not against the episode's full `COMPLETED_OBJECTIVES` history. When `update_objectives` runs every 10 turns and the LLM re-proposes a previously-completed objective (by text match), the code adds it back to the active list because the "completed" filter has already moved past it. The fix must also check the full completed-this-episode list when deciding whether to add a new objective.
+**Change:** `zorkburr/actions/objectives.py` — build `already_done` set from `state[S.COMPLETED_OBJECTIVES]` inside `update_objectives`, and skip any LLM-proposed objective whose `text` matches either `existing_texts` (active list) OR `already_done` (completed list). Added regression test `tests/test_grounding.py::test_update_objectives_skips_previously_completed` that simulates the LLM re-proposing "Read the leaflet" when it was already completed at turn 5 — asserts the active list stays empty.
+**Reasoning:** This is a pure code bug, not a strategic prompt change. The LLM is behaving correctly (it's proposing a plausible objective it sees in context), but the pipeline is supposed to filter re-proposals and doesn't. BLOCKER-class — can be fixed without episode measurement because `pytest` validates correctness. Does not touch prompts, does not need LLM validation against fixtures.
+**Target metric:** Next episode at turn 80+ should show zero duplicate entries between Active Objectives and Completed this episode sections.
+**Validation:** `uv run pytest tests/ --ignore=tests/test_llm_client.py --deselect tests/test_config.py::test_load_config_from_toml` — 192 passed, 1 deselected (the pre-existing unrelated `test_load_config_from_toml` failure noted since ep84→85). New regression test `test_update_objectives_skips_previously_completed` passes. Existing `test_update_objectives_commits_directly` still passes.
+**Result:** PENDING — will resolve once ep96 runs and shows clean active/completed separation.
+
+---
+
 
 
 ## Episode 94 → 95 — IMPROVEMENT RESOLUTION
