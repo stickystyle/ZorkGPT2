@@ -2,39 +2,41 @@
 
 Started: 2026-03-30
 
-## Key Learnings (updated after episode 94)
+## Key Learnings (updated after episode 95)
 
-**Current best score:** **102/350 (ep94)** — first episode to break the 100-point project goal threshold.
-**Current bottleneck:** Return-trip navigation from deep zones (Torch Room → Dome Room → surface). Agent can reach +14 treasures but struggles to climb back for deposit — ep94 stranded ~20 points in inventory at max_turns.
+**Current best score:** **102/350 (ep94)** — first episode to break the 100-point project goal threshold. ep95 regressed to 90 but opened a new scoring zone (Reservoir trunk +15).
+**Current bottleneck:** **KB cross-episode state pollution.** The "Items Found" KB section contains ep94-specific drop annotations ("Painting; dropped in Studio") that are treated as strategic knowledge, causing the next episode to hunt for treasures that aren't there. Also: completed objectives are not removed from the active list — duplicates appear even when an objective is marked completed in the same episode.
 **Model stack (current):** agent + knowledge + memory all on `remote/google/gemini-3-flash-preview`; critic + extractor + analysis on local `mistralai/ministral-3-14b-reasoning`.
+**Session status:** OpenRouter credits overdrawn (251.68 used / 251.58 credit). Further episodes require a credit top-up.
 
 ### What works
-- **ep93→94 visibility bundle (BLOCKER)**: completed-objectives rendering + score-event timeline + `nav_target` BFS route injection + `inventory_changed` memory trigger with ephemeral persistence. All 4 features confirmed in production. Unlocked Dome Room → Egyptian Room scoring path. Ephemeral memories (4 in ep94) track episode-scoped state like dropped items and open doors.
-- **ep92→93 memory_model swap to gemini-3-flash-preview**: mem_new grew 2 → 24 → 49 across ep92→93→94. Ministral was misclassifying puzzle-solves as flavor text; gemini-3-flash produces actionable, well-classified memories. This was the single biggest learning-loop fix in the session.
-- **Cross-episode memory carryover**: ep93 cyclops memory enabled ep93 t128 `ulysses` survival. ep94 echo/grating/rope/dome knowledge all came from prior-episode memories, not prompt hardcoding.
-- **LLM circuit breaker (ep84→85)**: threshold=5 consecutive failures aborts the run and emits `EPISODE_END | reason=llm_circuit_breaker`. Prevents silent `look` fallback loops during provider outages.
-- **Consolidation bracket fix (ep52→53)** and **KB append-and-merge (ep49→50)**: foundational memory quality; still holding across the model swap.
+- **ep93→94 visibility bundle (BLOCKER)**: completed-objectives rendering + score-event timeline + `nav_target` BFS route injection + `inventory_changed` memory trigger with ephemeral persistence. All 4 features confirmed in ep94 and ep95. Bundle itself is stable.
+- **ep92→93 memory_model swap to gemini-3-flash-preview**: mem_new grew 2 → 24 → 49 → 31 across ep92→93→94→95. Learning loop alive.
+- **ep94→95 stale-route recompute (agent.md)**: Behaviorally validated at ep95 t77 — agent explicitly wrote "This is a STALE ROUTE" and backtracked when `up` from Cellar was missing. But the deep-zone Torch/Dome blocker the change targets was never re-encountered in ep95 (agent didn't reach that zone), so the outcome metric is not yet confirmed.
+- **Cross-episode memory carryover**: ep95 t139-140 `ulysses` to escape Cyclops Room came from a memory created in an earlier episode.
+- **LLM circuit breaker (ep84→85)**: threshold=5 consecutive failures aborts the run.
 
 ### Falsified hypotheses
-- **"Sonnet 4.6 works for secondary subsystems"** — FAILED ep85-86. Sonnet silently drifts structured-output for critic, inventing fields instead of returning the schema. Proxy strips `tools` and `response_format`. Reverted to Ministral for secondary subsystems (ep86→87).
-- **"Ministral is sufficient for memory synthesis"** — FAILED ep91-92. Memory loop was inert (1-2 mem_new per 100 turns). Direct fixture probe showed Ministral returning `should_remember=false` on clear puzzle-solves.
-- **"Temperature 0.7 reduces variance"** — FAILED ep47: made agent deterministic on wrong path.
-- **"50-turn prompt changes can fix model KB-following"** — FAILED ep39-41: root cause was objective LLM not receiving KB (code bug, not prompt).
+- **"Sonnet 4.6 works for secondary subsystems"** — FAILED ep85-86.
+- **"Ministral is sufficient for memory synthesis"** — FAILED ep91-92.
+- **"Temperature 0.7 reduces variance"** — FAILED ep47.
+- **"50-turn prompt changes can fix model KB-following"** — FAILED ep39-41 (code bug, not prompt).
 
-### Open problems
-- **Return-trip from Torch Room / Dome Room** — ep94 stranded ~20 deposit points because the agent got confused between `climb rope` and `up` exits. Navigation memory needs to track one-way vs bidirectional exits more clearly.
-- **Critic false rejections** — Ministral critic spirals on `move rug`, `take bar`, `put bag in case`, `take paper`, `north from Altar`. 3 rejections per episode wasted on forced-through valid actions. Ministral-critic prompt quality issue, separate from Ministral-as-memory quality.
-- **Painting retrieval failure** — ep94 agent visited Studio 6 times after dropping the painting at t36 but never picked it up. The ephemeral-memory system captured *other* drops but the painting fell through. May need an explicit "treasures in current room" cue in assembled context.
-- **Dam puzzle unsolved** — 150+ cumulative turns across episodes. Verb discovery gap for `turn bolt with wrench`.
-- **Loud Room puzzle** — `echo` command now works (ep94 t23), but only because it was memorized in KB. Not a puzzle-discovery success, just memory carryover.
+### Open problems (ordered by estimated impact)
+- **[NEW ep95] KB cross-episode state pollution** — KB "Items Found" section contains per-episode drop annotations from the prior episode. ep95 agent at t48 reasoned "the treasures were dropped in Studio" — but those were ep94's drops. Wasted ~14 turns hunting non-existent items. This is strong candidate for next improvement — the knowledge.md prompt is mixing ephemeral state into durable knowledge. Likely fix: tighten `update_knowledge.md` prompt to exclude per-episode inventory/location state (treasures dropped this run), OR filter "Items Found" section out of the context render entirely since ephemeral memories now cover episode-scoped state better.
+- **[NEW ep95] Active/Completed objectives duplication** — Completed objectives still appear in the active list (same text). Not deduplicated. e.g., at ep95 t80 "Retrieve painting from Studio" was in both lists. Likely fix: in `assemble_context`, filter active objectives that match (by text or ID) a completed entry.
+- **[NEW ep95] Thief loot loss is silent** — Between t21 (take platinum bar) and t45 (inventory shows bar missing), the thief intercepted. Agent never got a memory synthesis for the loss. Bar theft is invisible in the log and not surfaced to agent context. Would benefit from a "missing from inventory" detection + ephemeral memory.
+- **Return-trip from Torch Room / Dome Room** — Unchanged from ep94. ep94→95 stale-route prompt change is pending direct validation.
+- **Critic false rejections (Ministral)** — Still at ~4 spirals per episode. ep95 t139-140 `say ulysses` / `ulysses` both rejected 3x despite being the canonical cyclops escape. Critic prompt quality or model capacity is the blocker.
+- **Dam puzzle unsolved** — 150+ cumulative turns. ep95 tried `turn bolt with wrench`, `put tube on bolt`, `push yellow button`, `push brown button` — nothing scored.
 
 ### Subsystems investigated
-- Agent prompt: ~20+ changes, last ep53→54 (KB item scanning)
-- Critic prompt: ~3 changes, last ep7
-- KB/memory system: ~12 changes, last ep93→94 (bundle: ephemeral persistence, inventory_changed trigger)
-- Python pipeline: ~12 changes, last ep93→94 (bundle: nav_target, completed objectives rendering, score event timeline)
-- Model stack: 4 switches (API→Qwen3 ep42, Qwen3→Ministral ep48, agent→Sonnet ep85 reverted ep87, agent→gemini-3-flash ep91, memory→gemini-3-flash ep93)
-- Infrastructure: LLM circuit breaker (ep84→85), max_turns 100→200 (ep91→92)
+- Agent prompt: ~21 changes, last ep94→95 (stale-route recompute)
+- Critic prompt: ~3 changes, last ep7 (target for next round given repeated spirals)
+- KB/memory system: ~12 changes, last ep93→94 (bundle)
+- Python pipeline (context assembly): ~12 changes, last ep93→94 (bundle)
+- Model stack: 5 switches, current = gemini-3-flash for agent/knowledge/memory, Ministral for critic/extractor
+- Infrastructure: circuit breaker, max_turns=200
 
 
 ---
@@ -327,8 +329,9 @@ All 4 bundled features confirmed working end-to-end in production:
 | ep92 | 45 | 0 | 64 | 5 | 14 | 2 | death (cyclops t133) |
 | ep93 | 79 | +34 | 79 | 5 | 29 | 24 | max_turns (memory_model→gemini-3-flash) |
 | **ep94** | **102** | **+23** | **102** | **5** | **32** | **49** | max_turns (visibility bundle, 4 ephemeral) |
+| ep95 | 90 | -12 | 102 | 5 | 24 | 31 | killed (t181 credits; stale-route prompt) |
 
-**Trend (ep91→94):** 45 → 45 → 79 → **102**. Back-to-back session-high improvements (+34 then +23) directly tied to the two recent changes: (ep92→93) swap memory_model to gemini-3-flash, (ep93→94) BLOCKER visibility bundle. The memory loop is producing learning that carries forward (mem_new grew 1 → 2 → 24 → 49 over ep91-94). This is the healthiest trajectory the project has had — three episodes of continuous score improvement with an active, growing memory system.
+**Trend (ep91→95):** 45 → 45 → 79 → 102 → **90 (regression)**. ep95 regressed −12 but opened a NEW scoring zone (Reservoir trunk +15) not found in ep94. Root causes of regression: (1) KB cross-episode pollution in "Items Found" section led agent to hunt for non-existent Studio drops, wasting ~14 turns; (2) thief stole the platinum bar during Maze wandering, unnoticed; (3) credits exhausted before the trunk could be deposited for +15 more. The ep94→95 stale-route change itself was behaviorally validated at t77 but the target blocker was never reached.
 
 ---
 
@@ -359,5 +362,154 @@ All changes are game-agnostic — they describe the general pattern of "recorded
 Quality judgment: the change is an improvement — the core problem turns (t166, t174) now reliably recognize the stale route and backtrack instead of proposing `climb rope` or compound actions. The healthy turns (t151, t163) remain stable. The remaining structural failures are an over-strict check (t175 already-correct) and a different problem class (t178 downstream cascade).
 
 **Result:** PENDING
+
+---
+
+## Episode 95 — Turn 25 Checkpoint
+**Type:** HEALTHY
+**Score:** 50/350 (delta: +50 since start — kitchen +10 t5, cellar +25 t11, east-from-troll +5 t15, platinum bar +10 t21)
+**Locations visited:** 9 unique (West_House/North_House/Behind_House/Kitchen/Living_/Cellar/Troll_/East-West_Passage/Round_/Loud_)
+**Avg critic score:** 0.64 (healthy)
+**Rejection rate:** 4/25 (16%) — healthy
+**Gameplay quality:** LEARNING
+  - Memory use: 4 new ep95 memories by t25 (t9 rug/trap door, t11 cellar entry, t15 East-West Passage, t21 platinum bar) — memory loop alive on gemini-3-flash.
+  - KB alignment: STRONG. Score timeline from KB carryover correctly consumed — took bar after echo+weight-drop at t20-21, heading back through Troll → Cellar → Living for deposit. Echo puzzle attempted without KB prompting at t18 (memory carryover).
+  - Objective quality: 8 discovered / 0 completed by t20 (standard dup'd set from t10+t20 updates — known dedup gap, not new)
+  - Objective pursuit: Strong — agent executing classic early-game scoring loop with no detours.
+  - Learning system quality: ep94 KB is the richest this session (30k chars, includes Dome/Torch/Egyptian path). No regression.
+  - Pathfinding: NAVIGATING — standard route, no Maze detour. Actively returning through Troll Room toward trophy case at t26.
+**Triggers:** none firing. One critic false-rejection spiral at t21 `take platinum bar` (3 rejections, action succeeded +10) — known Ministral critic prompt issue, not new.
+**Notes:** ep95 matches ep94's velocity at t25 (both 50/350). Critically, the ep94→95 IMPROVEMENT (stale-route recompute guidance in agent.md) targets a problem that only surfaces at t150+ in the Torch Room return trip, so the early checkpoints are regression-safety checks, not hypothesis tests. So far the early-game behavior is preserved — that's good. Continuing to t50.
+
+---
+
+## Episode 95 — Turn 50 Checkpoint
+**Type:** CONCERN (1 of 2 stagnation blocks; chimney spirals; thief lost bar)
+**Score:** 50/350 (delta: 0 since t25 — **first 0-delta block**)
+**Locations visited:** 8 new (East-West_Passage, Round_, Loud_, Troll_, Dead_End, Maze, East_Chasm, Gallery, Studio)
+**Avg critic score:** 0.52
+**Rejection rate:** 2/25 (8%) but 2 of those are spirals (t49, t50)
+**Gameplay quality:** DRIFTING
+  - Memory use: OK through t28 but then agent chased thief 15 turns (t29-43) in Maze/Troll/Cellar — no KB reference that thief is hard to kill.
+  - KB alignment: **BROKEN.** At t48 agent reasoned "My objective is to reach the Studio to retrieve the treasures dropped there previously" — this is ep94-specific KB pollution. "Items Found" section has lines like "Painting — Gallery (taken, +4); dropped in Studio" that are **per-episode state from prior run, not strategic knowledge**. Agent walked PAST the painting in Gallery at t47 because it believed the painting was in Studio.
+  - **Thief stole platinum bar.** At t21 agent took bar (+10). By t45 inventory shows only {bloody axe, brass lantern} — thief intercepted during Maze wandering. 4 lost deposit points.
+  - Pathfinding: NAVIGATING (standard routes) but goal-setting compromised by contaminated KB.
+  - Learning system quality: **KB Items Found section is polluted with episode-specific drop annotations.** This is a new diagnostic — not seen before because prior episodes didn't backtrack to old drop locations.
+**Triggers:** none formal — 1 of 2 stagnation blocks (need 2 consecutive 0-delta), rejection rate 8% (under 30%), no early death. But the diagnostic signal is clear: KB contamination causing ep95 to replay ep94's bug.
+**Notes:** Watch t75 — if second 0-delta block, that's a formal stagnation trigger. More importantly, the KB pollution finding is a strong candidate for the next improvement. Dispatching at episode end.
+
+---
+
+## Episode 95 — Turn 75 Checkpoint
+**Type:** HEALTHY (stagnation broken; 2 deposits completed; 1 lost to thief)
+**Score:** 60/350 (delta: +10 — painting take +4 t55, painting deposit +6 t62)
+**Locations visited:** 6 in block (Living_, Cellar, East_Chasm, Gallery, Studio, Kitchen — all surface/middle-layer)
+**Avg critic score:** 0.58
+**Rejection rate:** 7/25 (28%) — near threshold but not over
+**Gameplay quality:** DRIFTING → LEARNING (recovered)
+  - Memory use: After Studio dead-end realization at t53, agent correctly backtracked to Gallery, took painting, climbed chimney, deposited. Good recovery.
+  - KB alignment: Mixed. Agent eventually recognized the Studio was empty ("they were from a previous session or haven't been brought here in this current run") — so the agent DID self-correct, but only after wasting ~8 turns. Then at t67-73 went BACK to Studio to retrieve dropped manual/axe, another 6-turn detour.
+  - Pathfinding: NAVIGATING. Chimney climb (t58-59) with painting+lantern+manual worked — executed correctly.
+**Triggers:** none. Stagnation broken — not formal trigger.
+**Notes:** Score path so far: 10 (kitchen) → 35 (cellar) → 40 (troll east) → 50 (bar) → **50 stuck for ~34 turns** → 54 (painting) → 60 (deposit). Platinum bar is gone (thief stole). Net velocity halved by the detours. Continuing to t100.
+
+---
+
+## Episode 95 — Turn 100 Checkpoint
+**Type:** HEALTHY (score flat, exploration very productive)
+**Score:** 60/350 (delta: 0 since t75 — but agent opened a new scoring zone)
+**Locations visited:** 11 in block (Living, Cellar, Troll, East-West_Passage, Studio x2 loop, Gallery, East_Chasm, **Chasm, Reservoir_South, Dam, Dam_Lobby, Maintenance_** — the last 5 are NEW territory this episode)
+**Avg critic score:** 0.62
+**Rejection rate:** 1/25 (4%) — excellent
+**Gameplay quality:** DRIFTING → LEARNING
+  - Memory use: At t93, agent broke out of the Studio loop and navigated north through East-West Passage → Chasm → Reservoir_South → Dam → Dam_Lobby → Maintenance. This is a new scoring zone (Dam puzzle area, worth +25 if solved).
+  - KB alignment: Strong. Agent took matchbook+guidebook at Dam Lobby, then wrench+screwdriver+tube at Maintenance, and pushed yellow/brown buttons — standard Dam puzzle tool gathering. This is KB-guided exploration.
+  - Stale-route behavior: At t77 the agent explicitly wrote "**This is a STALE ROUTE**" when up-from-Cellar was missing — **the ep94→95 improvement is working as designed**. Agent recognized the stale route and backtracked.
+  - Pathfinding: NAVIGATING. Agent abandoned a bad goal (Studio for non-existent treasures) and found a new productive route.
+**Triggers:** none firing. t26-50 was +0, t51-75 was +10, t76-100 is +0 — not 2 consecutive 0-delta blocks.
+**Notes:** Big picture: ep95 has been inefficient but exploration is finding new territory. KB contamination problem from the t50 checkpoint persists but the agent eventually recovers. **ep94→95 IMPROVEMENT validated at t77**: agent's reasoning explicitly names "STALE ROUTE" — the prompt change is recognized and applied. If agent solves the Dam puzzle here, score could jump substantially.
+
+---
+
+## Episode 95 — Turn 125 Checkpoint
+**Type:** HEALTHY (score recovered; thief loot taken via maze)
+**Score:** 70/350 (delta: +10 since t100 — bag take +10 at t121)
+**Locations visited:** 10 in block (Dam/Maintenance tool-gathering loop + Maze bag recovery)
+**Avg critic score:** 0.51
+**Rejection rate:** 6/25 (24%) — elevated but under 30%
+**Spirals:** 2 at t119/t120 (Maze west/up from a dead-end room) — transient, agent recovered within 2 turns
+**Gameplay quality:** LEARNING
+  - Memory use: Good — agent went directly to Maze skeleton room, took bag/key/knife in sequence (t121-123).
+  - KB alignment: Strong — agent tried `turn bolt with wrench` at Dam (known KB failure) and also tried `put tube on bolt` (creative verb exploration). Both failed but both were valid attempts per the puzzle.
+  - Pathfinding: NAVIGATING. Dam tools gathered, Maze bag recovered — clean routing.
+**Triggers:** none. Score delta +10 broke any stagnation concern.
+**Notes:** ep95 at t125 = 70/350 (ep94 at same turn was ~74). Slight lag. Bag take proves the thief pattern resolved — possibly by re-entering the skeleton room which respawns the bag. Agent will probably take bag to Living Room next to deposit. If it reaches Dome Room / Torch Room / Egyptian Room, it can match or exceed ep94's 102. Continuing.
+
+---
+
+## Episode 95 — Turn 150 Checkpoint
+**Type:** URGENT (formal triggers fired — critic collapse)
+**Score:** 75/350 (delta: +5 since t125 — bag deposit)
+**Locations visited:** Strange_Passage (new), Cyclops Room, Living Room via cyclops hole path
+**Avg critic score:** 0.40 (BELOW 0.5 threshold)
+**Rejection rate:** 11/25 (44% — OVER 30% threshold)
+**Spirals:** 4 (t132 `west` Maze, t139 `say ulysses`, t140 `ulysses`, t148 `put leather bag in case`)
+**Triggers FIRED:**
+- Low critic score (avg 0.40)
+- High rejection rate (44%)
+**Gameplay quality:** LEARNING (agent is competent — critic is broken)
+  - Agent said `ulysses` at Cyclops Room successfully — KB carryover + correct verb. Critic rejected 3x.
+  - Agent put bag in case at t147 (succeeded +5). Critic rejected `put leather bag in case` at t148 3x (re-attempt).
+  - All 4 spirals are **Ministral critic false-rejections on VALID actions**. The agent is making correct plays; the critic is producing garbage confidence.
+**Notes:** Diagnosis: the critic trigger fires are caused by the known Ministral critic weakness (documented since ep86). This is not a new agent defect. Worth dispatching an improvement after the episode ends — targeting the critic prompt/model specifically. Continuing to monitor.
+
+---
+
+## Episode 95 — COMPLETE (killed at t181 — OpenRouter credit exhaustion)
+**Turns:** 181 (of 200 max_turns; ended non-gracefully due to API credits)
+**Final score:** 90/350 (-12 vs ep94 peak of 102)
+**Peak score:** 90/350 at t171 (jewels trunk take, Reservoir)
+**Locations visited:** 24 (vs ep94's 32)
+**Objectives found:** 15
+**End reason:** killed — OpenRouter API credit limit hit at ~t181, last 3+ turns were fallback `look` actions before kill
+**Memory stats:** mem_total=68, mem_new=31, mem_dedup_rejected=2, mem_superseded=6
+
+### Score milestones
+- t5: 10 (kitchen entry)
+- t11: 35 (cellar descent)
+- t15: 40 (east from troll)
+- t21: 50 (platinum bar take — **stolen by thief before deposit**, ~t29)
+- t55: 54 (painting take, Gallery)
+- t62: 60 (painting deposit)
+- t121: 70 (leather bag from maze skeleton room)
+- t148: 75 (bag deposit)
+- **t171: 90** (trunk of jewels, Reservoir — NEW scoring zone not reached in ep94)
+- (credits exhausted before trunk deposit for +15 more)
+
+### Key observations
+- **NEW TERRITORY:** Reservoir / Dam Lobby / Maintenance Room / Trunk of jewels reached for first time in session. +15 new scoring point via the trunk.
+- **Torch/Dome/Egyptian NOT reached:** ep94's deepest scoring zone was not revisited — so the ep94→95 stale-route hypothesis was **not directly testable** (the Torch Room return-trip blocker never fired).
+- **STALE ROUTE behavior validated (t77):** Agent explicitly wrote "This is a STALE ROUTE" when up-from-Cellar was missing, and backtracked. The ep94→95 prompt change is recognized and named.
+- **KB cross-episode pollution:** The KB's "Items Found" section contains ep94-specific drop annotations ("Painting — Gallery (taken, +4); dropped in Studio"). Agent at t48 reasoned "My objective is to reach the Studio to retrieve the treasures dropped there previously" — but those were ep94 drops, not ep95. Agent walked PAST the painting at Gallery t47 because it believed painting was in Studio. Wasted ~8 turns in Studio dead-end + ~6 turns recovering dropped items.
+- **Completed objectives not removing duplicates from active list:** At t80, the active objectives list STILL included "Retrieve the painting from the Studio and carry it to the Living Room" even though the same objective was marked completed at t55 and t62. Rendering is working but deduplication between active and completed lists is broken. Route field on those objectives also shows stale map data with "up from Cellar" (which is barred).
+- **Thief stole platinum bar:** Between t21 (take bar) and ~t29, during Maze wandering. Lost ~5 deposit points. Agent never noticed — thief encounters are silent in the log.
+- **Ministral critic false-rejections:** 4 spirals on VALID actions (say ulysses, put bag in case, take jewels, etc). Known issue since ep86. Critic avg 0.40 for t126-150 block.
+- **Recovery wins:** Despite the confusion, agent self-corrected (t53 realized Studio was empty → backtracked to Gallery → took painting → climbed chimney → deposited), found a new scoring zone (Reservoir), used `say ulysses` to escape Cyclops Room.
+
+### Bundle validation (ep93→94 bundle still working)
+- `nav_target` used (Planned route sections rendered)
+- Completed objectives section rendered at t80 (566 chars) — but NOT deduplicated against active list
+- Score events section rendered (199 chars) — but agent didn't use it to avoid the Studio detour
+- Ephemeral memories continue to work (inventory_changed fires on drops)
+
+**Improvement dispatched:** no (deferred — OpenRouter credits exhausted, can't validate a new change tonight)
+
+---
+
+## Episode 94 → 95 — IMPROVEMENT RESOLUTION
+**Result:** BEHAVIORALLY CONFIRMED, OUTCOME NOT TESTABLE — At t77 the agent explicitly wrote "This is a STALE ROUTE" when up-from-Cellar was missing from engine exits, then backtracked via Troll Room. The named frame ("stale route") from the prompt was picked up and applied. However, the target metric (turns-to-deposit after deep-zone treasure acquisition) was not testable because the agent never reached Torch/Dome/Egyptian in ep95 — so the specific ep94 bug the change targeted never resurfaced for direct comparison.
+
+**Hypothesis verdict:** PROVISIONALLY CONFIRMED — the prompt change causes the desired framing, but needs a future deep-zone run to confirm it resolves the blocking behavior. Score regressed -12 (102→90) but due to unrelated causes: thief loss (-10), Studio detour from KB pollution (-8 to -14 wasted turns), missed Torch Room scoring (+28 not reached).
+---
 
 ---
