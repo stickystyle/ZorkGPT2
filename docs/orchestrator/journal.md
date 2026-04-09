@@ -2,41 +2,49 @@
 
 Started: 2026-03-30
 
-## Key Learnings (updated after episode 95)
+## Key Learnings (updated after episode 100)
 
-**Current best score:** **102/350 (ep94)** — first episode to break the 100-point project goal threshold. ep95 regressed to 90 but opened a new scoring zone (Reservoir trunk +15).
-**Current bottleneck:** **KB cross-episode state pollution.** The "Items Found" KB section contains ep94-specific drop annotations ("Painting; dropped in Studio") that are treated as strategic knowledge, causing the next episode to hunt for treasures that aren't there. Also: completed objectives are not removed from the active list — duplicates appear even when an objective is marked completed in the same episode.
-**Model stack (current):** agent + knowledge + memory all on `remote/google/gemini-3-flash-preview`; critic + extractor + analysis on local `mistralai/ministral-3-14b-reasoning`.
-**Session status:** OpenRouter credits overdrawn (251.68 used / 251.58 credit). Further episodes require a credit top-up.
+**Current best score:** **102/350 (ep94)** — unbeaten since the visibility bundle run. Recent episodes range 50-90; ep98 matched ep95's 90 on a cleaner execution path but with no new ceiling breakthrough.
+**Current bottleneck:** **Gameplay-level belief reconciliation.** All recent underperformance traces to the agent not reconciling stored beliefs (plan state, KB facts, remembered inventory) against live engine observations before acting. Three concrete instances in the last 4 episodes: thief combat (3/4 episodes, ep97 died / ep98 lost bar silently / ep100 died), KB-recorded failure retries (ep99 `turn bolt with wrench` loop), and silent phantom-inventory takes (ep98/100 `take bar` after thief stole it). The infrastructure work of this session is complete; remaining gains require prompt-level reasoning discipline improvements.
+**Model stack (current):** agent + critic + knowledge + memory all on `remote/google/gemini-3-flash-preview`; objective_model on local `mistralai/ministral-3-14b-reasoning`; extractor_model removed (action deleted). Critic is also disabled (`enable_critic=false`) — the programmatic `validate_against_object_tree` in `critic.py` is the only remaining gate.
+**Session velocity:** ~3 turns/min (≈22s/turn) after extractor + critic LLM-call removal. A full 200-turn episode runs in ~60-70 minutes.
+**Session status:** OpenRouter credits ~$13 remaining. Infrastructure work done. Next focus: gameplay reasoning protocol (stale-belief rule).
 
-### What works
-- **ep93→94 visibility bundle (BLOCKER)**: completed-objectives rendering + score-event timeline + `nav_target` BFS route injection + `inventory_changed` memory trigger with ephemeral persistence. All 4 features confirmed in ep94 and ep95. Bundle itself is stable.
-- **ep92→93 memory_model swap to gemini-3-flash-preview**: mem_new grew 2 → 24 → 49 → 31 across ep92→93→94→95. Learning loop alive.
-- **ep94→95 stale-route recompute (agent.md)**: Behaviorally validated at ep95 t77 — agent explicitly wrote "This is a STALE ROUTE" and backtracked when `up` from Cellar was missing. But the deep-zone Torch/Dome blocker the change targets was never re-encountered in ep95 (agent didn't reach that zone), so the outcome metric is not yet confirmed.
-- **Cross-episode memory carryover**: ep95 t139-140 `ulysses` to escape Cyclops Room came from a memory created in an earlier episode.
-- **LLM circuit breaker (ep84→85)**: threshold=5 consecutive failures aborts the run.
+### What works (session-level confirmed wins)
+- **ep92→93 memory_model swap Ministral→gemini-3-flash** (commit era). mem_new grew 2→24→49→31 across ep92-95. Learning loop alive.
+- **ep93→94 visibility bundle** (BLOCKER bundle): completed-objectives rendering + score-event timeline + nav_target BFS + inventory_changed memory trigger. Delivered the ep94 102 ceiling.
+- **ep94→95 stale-route recompute** (agent.md): specific "planned direction missing from engine exits → mark STALE and replan" rule. Behaviorally confirmed in ep95 t77 and ep98 t39. **This is the narrow template for the proposed ep100→101 general stale-belief rule.**
+- **ep96→97 critic model swap** (`c0f8e69`): Ministral→gemini-3-flash for critic role. Fixture probe showed 5/5 problem flips, 3/3 healthy preserved. ep97 production confirmed: zero spirals, 0.76 avg critic, deposit loop unblocked.
+- **ep97→98 critic disable experiment** (`1663389`): `enable_critic=false` in pyproject.toml. ep98 produced 90/350 on the cleanest execution of the session — 34 locations visited (new session-high location count), compound commands unblocked, Cyclops-shortcut deposit used for the first time in session. At gemini/gemini parity, the LLM critic was net cost.
+- **ep98→99 extract_info deletion** (`873c37d`): pure subtraction of the extractor action, IN_COMBAT state, COMBAT ACTIVE banner, and associated config. Saved ~1 LLM call/turn. Delivered the 3-turns/min speedup. Execute_action now writes EXITS and VISIBLE_OBJECTS directly from Jericho.
+- **ep98→99 map_graph reverse-edge fix** (`3de19b6`): `add_connection` now records only observed forward edges. One-way passages (chimney, chasm drops, slide room) no longer get fabricated reverse edges. Unit-test validated (9/9 passing). Data effects appear gradually as new observations accumulate.
+- **memory_model consolidation routing** (`5d7bb77`): end-of-episode consolidation uses `memory_model` (gemini-3-flash) instead of the old `analysis_model` (Ministral). Validated end-to-end in ep100 with `mem_consolidated=8` and sensible keep/drop/merge decisions in the log.
+- **analysis_model → objective_model rename** (`165ba18`): 1:1 mapping between config keys and concerns. No prompt changes. Pure cleanup.
+- **SQLite WAL mode on `data/burr_state.db`**: applied post-ep99 crash. Allows the Burr tracker web server and episode persister to write concurrently. Environmental fix, not in git.
 
-### Falsified hypotheses
+### Falsified hypotheses (session-level)
 - **"Sonnet 4.6 works for secondary subsystems"** — FAILED ep85-86.
-- **"Ministral is sufficient for memory synthesis"** — FAILED ep91-92.
+- **"Ministral is sufficient for memory synthesis"** — FAILED ep91-92 (confirmed via direct probe).
+- **"Ministral is sufficient for critic role"** — FAILED ep96 (confirmed via ep96 fixture probe, 5/5 flip rate).
+- **"At gemini/gemini parity, the LLM critic still adds value"** — FAILED ep97-98 experiment (91.2% first-proposal accept, no observable value on the remaining 9%).
 - **"Temperature 0.7 reduces variance"** — FAILED ep47.
 - **"50-turn prompt changes can fix model KB-following"** — FAILED ep39-41 (code bug, not prompt).
 
-### Open problems (ordered by estimated impact)
-- **[NEW ep95] KB cross-episode state pollution** — KB "Items Found" section contains per-episode drop annotations from the prior episode. ep95 agent at t48 reasoned "the treasures were dropped in Studio" — but those were ep94's drops. Wasted ~14 turns hunting non-existent items. This is strong candidate for next improvement — the knowledge.md prompt is mixing ephemeral state into durable knowledge. Likely fix: tighten `update_knowledge.md` prompt to exclude per-episode inventory/location state (treasures dropped this run), OR filter "Items Found" section out of the context render entirely since ephemeral memories now cover episode-scoped state better.
-- **[NEW ep95] Active/Completed objectives duplication** — Completed objectives still appear in the active list (same text). Not deduplicated. e.g., at ep95 t80 "Retrieve painting from Studio" was in both lists. Likely fix: in `assemble_context`, filter active objectives that match (by text or ID) a completed entry.
-- **[NEW ep95] Thief loot loss is silent** — Between t21 (take platinum bar) and t45 (inventory shows bar missing), the thief intercepted. Agent never got a memory synthesis for the loss. Bar theft is invisible in the log and not surfaced to agent context. Would benefit from a "missing from inventory" detection + ephemeral memory.
-- **Return-trip from Torch Room / Dome Room** — Unchanged from ep94. ep94→95 stale-route prompt change is pending direct validation.
-- **Critic false rejections (Ministral)** — Still at ~4 spirals per episode. ep95 t139-140 `say ulysses` / `ulysses` both rejected 3x despite being the canonical cyclops escape. Critic prompt quality or model capacity is the blocker.
-- **Dam puzzle unsolved** — 150+ cumulative turns. ep95 tried `turn bolt with wrench`, `put tube on bolt`, `push yellow button`, `push brown button` — nothing scored.
+### Open problems (ordered by current impact)
+1. **Belief reconciliation / object permanence — THE top priority.** Agent has stored plans and KB facts, reads them into context every turn, but doesn't verify preconditions against live engine state. Manifestations: thief combat (3/4 recent), KB failure-verdict retries (ep99 Dam bolt), phantom-inventory takes (ep98/100 bar). **Proposed fix: generalize the ep94→95 stale-route rule into a full "stale-belief" reasoning protocol in agent.md** — apply to inventory, visible_objects, and KB failure records in addition to exits. Fixture-probe against ep99 t29 and ep100 t53.
+2. **Thief combat gameplay defect.** Subcase of #1 but severe enough to mention separately. Score impact ~15-30 points per affected episode. The KB has the knowledge ("thief dodges, disarms, leaves when finding nothing of value"); the agent doesn't apply it.
+3. **Rope-at-Dome prerequisite not carrying forward.** ep94 successfully descended Dome→Torch via rope from Attic for +28. Subsequent episodes haven't reproduced this despite the rope being in the KB. ep100 took the rope but never navigated to Dome. Investigate whether the ep94 memory/KB entry exists and is renderable, or whether it got consolidated away.
+4. **Dam puzzle unsolved.** 150+ cumulative turns, zero score. Not currently the priority but a known dead-weight zone.
+5. **Programmatic validator compound-take blind spot.** `validate_against_object_tree` misparses `take X, Y` as a single object. Low-priority cleanup; force-accept resolves it.
+6. **data/map.json has accumulated false reverse edges from ep1-98.** The ep98→99 map_graph fix stops adding new ones but doesn't wipe existing. Consider a one-time cleanup if routing errors persist.
 
-### Subsystems investigated
-- Agent prompt: ~21 changes, last ep94→95 (stale-route recompute)
-- Critic prompt: ~3 changes, last ep7 (target for next round given repeated spirals)
-- KB/memory system: ~12 changes, last ep93→94 (bundle)
-- Python pipeline (context assembly): ~12 changes, last ep93→94 (bundle)
-- Model stack: 5 switches, current = gemini-3-flash for agent/knowledge/memory, Ministral for critic/extractor
-- Infrastructure: circuit breaker, max_turns=200
+### Subsystems investigated (current totals)
+- Agent prompt: ~21 changes, last ep94→95 (stale-route). Next target: stale-belief generalization.
+- Critic prompt: 3 changes total, last ep7. Now bypassed entirely via `enable_critic=false`.
+- KB/memory system: ~13 changes, last ep96→97 (memory_model consolidation routing + rename cleanup).
+- Python pipeline (context assembly): ~13 changes, last ep98→99 (extract_info deletion, execute_action now writes exits/visible_objects).
+- Model stack: 6 switches total, current = gemini-3-flash for agent/critic/knowledge/memory, Ministral for objective_model only.
+- Infrastructure: circuit breaker, max_turns=200, WAL mode, map_graph forward-only edges.
 
 
 ---
