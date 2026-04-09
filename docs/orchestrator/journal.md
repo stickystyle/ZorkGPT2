@@ -536,6 +536,37 @@ Quality judgment: the change is an improvement — the core problem turns (t166,
 
 ---
 
+## Session Paused (2026-04-09) — OpenRouter credits overdrawn
+
+**State at pause:**
+- Credits: 251.58 / 251.72 used (~0.148 overdrawn). Each gemini-3-flash call's pre-budget check rejects anything with max_tokens above ~1764.
+- Episodes attempted tonight: ep95 (complete at t181, score 90), ep96 (aborted t7 at max=4096), ep96b (aborted t5 at max=2048). None usable beyond ep95.
+- Current config: `default_max_tokens=4096` (kept as a sane default; 8192 was overkill anyway).
+
+**Commits this session (most recent first):**
+- `c1abd32` — fix(orchestrator): ep95→96 dedupe active objectives against completed list (BLOCKER, code-only, pytest-validated)
+- `8630fa7` — chore(orchestrator): default_max_tokens 8192→4096; ep96 aborted (credits)
+- `9f65ff0` — docs(orchestrator): ep95 complete — 90/350, KB cross-episode pollution diagnosed
+
+**Pending improvements awaiting an episode to measure:**
+1. **ep94→95 stale-route recompute** (prompts/agent.md) — BEHAVIORALLY CONFIRMED at ep95 t77 but target deep-zone blocker never reached. Needs a Torch/Dome run to fully verify.
+2. **ep95→96 objectives dedup** (zorkburr/actions/objectives.py) — pytest-validated regression test passing. Needs a mid-episode Burr context inspection (e.g., t80+) to verify zero duplicate active/completed entries in production.
+
+**Top candidate for next improvement (not dispatched — awaiting episode slot):**
+- **KB cross-episode state pollution.** The "Items Found" section of the KB contains ep94-specific drop annotations ("Painting — Gallery; dropped in Studio", "Sword — Living Room; dropped in Maze") which are treated as strategic facts in ep95. Agent at ep95 t48 explicitly reasoned the painting was in Studio and wasted ~14 turns there before self-correcting. Two possible fixes:
+  (a) Code-side: strip the "Items Found" section from the KB render in `assemble_context.py` (destructive — loses strategic item location info).
+  (b) Prompt-side: modify `prompts/knowledge.md` to instruct the LLM not to record per-episode inventory state (where items have been dropped this run); ephemeral memories already handle that. This is cleaner but requires LLM validation.
+  Recommended: (b), as a single targeted prompt change after credits are restored.
+
+**Next orchestrator session should:**
+1. Check OpenRouter credit balance first — if still overdrawn, wait or notify user.
+2. If credits OK, run a fresh ep96 to measure both pending improvements (stale-route + objectives dedup).
+3. At ep96 t80+, inspect Burr context for `Active Objectives` vs `Completed this episode` overlap — should be zero.
+4. If ep96 reaches Torch/Dome/Egyptian and handles stale routes cleanly, close ep94→95 as CONFIRMED.
+5. Then dispatch the KB-pollution improvement as ep96→97.
+
+---
+
 
 
 ## Episode 94 → 95 — IMPROVEMENT RESOLUTION
