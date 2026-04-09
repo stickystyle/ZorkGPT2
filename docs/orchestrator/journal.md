@@ -666,6 +666,17 @@ Episode will continue to t200 but the scoring ceiling is now ~54 unless the agen
 
 ---
 
+## Episode 96 → 97 — IMPROVEMENT (BLOCKER: critic model swap)
+**Trigger:** Critic false-rejection pattern persistent since ep86. In ep96 alone, 5 rejection spirals on valid actions: t23/t29 (west from East-West Passage, anti-revisit bias corrupting deposit loop), t49 (drop bottle, sack — compound command misparsed), t106 (north from Dam — hallucinated "blocked based on history"), t111 (take all — Zork keyword misparsed as an object name).
+**Hypothesis:** Ministral-3-14B-reasoning has hit a model-capacity ceiling for the critic role — no prompt tuning can fix the anti-revisit bias or compound-command misparse because the model is not grounding its output on the supplied context (exits list, inventory, action history). gemini-3-flash-preview already runs the agent/knowledge/memory roles and grounds correctly, demonstrated by the direct fixture probe below. Swapping to gemini eliminates the Ministral failure modes without any prompt changes.
+**Change:** `pyproject.toml` — `critic_model = "mistralai/ministral-3-14b-reasoning"` → `"remote/google/gemini-3-flash-preview"`. Single line. No prompt or code changes.
+**Reasoning:** Single-variable swap isolates the hypothesis. Prompt is unchanged so any behavioral difference is attributable to the model. The ep92→93 memory_model swap used the same pattern (Ministral → gemini via fixture probe) and produced a +34-point score jump. This is the second Ministral-ceiling diagnosis of the session; the first also resolved cleanly with a gemini swap.
+**Target metric:** ep97 critic avg > 0.70 (ep96: 0.62), rejection spirals ≤ 1/episode (ep96: 5), deposit loop completes without critic blocking on the first `west` proposal from East-West Passage. Production score ≥ 79 (ep93 ceiling) ideally ≥ 102 (ep94 ceiling).
+**Validation:** PASSED (5/5 problem flips, 3/3 healthy agrees on `scripts/_probe_critic.py` against all 8 ep96 evaluate_action fixtures). Gemini's justifications explicitly read the Available Exits list (t23: *"Moving in a direction listed as a valid exit is sound exploration"*) and parse Zork compound commands correctly (t49: *"Managing inventory by dropping multiple items to free capacity for necessary tools is valid resource management when encumbered"*, t111: *"Collection of available items is a fundamental gameplay mechanic"*). Ministral was hallucinating on exit lists and misparsing comma-separated drops; gemini grounds on context.
+**Result:** PENDING
+
+---
+
 ## Episode 96 — Turn 75 Checkpoint
 **Type:** URGENT (formal stagnation trigger — 2nd consecutive 0-delta block)
 **Score:** 50/350 (delta: 0 since t50 — **formal trigger: 2 consecutive stagnation blocks**)
