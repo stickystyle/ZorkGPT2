@@ -292,14 +292,14 @@ def consolidate_location(
     )
 
     response: ConsolidationResponse = client.create(
-        model=config.analysis_model,
+        model=config.memory_model,
         response_model=ConsolidationResponse,
         messages=[
             {"role": "system", "content": _get_consolidation_prompt()},
             {"role": "user", "content": context},
         ],
         temperature=0.3, max_tokens=2048, max_retries=2,
-        **thinking_kwargs(config, config.analysis_model, False),
+        **thinking_kwargs(config, config.memory_model, False),
     )
 
     return apply_consolidation_actions(memories, response.actions)

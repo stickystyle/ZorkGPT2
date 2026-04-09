@@ -215,7 +215,7 @@ class TestConsolidateLocation:
         ]
         result, stats = consolidate_location(
             location_id="10", memories=mems, knowledge_base="# KB",
-            client=mock_client, config=MagicMock(analysis_model="test"),
+            client=mock_client, config=MagicMock(memory_model="test"),
         )
         assert len(result) == 1
         assert result[0]["title"] == "Good Memory"
