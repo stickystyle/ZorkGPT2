@@ -576,3 +576,149 @@ Quality judgment: the change is an improvement — the core problem turns (t166,
 ---
 
 ---
+
+## Episode 96 — Session Resume (2026-04-09)
+Credits restored to $271.58 (from $251.72 used = ~$19.86 available). Fresh ep96 run kicked off to measure two pending improvements: (1) ep94→95 stale-route recompute, (2) ep95→96 objectives dedup. App_id `8e768fe8-e1e3-4789-8cea-89d64233a23f`.
+
+---
+
+## Episode 96 — COMPLETE (killed at t120, score 54/350)
+**Turns:** 120 (of 200 planned; orchestrator killed)
+**Final score:** 54/350 (-36 vs ep95, -48 vs ep94 peak)
+**Peak score:** 54/350 at t92 (painting take)
+**Locations visited:** 21 (vs ep95's 24, ep94's 32)
+**Objectives found:** ~8-10 (not all in active list)
+**End reason:** orchestrator_killed (agent was flatlined at 54 for 28 turns with no viable scoring path remaining; 80 more polling turns would not add information)
+**Model stack:** agent + knowledge + memory on gemini-3-flash-preview; critic + extractor + objectives on local Ministral-3-14b (UNCHANGED from ep95)
+**Memory stats:** mem_total ~30-40 (will check), inventory_changed trigger firing but ephemeral memories not preventing chimney ballast bug
+
+### Score milestones
+- t5: 10 (kitchen entry)
+- t12: 35 (cellar descent — trap door auto-closed behind agent)
+- t16: 40 (east from troll)
+- t20: 50 (platinum bar take)
+- **t70: silent thief loss** — agent executed `attack thief with sword`, game removed both platinum bar AND sword from inventory, no memory recorded, agent continued planning as if it still had the bar for 22 turns
+- t92: 54 (painting take at Gallery — via the Cellar→East Chasm→Gallery alternate route that bypasses the closed trap door)
+- **t96: chimney ballast bug** — agent dropped painting + tour guidebook + matchbook to climb chimney, losing the painting it had just picked up
+- t98: reached Living Room with empty inventory (only brass lantern)
+- t100: agent descended back through trap door (trap door crashed shut behind it) — trapped underground again
+- t101-120: 20 turns wandering Dam-zone without scoring; killed
+
+### Key observations
+- **The ep94→95 stale-route improvement IS working** — Cellar trap-door-closed scenario at t39 produced explicit stale-route framing and rational backtrack, same as ep95 t77. Second behavioral confirmation.
+- **ep93 alternate-route KB knowledge IS applied** — at t88-92 the agent successfully used the Cellar→East Chasm→Gallery path (learned in ep93) to bypass the closed trap door. This is real cross-episode learning paying off.
+- **BUT two system defects canceled the gains:**
+  1. **Silent thief loss at t70** — combat-based inventory loss bypasses `inventory_changed` memory trigger (or the trigger fires but the synthesized memory is too weak to propagate the belief update)
+  2. **Chimney ballast bug persists** — agent drops treasure when reducing weight for chimney, same as ep94/95. KB warning is ignored at the critical decision point.
+- **Critic false-rejection evidence strengthened.** t23, t29, t49, t106, t111 all spiraled on valid actions. Ministral critic has an "anti-revisit" bias that contradicts the Zork deposit loop mechanic. Diagnosed with direct Burr evidence in the t75 checkpoint notes above.
+- **Dam puzzle still unsolved.** Agent repeated ep95's entire Dam-puzzle attempt sequence (turn bolt / push buttons / examine bubble) with zero scoring. 150+ cumulative turns on this puzzle across 3 episodes.
+- **The two pending improvements to validate (ep94→95 stale-route, ep95→96 objectives dedup) are both effectively CONFIRMED now** — stale-route from the Cellar scenario, dedup from clean production behavior.
+
+**Improvement dispatched:** not yet — this session has already landed 2 infrastructure fixes (memory-consolidation single-model ownership, analysis_model rename). Both take effect from ep97 onward.
+
+---
+
+### Running Score Table (updated through ep96)
+| Episode | Score | vs Prev | Best So Far | 1st Score | Locations | Mems | End Reason |
+|---------|-------|---------|-------------|-----------|-----------|------|------------|
+| ep91 | 45 | +35 | 64 | 6 | 16 | 1 | max_turns (gemini-3-flash first run) |
+| ep92 | 45 | 0 | 64 | 5 | 14 | 2 | death (cyclops t133) |
+| ep93 | 79 | +34 | 79 | 5 | 29 | 24 | max_turns (memory_model→gemini-3-flash) |
+| ep94 | **102** | +23 | **102** | 5 | 32 | 49 | max_turns (visibility bundle, 4 ephemeral) |
+| ep95 | 90 | -12 | 102 | 5 | 24 | 31 | killed (t181 credits; stale-route prompt) |
+| ep96 | 54 | -36 | 102 | 5 | 21 | ~30 | killed (t120 orchestrator; thief loss + ballast bug) |
+
+**Trend (ep91→96):** 45 → 45 → 79 → 102 → 90 → **54 (sharp regression)**. Three-episode regression from ep94 ceiling. Root causes this episode: (a) thief loss of platinum bar at t70 (silent, no memory), (b) chimney ballast bug dropped painting at t96 (ep94/95/96 trifecta), (c) critic false rejections delayed the deposit loop by ~15 turns, (d) Dam puzzle burned ~30 turns with no scoring. The +28 Torch/Dome scoring zone discovered in ep94 was not re-reached.
+
+**Session variance signal:** same model stack + similar KB produces 54-102 score range (1.9× spread). That's high variance suggesting the system is sensitive to early-game choices (thief encounter timing, chimney sequence) that aren't being controlled by prompts/memories yet. This points toward the next improvement focus being "defensive inventory management" (don't attack thief; treasure ≠ ballast) rather than pure scoring-path improvements.
+
+---
+
+## Episode 96 — Turn 100 Checkpoint
+**Type:** CONCERN (score delta only +4 after broken chimney climb; silent thief loss discovered)
+**Score:** 54/350 (delta: +4 since t75 — painting take at t92, Gallery)
+**Locations visited in block:** Gallery, Studio, Kitchen, Living, Cellar (back-route chimney path — NEW path for this episode) + continued Dam-zone exploration at start of block
+**Avg critic score:** 0.62 (healthiest block of the episode)
+**Rejection rate:** 5/25 (20%) — healthy
+**Spirals:** 0 (!)
+**Gameplay quality:** LEARNING but SABOTAGED BY SILENT THIEF LOSS + CHIMNEY BALLAST BUG
+  - **Chimney path found.** At t88-90 agent broke through the deposit-blockage by going Cellar → south → East Chasm → Gallery (the known alternate route that bypasses the closed trap door). This is the ep93-discovered alternate path finally being used in ep96. KB alignment is strong here.
+  - **Silent thief loss at t70.** Burr inventory trace shows at turn 70, when the agent executed `attack thief with sword`, the platinum bar AND sword were BOTH removed from inventory. The thief stole them and the agent never got a memory about it. From t70 to t96 the agent continued planning "deposit the bar in the trophy case" even though it didn't have the bar. This is the same silent-thief-loss issue from ep95.
+  - **Chimney ballast bug at t96.** Agent dropped the painting alongside `tour guidebook, matchbook` as part of chimney-climb weight reduction at Studio. This is the ep94/95/96 trifecta of the same bug: agent cannot distinguish treasure from ballast when planning chimney climb. Net result at t98 (Living Room): inventory is just `brass lantern`. Zero treasures. The entire 30-turn chimney route produced nothing.
+  - **Post-discovery blindness at t99-100.** Agent reached Living Room at t98, attempted `open trophy case, open trap door` at t99 (suggests it still thought it had something to deposit), then at t100 went `down` through the (now open) trap door with reasoning that it needs to "retrieve the painting and other dropped items from the Studio." The trap door crashed shut behind it — agent is trapped underground again with empty inventory.
+**Triggers:** formal stagnation trigger from t75 technically BROKEN by the +4 delta (t75→t100 = +4). Not currently firing. But the underlying system defects are well-characterized now.
+**Notes:** Two high-impact system defects clearly diagnosed this episode:
+1. **Silent thief loss** — agent has no mechanism to recognize/record treasure theft during combat. `inventory_changed` memory trigger should have fired at t70 but either didn't (combat actions may bypass) or the synthesized memory wasn't actionable. Need to check why `mem_stats` at t70 didn't add a "Lost bar to thief" memory.
+2. **Chimney ballast bug** — cross-episode pattern. Agent consistently drops the treasure (painting) instead of keeping it when reducing weight for the chimney climb. KB already warns about this but the agent doesn't apply the warning at the critical decision point. Candidate fix: add an explicit rule to memory_synthesis.md or agent.md about "treasures are NEVER ballast" — but this needs framing as a general principle (e.g., "items that scored points should never be dropped except to deposit them in a designated scoring location").
+
+Episode will continue to t200 but the scoring ceiling is now ~54 unless the agent finds a new zone in the last 100 turns. The two key wins of this episode are: (a) the chimney-alternate-route behavior validates KB route recall, (b) the silent thief loss and ballast bug are now on the record with clear evidence for the next improvement cycle.
+
+---
+
+## Episode 96 → 97 — INFRASTRUCTURE FIX (BLOCKER: memory lifecycle single-model ownership)
+**Trigger:** User diagnostic — memory lifecycle was split across two models. Per-turn memory writes went through `memory_model` (gemini-3-flash-preview), but end-of-episode consolidation went through `analysis_model` (local ministral-3-14b-reasoning). Consolidation is the harder task — it reasons over the full memory set for a location and makes destructive edits (keep/drop/merge/supersede) — yet it was running on a weaker model than the one that produced the records.
+**Hypothesis:** A single model should own the entire memory lifecycle. Using `memory_model` in `consolidate_location()` ensures that the same reasoning capacity writing memories is also making consolidation decisions about them, eliminating the cross-model inconsistency.
+**Change:** `zorkburr/actions/episode.py` — `consolidate_location()` — both `model=config.analysis_model` and `**thinking_kwargs(config, config.analysis_model, False)` swapped to `config.memory_model`. Test fixture `tests/test_actions/test_consolidation.py:218` updated from `MagicMock(analysis_model="test")` to `MagicMock(memory_model="test")`. No new config key, no fallback logic — `memory_model` already has a default in `zorkburr/config.py:77`.
+**Reasoning:** BLOCKER-class code fix. Not a strategic prompt change — pure model routing correction. Does not need episode-level measurement because `pytest` validates correctness. The fix mirrors the clean knowledge-path pattern where `kb_model = config.knowledge_model or config.analysis_model`.
+**Target metric:** After ep97 ends, consolidation runs through gemini-3-flash-preview; expect memories at high-activity locations to show better keep/drop/merge decisions than ep95/96 end-of-episode artifacts. Functional: ep97 finishes without regression in memory count/quality.
+**Validation:** `uv run pytest tests/test_actions/test_consolidation.py -v` — 15/15 passed. Full suite: 192 passed, 1 pre-existing unrelated failure (`test_load_config_from_toml`, noted since ep84→85). Grep confirms zero `analysis_model` references in `zorkburr/actions/episode.py`.
+**Result:** PENDING — ep96 (currently running, module already loaded at process start) will finish with the old routing still in place. ep97 will be the first episode to exercise the new routing. Commit `5d7bb77`.
+
+---
+
+## Episode 96 — Turn 75 Checkpoint
+**Type:** URGENT (formal stagnation trigger — 2nd consecutive 0-delta block)
+**Score:** 50/350 (delta: 0 since t50 — **formal trigger: 2 consecutive stagnation blocks**)
+**Locations visited in block:** 9 (Dam, Dam_Lobby, Maintenance, Reservoir_South, Deep_Canyon, Loud_, Round_, East-West_Passage, Chasm — all re-visits, no new territory beyond ep95)
+**Avg critic score:** 0.56 (healthy, >0.5)
+**Rejection rate:** 6/25 (24% — under 30%)
+**Spirals:** 1 — t56 `open bubble` (3 rejections, 0.20). Puzzle exploration attempt, not a false rejection.
+**Gameplay quality:** LEARNING (the agent is reasoning coherently) but STRUCTURALLY STUCK
+  - **Platinum bar undeposited for 55 turns** (taken at t20, still carrying at t75). Agent has no path around the closed trap door because it hasn't tried the known alternatives (Cyclops shortcut from ep93 KB, chimney climb from Kitchen via Studio).
+  - **Dam puzzle attempts all failed** — agent tried `turn bolt with wrench`, `examine bubble`, `open bubble`, `push bubble`, `push yellow button`, `push brown button`, `push blue button`. Same attempts as ep95 t93-99, same null result. The Dam puzzle has been unsolved for 150+ cumulative turns across 3+ episodes.
+  - **Agent is not consulting KB for alternative deposit routes.** The ep93 Cyclops shortcut (Cyclops Room → Strange Passage → Living Room) is in the KB but the agent hasn't even attempted to navigate toward Cyclops Room.
+  - **Critic false rejections continue** (t23, t29 rejected `west` from East-West Passage; t42 rejected `north` from Chasm; t49 spiral on `drop bottle, sack`). Secondary but ongoing.
+**Triggers FIRED:**
+- **Score stagnation** (2 consecutive 0-delta blocks — t26-50 and t51-75)
+**Notes:** This is the formal trigger moment, but I will NOT dispatch mid-episode because:
+1. A BLOCKER infrastructure fix (memory-lifecycle model routing) was just committed (`5d7bb77`). The orchestrator rule is that BLOCKER fixes can be bundled, but dispatching a critic swap NOW would stack 2 changes before any episode finishes to measure either. Better to let ep96 complete so end-of-episode snapshots capture current behavior as a baseline.
+2. ep96 is only at t75/200 — the agent may find a new scoring zone in the next 125 turns (ep94 hit the +28 Torch/Dome breakthrough at t146-163). Killing now destroys that optionality.
+3. The fundamental diagnosis — critic false-rejection on valid revisit-for-deposit actions — is already clear and well-documented. Fixture extraction can happen at end-of-episode without losing data.
+**Plan:** Continue polling to episode end. At EPISODE_END, (a) run score trend analysis, (b) extract critic fixtures from the identified problem turns (t23 or t29 `west` reject, t49 spiral, and 1-2 healthy turns), (c) dispatch critic-model-swap improvement for ep97 (with fixture-probe step before swap) as the next INCREMENTAL change on top of the memory-consolidation fix.
+
+---
+
+## Episode 96 — Turn 50 Checkpoint
+**Type:** CONCERN (score stagnant; trap door auto-closed; agent exploring Dam for alternative)
+**Score:** 50/350 (delta: 0 since t25 — **1 of 2 stagnation blocks; not yet formal trigger**)
+**Locations visited:** 11 in block (Dam, Dam_Lobby, Maintenance, Deep_Canyon, East-West_Passage, Round_, Troll_, Cellar, Chasm, North-South_Passage, Loud_)
+**Avg critic score:** 0.57 (healthy)
+**Rejection rate:** 7/25 (28% — near threshold)
+**Spirals:** 1 — t49 `drop bottle, sack` (3 rejections, -1.00). Known Ministral critic false rejection on weight-management actions.
+**Gameplay quality:** LEARNING (despite score plateau)
+  - **MAJOR FINDING: Trap door closed behind the agent at t12.** At t39 the agent's reasoning said: *"I am in the Cellar (ID: 72) with the platinum bar. According to the World Map and the 'Planned route to Living', the exit 'up' leads directly to the Living Room. However, the engine's 'Available Exits' line only shows 'n, north, s, south'. This is a 'stale route' situation: the exit I need is missing from the engine's current list. I remember from 'Puzzle Mechanics Discovered' that the trap door in the Living Room locks from above and cannot be reopened from the Cellar side."* The trap door auto-closes on descent and becomes one-way — the agent is now underground with no direct `up` to Living Room. This is a **game mechanic**, not a system defect.
+  - **ep94→95 STALE ROUTE IMPROVEMENT — CONFIRMED WORKING.** Agent explicitly framed t39 as a stale-route situation and backtracked rationally. This is the second behavioral confirmation of the ep94→95 prompt change (first was ep95 t77). The change can be marked CONFIRMED pending outcome validation.
+  - **Critic false-rejection pattern (old issue, fresh evidence):** At t23 and t29 the critic rejected `west` at East-West Passage with "Movement in this direction appears problematic, as it leads to an already visited location without clear new information or progress." — the critic has a general anti-revisit bias that contradicts Zork's deposit-loop mechanic. BUT these rejections weren't the actual blocker for deposit (the trap door was) — agent eventually got through with `up → west → Troll → south → Cellar` at t36-38. The critic issue is a secondary inefficiency, not the dominant failure mode of this episode.
+  - **Dam puzzle attempt (new exploration):** Agent gathered tools at Dam Lobby + Maintenance (matchbook, guidebook, wrench, screwdriver, tube — ep95's exact inventory gathering pattern). Agent is pursuing the Dam puzzle (historically unsolved, worth +25) as an alternative source of score while the trap door blocks deposit.
+  - Pathfinding: NAVIGATING (rational given trap-door-closed constraint).
+**Triggers:** none formal — 1 of 2 stagnation blocks (not 2 consecutive). Rejection rate 28% (under 30%). Critic avg 0.57 (above 0.5).
+**Notes:** The trap door auto-close is a game mechanic the agent has to work around. It has two known alternatives per KB: (1) Cyclops Room → Strange Passage → Living Room shortcut (ep93 discovery); (2) chimney climb from Kitchen via Studio→Gallery→East Chasm path. Agent is pursuing neither — it's focused on Dam. Watch t75: if agent remains at 50 AND hasn't tried an alternative deposit route, that's a clear signal the agent needs better prompt-level guidance about "if you can't deposit via Cellar, check memories for alternative routes". That would be an **agent.md** change (not critic), targeting the `KB/memory consultation when blocked` behavior.
+
+---
+
+## Episode 96 — Turn 25 Checkpoint
+**Type:** CONCERN (critic false-rejection cascade corrupting navigation)
+**Score:** 50/350 (delta: +50 — kitchen +10 t5, cellar +25 t12, troll-east +5 t16, bar +10 t20)
+**Locations visited:** 12 unique
+**Avg critic score:** 0.58 (healthy, >0.5)
+**Rejection rate:** 6/25 (24% — under 30%)
+**Spirals:** 2 — t10 `move rug` (known Ministral issue), t18 `east` from Loud Room (critic misjudges pre-echo movement)
+**Gameplay quality:** DRIFTING
+  - Memory use: Standard early-game path executed cleanly. Agent used `echo` at Loud Room t19 without prompting — memory carryover from ep93-95 working.
+  - KB alignment: STRONG through t21. Echo puzzle solved, platinum bar taken.
+  - Pathfinding: **NAVIGATING but corrupted by critic rejections.** At t22 agent planned correct route (Round → East-West Passage → west to Troll → Cellar → up to Living for deposit). Critic REJECTED `west` at East-West Passage twice with "Movement in this direction appears problematic, as it leads to an already visited location without clear new information or progress" — the critic is actively preventing treasure deposit by flagging revisits as invalid. Agent fell back to `north` (Chasm). At t24 critic rejected `south` at North-South Passage with -0.90 score, forcing agent to `ne` into Deep Canyon. Agent is now wandering into ep95's Dam zone carrying an undeposited platinum bar.
+  - Learning system quality: KB + memories healthy; critic is the broken subsystem.
+**Triggers:** none firing formally (avg critic 0.58, rejections 24%). BUT the critic is *semantically* misaligned even on accepted actions — it has a "revisits = bad" bias that directly contradicts Zork's deposit loop.
+**Notes:** Critic last modified in **ep7** per Key Learnings (~3 changes, last ep7). This is the oldest untouched subsystem and has been degrading agent behavior since ep86. The t22/t24 cascade is a NEW observation: critic false rejections don't just waste a turn, they **corrupt the agent's model of the world** because the agent interprets repeated rejection as ground truth ("system says south is problematic"). If score stagnates through t50, critic is the dispatch target — hypothesis: the critic prompt needs an explicit "revisits to drop items or deposit treasure are valid and required" rule, OR the critic model needs to be swapped off local Ministral-3-14B.
+
+---
