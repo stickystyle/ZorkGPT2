@@ -1035,6 +1035,124 @@ The session has landed 5 confirmed infrastructure wins (memory-consolidation rou
 
 ---
 
+## Episode 103 — Turn 25 Checkpoint
+**Type:** HEALTHY
+**Score:** 50/350 (delta: +50 since start — kitchen +10 t5, cellar +25 t11, troll east +5 t14, bar +10 t20)
+**Locations visited:** 14 unique (West_House, North_House, Behind_House, Kitchen, Living_, Cellar, Troll_, East-West_Passage, Round_, North-South_Passage, Deep_Canyon, Loud_, Damp_Cave, White_Cliffs_Beach)
+**Avg critic score:** 0.50 (critic disabled)
+**Rejection rate:** 2/25 turns (8%) — both single-rejection (t6 west, t14 east), no spirals
+**Gameplay quality:** LEARNING
+  - Memory use: Agent successfully traversed troll route and bar route on first attempt despite empty map (using KB-stored memories from prior episodes)
+  - KB alignment: Agent went directly to Loud Room, used `echo` then `take bar` (validated KB path)
+  - Objective quality: **10 active objectives, 0 completed.** All objectives reference items that exist in the game world (painting, sword, lantern, bar, etc.). Some duplication. Some objectives use `location_id: 0` (Ministral doesn't fill this field consistently — known weakness). **CRITICAL: NO phantom items like ep102's "screwdriver and tube" — Ministral baseline restored.**
+  - Objective pursuit: Agent's actions align with stated objectives (took bar from Loud Room as objective listed)
+  - Learning system quality: KB strategic content intact; objective system is conservative but accurate
+  - Pathfinding: **NAVIGATING** — clean troll route, clean bar route, exploration of new area (White Cliffs Beach). **NO chimney "Only Santa Claus" failures observed.** Empty-map start did not impair navigation.
+**Triggers:** none
+**Notes:** Both BLOCKER fixes (objective_model revert + map.json wipe) showing positive signal. Score 50 at t25 matches the strongest baselines (ep98 had 50 at t21, ep101 at t23). Velocity ~1.8 turns/min — better than ep102's ~1, slower than ep98's ~3. Discovery of White Cliffs Beach is an emergent benefit of the empty map: the agent isn't biased by KB-encoded routes from prior runs.
+
+---
+
+## Episode 103 — Turn 50 Checkpoint
+**Type:** CONCERN
+**Score:** 50/350 (delta: **+0** since t25 — STAGNANT block)
+**Locations visited:** 19 total (5 NEW this block: Chasm, Dam, Dome_, Engravings_Cave, Reservoir_South)
+**Avg critic score:** 0.50 (critic disabled)
+**Rejection rate:** 0/25 turns (0%) — clean execution
+**Gameplay quality:** DRIFTING but EXPLORATIVE
+  - Memory use: Agent reached Engravings Cave and Dome Room at t34-35 (deep zone) but had no rope so couldn't descend
+  - KB alignment: Agent visited the Dam at t43 but didn't attempt the bolt puzzle (no wrench) — consistent with KB knowledge
+  - Objective quality: Still 10 active, no phantom items. Ministral baseline holding.
+  - Objective pursuit: Agent pursued exploration of unexplored areas (not stated in objectives but emergent from empty map)
+  - Pathfinding: NAVIGATING — clean transitions through 12 different rooms in 25 turns. **No chimney failures, no map_graph confusion loops.** This is a different stagnation pattern from ep102 — this block is "broad exploration without scoring" rather than "broken loops".
+**Triggers:** Score stagnation 1 consecutive (would not yet trigger improvement)
+**Notes:** The empty map is producing meaningful exploration: 5 new locations visited in this block including Engravings Cave, Dome Room, Chasm, Dam, and Reservoir South. The deep zone path (Engravings → Dome) was reached at t34 — earlier in the episode than ep101's t62. But the agent doesn't have the rope (still in Attic) so can't descend yet. The agent retreated from the Dam without attempting the bolt puzzle (correctly — needs wrench from Maintenance Room first). **The map cleanup is delivering on the "more exploration, less ritual" prediction.** Need t75 to see if the agent capitalizes on the new exploration with rope retrieval and Dome descent.
+
+---
+
+## Episode 103 — Turn 75 Checkpoint
+**Type:** CONCERN
+**Score:** 54/350 (delta: **+4** since t50 — painting +4 take at t54, no deposit yet)
+**Locations visited:** ~21 total (1 new this block: Maze)
+**Avg critic score:** 0.50 (critic disabled)
+**Rejection rate:** 1/25 turns (~4%) — single rejection at t56 drop painting/bar
+**Gameplay quality:** DRIFTING
+  - Memory use: Agent took bar earlier (t20) and painting at t54 — both KB-known scoring items
+  - KB alignment: Agent attempted chimney climb but **made the SAME mistake as ep98**: dropped painting + bar at Studio at t56 BEFORE climbing the chimney, leaving treasures behind. KB explicitly says: *"Carry the treasure plus the lantern, drop only non-treasure ballast"*. Agent recovered by going BACK via Cellar→East_Chasm→Gallery→Studio at t63 to retake them at t64.
+  - Objective quality: Still no phantom items
+  - Pathfinding: NAVIGATING — clean recovery loop, no map_graph confusion. The agent CHOSE to go via Cellar route (correct) instead of trying chimney down again.
+  - Risk: At t70-75 the agent entered the Maze WITH the painting and bar in inventory. Maze has the thief who steals treasures. This is high-risk behavior.
+**Triggers:** Score stagnation 2 consecutive checkpoints (would normally fire improvement). However, ep103 is producing different behavior than ep102 — chimney drop mistake is a known KB-violating pattern, not a new bug.
+**Notes:** The painting+bar drop at Studio is a recurring agent behavior issue, NOT caused by either of the BLOCKER fixes. ep98 had the exact same chimney drop pattern. The KB has the rule but the agent doesn't always apply it. **This is a candidate for a future agent.md prompt clarification** (after the BLOCKER bundle is fully validated). For now, keeping focus on the BLOCKER bundle results.
+
+---
+
+## Episode 103 — Turn 100 Checkpoint
+**Type:** HEALTHY
+**Score:** 64/350 (delta: **+10** since t75 — bag + skeleton key take in Maze at t84)
+**Locations visited:** ~22 total (Dead_End, Dam_Lobby new this block)
+**Avg critic score:** 0.50 (critic disabled)
+**Rejection rate:** 1/25 turns (~4%) — single rejection at t83 `look` in Maze
+**Gameplay quality:** LEARNING
+  - Memory use: Agent navigated Maze to skeleton room (rare achievement) using KB-stored maze guidance memories
+  - KB alignment: Agent took bag + skeleton key as KB suggested
+  - Objective quality: Stable Ministral baseline (no phantom items observed throughout episode)
+  - Pathfinding: NAVIGATING — successful Maze escape (Maze→Troll_→East-West_Passage), reached Dam_Lobby (a new area for recent episodes), then turned back. **NO chimney bug, NO map_graph corruption issues observed in this block.**
+**Triggers:** none (score recovered from stagnation)
+**Notes:** **Major positive event at t84**: agent took bag and skeleton key in Maze (+10 points). This is the first bag take in many episodes (last successful was ep92). Agent then escaped the Maze cleanly via Troll Room. Then explored toward Dam (t92-93) and Dam_Lobby (t93) — first Dam_Lobby visit in many episodes — but turned back without attempting the bolt puzzle. The agent currently has bar + painting + bag + skeleton key + lantern in inventory and is heading back toward base for trophy case deposits. **If the agent successfully deposits these treasures, score could reach 80+** (bar +5, painting +6, bag +10 = +21 → 85). The map cleanup hypothesis (more exploration of unmapped areas) is paying off concretely.
+
+---
+
+## Episode 103 — COMPLETE (score 85/350, peak 85, clean max_turns exit)
+**Turns:** 200 (max_turns)
+**Final score:** 85/350 (peak 85 at t174 — egg deposit)
+**Locations visited:** 31 (session-high-tie — same as ep93)
+**Objectives found:** 12 active, completion count not tracked (Ministral conservative baseline)
+**End reason:** max_turns clean
+**Memory stats:** mem_total=42, mem_new=41 (near-record), mem_dedup_rejected=0, mem_superseded=10, mem_consolidated=2
+
+### Score milestones
+- t5: 10 (kitchen entry)
+- t11: 35 (cellar descent — 25pt jump as usual)
+- t14: 40 (east from troll — +5)
+- t20: 50 (platinum bar take from Loud Room — KB-guided `echo` then `take bar`)
+- t54: 54 (painting take at Gallery)
+- t84: 64 (bag + skeleton key take in Maze — +10 for bag, a rare achievement)
+- t111: 69 (bag deposit in trophy case — +5)
+- t121: 75 (painting deposit — +6, **SUCCESS CRITERIA MET**)
+- t166: 80 (egg take from Up_a_Tree — +5, NEW scoring path not attempted in ep101)
+- t174: 85 (egg deposit — +5, final score)
+
+### Episode 102→103 BLOCKER bundle validation summary
+
+1. **Objective_model revert (Ministral baseline restored):** ✓ **CONFIRMED.**
+   - Zero phantom objectives (vs ep102's "screwdriver and tube" hallucination)
+   - 12 active objectives, all referencing items/locations that exist in the game
+   - Some location_id=0 fields (Ministral's known weakness) but no false items
+   - Completion detection conservative (0 completed with Ministral — too conservative, but far better than hallucinated)
+   - Velocity restored: ~1.5-1.7 turns/min vs ep102's ~1 turn/min
+
+2. **Map.json cleanup (stale reverse edges removed):** ✓ **CONFIRMED.**
+   - **ZERO chimney "Only Santa Claus" failures** across 200 turns (vs ep102's TWO loops at t34-39 and t55-57)
+   - Agent successfully rebuilt map from observation — 31 locations mapped (session-high-tie)
+   - No MAP_MISMATCH routing errors observed
+   - Empty-map start produced MORE exploration (5 new locations by t50, including Dome and Engravings Cave reached earlier than ep101)
+   - Unexpected benefit: agent explored White Cliffs Beach (never visited in prior sessions) and Canyon View — areas it was biased away from by the old carryover map
+
+3. **Recurring pre-existing issue exposed:** Chimney drop pattern (dropping treasures at Studio before climbing chimney) happened TWICE (t56 and t105). This is a known KB violation — the KB says "Carry the treasure plus the lantern, drop only non-treasure ballast" but the agent frequently ignores this. NOT caused by either BLOCKER fix. Candidate for a future agent.md prompt improvement.
+
+### Updated Score Table
+| Episode | Score | vs Prev | Best | Locations | Mems (new) | End Reason | Key Note |
+|---------|-------|---------|------|-----------|------------|------------|----------|
+| ep94 | **102** | +23 | **102** | 32 | 49 | max_turns | visibility bundle, +28 Torch/Egyptian |
+| ep101 | 88 | +38 | 102 | 26 | 77 | max_turns | stale-belief CONFIRMED + deep zone |
+| ep102 | 55 | −33 | 102 | 17 | ~46 | ABORTED | objective_model swap DEGRADED |
+| **ep103** | **85** | **+30** | **102** | **31** | **42 (41 new)** | **max_turns** | **BLOCKER bundle validated, egg take NEW path** |
+
+**Trend (ep101→103):** 88 → 55 (DEGRADED, objective_model swap) → **85 (RECOVERED, BLOCKER bundle)**. The +30 from ep102 to ep103 directly validates the bundled fixes. ep103 also introduced a new scoring path (egg from Up_a_Tree, +10 total) that ep101 didn't use. The deep-zone path (Torch/Egyptian) was NOT executed in ep103 despite reaching Dome Room at t35 — the rope was dropped at Studio and later lost. If the chimney-drop behavior is fixed, ep103's combination of new-path discovery + deep-zone execution could push past the ep94 102 ceiling.
+
+---
+
 ## Episode 102 — ABORTED (killed at t116, score 55/350, peak 55, broken loop)
 **Turns:** 116 of 200 (orchestrator killed — broken loop, see ep101→102 verdict below)
 **Final score:** 55/350 (peak 55 at t83 — egg deposit)
@@ -1150,7 +1268,7 @@ The session has landed 5 confirmed infrastructure wins (memory-consolidation rou
 **Reasoning:** Pure code correctness fix — the old behavior was a silent assumption that one-way passages don't exist, which is wrong for Zork. Unit-testable, attributable, reversible. The persisted `data/map.json` still has accumulated false reverse edges from ep1-ep98 (not touched by this commit), but no NEW false edges will be added starting ep99+. Over time the agent's movement will override bad edges where the reverse actually works, and leave the truly-one-way rooms correctly non-reversible.
 **Target metric:** Functional: all map_graph unit tests pass (including the 3 new tests). Behavioral: ep99+ `shortest_path` calls should no longer produce routes that include a fabricated reverse edge step, and `next_steps` navigation plans should become more reliable when the agent needs to backtrack across truly-one-way passages. Not directly score-measurable in a single episode because the persisted map still has old bad edges, but pathfinding defects should decline over several episodes.
 **Validation:** `uv run pytest tests/test_map_graph.py -v` — 9 passed in 0.02s. Full suite: `uv run pytest tests/ --ignore=tests/test_llm_client.py` — 192 passed, 1 pre-existing failure (`tests/test_config.py::test_load_config_from_toml`).
-**Result:** PENDING — indirect behavioral validation over next several episodes; no single-episode metric applies directly.
+**Result:** **IMPROVED** — ep102 confirmed the code fix works (no new bad edges added since ep99), AND ep103 confirmed that wiping the persisted bad data from data/map.json eliminates the routing errors. ep103 had ZERO chimney-down failures across 200 turns (vs ep102's TWO loops at t34-39 and t55-57 from pre-ep98 bad edges). Forward-only edge recording + clean map wipe = complete fix.
 
 ---
 
@@ -1284,6 +1402,46 @@ this change). Map backup verified: `data/map.json.bak.ep102` present (14522 byte
 `data/map.json` absent (will be recreated empty by next episode's initialize_episode).
 No fixture probe (config/data resets, not prompt changes — fixture probes are
 for prompt logic).
+**Result:** **IMPROVED** — ep103 final 85/350, +30 vs ep102's 55. All three target metrics met: (1) score 85 ≥ 75 ✓, (2) zero phantom objectives in ep103 ✓, (3) zero "Only Santa Claus" chimney-down failures across 200 turns ✓. Both fixes validated in production simultaneously. Location count 31 is session-high-tie (same as ep93), confirming the clean map promotes broader exploration.
+
+---
+
+## Episode 103 → 104 — IMPROVEMENT
+**Trigger:** KB-alignment failure — agent dropped treasures before weight-sensitive
+transition despite KB explicitly recording "carry the treasure plus the lantern,
+drop only non-treasure ballast." Occurred twice in ep103 (t56 and t105). Agent's
+reasoning showed it assumed NO valuable items could be carried, overriding the KB's
+specific guidance that one treasure + lantern fits within the weight limit.
+**Hypothesis:** The agent lacks a structured reasoning protocol for load-management
+decisions. It treats "too heavy" as a binary signal and dumps all heavy items
+(including treasures) rather than consulting the KB for specific weight combinations
+and triaging items by value class. The existing Pre-Action Belief Check rules cover
+inventory existence and KB failure verdicts, but do not cover the intermediate
+reasoning step of classifying items before deciding what to drop.
+**Change:** Added rule 4 to the PRE-ACTION BELIEF CHECK section of `prompts/agent.md`:
+a "Weight/load management — KB-guided item triage before dropping" protocol. The
+rule teaches a 4-step reasoning sequence: (1) consult KB for location-specific
+weight guidance, (2) classify every inventory item as VALUABLE/FUNCTIONAL/EXPENDABLE,
+(3) drop in priority order (expendable first, valuable last), (4) if multiple
+valuables and only one fits, carry one through and return for others rather than
+leaving all in an unprotected location. No game-specific names or locations mentioned.
+**Reasoning:** The root cause is not that the agent ignores the KB entirely — it
+reads the KB and even quotes it — but that it applies a blanket heuristic ("drop
+all heavy items") instead of parsing the KB's specific guidance about which
+combinations work. By requiring explicit item classification and KB consultation
+in `thinking`, the protocol forces the agent to reconcile its drop decision against
+the KB's recorded weight data before acting, exactly as rules 1-3 force reconciliation
+for inventory, failure verdicts, and learned constraints.
+**Target metric:** (1) ep104 zero instances of dropping valuable items when
+expendable/functional items are available to drop instead. (2) No items lost to
+theft at locations where the agent left them. (3) Score >= 85 (matches ep103 baseline).
+**Validation:** Fixture probe 5/5 structural checks passed. Problem fixture t56:
+original `drop painting, bar` changed to `take paper` (agent no longer drops
+treasures). Problem fixture t105: original `drop painting, bar` changed to
+`drop painting, platinum bar, leather bag, skeleton key` (action changed, though
+still drops more than necessary with 3 treasures in inventory — the protocol
+improved reasoning but the context had 3 treasures competing for 1 slot). Healthy
+fixtures t109, t118, t20 all preserved correct behavior with no regression.
 **Result:** PENDING
 
 ---
