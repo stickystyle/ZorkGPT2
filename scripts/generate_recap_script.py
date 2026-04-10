@@ -20,7 +20,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 # Make zorkburr importable when run from repo root
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -38,7 +38,30 @@ OUT_DIR = Path(__file__).parent.parent / "data" / "recaps"
 # ---------------------------------------------------------------------------
 
 class RecapBeat(BaseModel):
-    beat_index: int = Field(ge=1, description="1-based sequential beat number")
+    beat_index: int = Field(
+        ge=1,
+        description="1-based sequential beat number across the WHOLE recap "
+        "(not reset per scene). For a 5-shot recap the indices run 1..5.",
+    )
+    scene_id: int = Field(
+        ge=1,
+        le=3,
+        description=(
+            "Which scene this beat belongs to. Must be 1, 2, or 3. Two beats "
+            "with the same scene_id are in the same scene and MUST share "
+            "location and continuous action. Two beats with different "
+            "scene_ids are in different scenes — the cut between them is a "
+            "deliberate location change. There must be exactly 3 distinct "
+            "scene_id values across the recap (1, 2, 3 in chronological order)."
+        ),
+    )
+    scene_title: str = Field(
+        description=(
+            "Short human-readable name for this beat's scene, e.g. 'The "
+            "House', 'The Plumber's Reservoir', 'The Long Walk Home'. The "
+            "same string repeats for every beat in the same scene."
+        ),
+    )
     turn_range: str = Field(description='Game turns covered, e.g. "T1-T5" or "T195"')
     title: str = Field(description="Short beat title for human reference")
     carried_items: str = Field(
@@ -83,15 +106,66 @@ class RecapShotList(BaseModel):
     )
     visual_style: str = Field(description="Visual style phrase reused in every scene prompt")
     total_duration_seconds: int = Field(
-        ge=36,
-        le=64,
+        ge=24,
+        le=48,
         description=(
-            "Sum of all beat durations. At most 8 beats × 8s = 64s. "
-            "Video generator hard-caps individual clips at 8 seconds."
+            "Sum of all beat durations. Target: 32-48s. At most 6 beats × "
+            "8s = 48s. Video generator hard-caps individual clips at 8s."
         ),
     )
     final_score_stinger: str = Field(description="End title card line (display only, not spoken)")
-    beats: list[RecapBeat] = Field(min_length=6, max_length=8)
+    beats: list[RecapBeat] = Field(
+        min_length=4,
+        max_length=6,
+        description=(
+            "4 to 6 beats total, grouped into exactly 3 scenes via the "
+            "scene_id field. Each scene has 1-3 beats. Adjacent beats with "
+            "the same scene_id must share location and continuous action."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def _validate_scene_grouping(self):
+        # Beats must be in beat_index order
+        indices = [b.beat_index for b in self.beats]
+        if indices != sorted(indices):
+            raise ValueError(
+                f"beats must be ordered by beat_index, got {indices}"
+            )
+        # Exactly 3 distinct scene_ids: 1, 2, 3
+        scene_ids = sorted({b.scene_id for b in self.beats})
+        if scene_ids != [1, 2, 3]:
+            raise ValueError(
+                f"scenes must be exactly {{1, 2, 3}}, got {scene_ids}"
+            )
+        # Scene IDs must form contiguous runs (1,1,2,2,3 — not 1,2,1,3)
+        seen_in_order = []
+        for b in self.beats:
+            if not seen_in_order or seen_in_order[-1] != b.scene_id:
+                seen_in_order.append(b.scene_id)
+        if seen_in_order != sorted(set(seen_in_order)) or len(seen_in_order) != len(set(seen_in_order)):
+            raise ValueError(
+                f"scene_ids must form contiguous runs in chronological order, "
+                f"got transitions {seen_in_order}"
+            )
+        # Each scene must have a single consistent scene_title
+        titles_per_scene: dict[int, set[str]] = {}
+        for b in self.beats:
+            titles_per_scene.setdefault(b.scene_id, set()).add(b.scene_title)
+        for sid, titles in titles_per_scene.items():
+            if len(titles) > 1:
+                raise ValueError(
+                    f"scene {sid} has multiple titles: {titles}"
+                )
+        # Each scene must have 1-3 beats
+        from collections import Counter
+        beat_counts = Counter(b.scene_id for b in self.beats)
+        for sid, count in beat_counts.items():
+            if not 1 <= count <= 3:
+                raise ValueError(
+                    f"scene {sid} has {count} beats; must be 1-3"
+                )
+        return self
 
 
 # ---------------------------------------------------------------------------
