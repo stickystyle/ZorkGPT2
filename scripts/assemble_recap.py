@@ -91,6 +91,22 @@ def concat_videos(clips: list[Path], out_path: Path) -> None:
         list_path.unlink(missing_ok=True)
 
 
+def pad_video_tail(input_path: Path, output_path: Path, pad_seconds: float) -> None:
+    """Extend a video by freeze-framing its last visual frame and padding audio.
+
+    Uses tpad + apad filters. Re-encodes video (copy doesn't work with filter).
+    """
+    run_ffmpeg([
+        "-i", str(input_path),
+        "-vf", f"tpad=stop_mode=clone:stop_duration={pad_seconds}",
+        "-af", f"apad=pad_dur={pad_seconds}",
+        "-c:v", "libx264", "-preset", "fast", "-crf", "18",
+        "-c:a", "aac", "-b:a", "192k",
+        "-movflags", "+faststart",
+        str(output_path),
+    ])
+
+
 def mix_narration(
     video_path: Path,
     narration_path: Path,
@@ -170,31 +186,42 @@ def main() -> int:
     print(f"Ambient level: {args.ambient_volume:.0%}", file=sys.stderr)
     print("=" * 72, file=sys.stderr)
 
-    if narration_duration > total_video_duration + 1.0:
-        print(
-            f"⚠ Narration is {narration_duration - total_video_duration:.1f}s "
-            f"longer than the video — the tail will be cut off. Consider "
-            f"regenerating the shot list with tighter per-beat word counts.",
-            file=sys.stderr,
-        )
-
     # Step 1: concat videos to a temp file
-    print("\n[1/2] concatenating clips...", file=sys.stderr)
+    print("\n[1/3] concatenating clips...", file=sys.stderr)
     concat_path = args.out_dir / f"{args.episode_id}.concat.{args.style}.mp4"
     concat_videos(clips, concat_path)
     print(f"  -> {concat_path.name}", file=sys.stderr)
 
-    # Step 2: mix narration
-    print("\n[2/2] mixing narration over ambient...", file=sys.stderr)
+    # Step 2: freeze-frame pad the tail if narration is longer than video.
+    # This handles the common case where the closing beat's narration
+    # (containing the score stinger) overflows its video duration.
+    video_to_mix = concat_path
+    if narration_duration > total_video_duration + 0.1:
+        pad_seconds = narration_duration - total_video_duration + 0.3  # small buffer
+        print(f"\n[2/3] padding video tail by {pad_seconds:.1f}s "
+              f"(narration {narration_duration:.1f}s > video {total_video_duration:.1f}s)...",
+              file=sys.stderr)
+        padded_path = args.out_dir / f"{args.episode_id}.padded.{args.style}.mp4"
+        pad_video_tail(concat_path, padded_path, pad_seconds)
+        video_to_mix = padded_path
+        concat_path.unlink(missing_ok=True)  # no longer needed
+    else:
+        print("\n[2/3] no tail padding needed (narration fits within video).",
+              file=sys.stderr)
+
+    # Step 3: mix narration
+    print("\n[3/3] mixing narration over ambient...", file=sys.stderr)
     final_path = args.out_dir / f"{args.episode_id}.final.{args.style}.mp4"
     mix_narration(
-        video_path=concat_path,
+        video_path=video_to_mix,
         narration_path=narration_path,
         out_path=final_path,
         ambient_volume=args.ambient_volume,
     )
 
-    # Clean up the intermediate concat file
+    # Clean up the intermediate file
+    if video_to_mix != final_path:
+        video_to_mix.unlink(missing_ok=True)
     concat_path.unlink(missing_ok=True)
 
     final_duration = probe_duration(final_path)

@@ -202,8 +202,9 @@ def render_per_beat_sync(
 
     print(f"Generating {len(beats)} per-beat TTS clips...", file=sys.stderr)
     try:
-        for beat in beats:
+        for i, beat in enumerate(beats):
             idx = beat["beat_index"]
+            is_last_beat = (i == len(beats) - 1)
             narration = beat["narration"].strip()
             words = len(narration.split())
             total_words += words
@@ -216,25 +217,41 @@ def render_per_beat_sync(
             else:
                 target = default_beat_duration
                 source = f"default ({default_beat_duration}s)"
-            total_target += target
 
             raw_path = tmp_dir / f"beat{idx:02d}.raw.mp3"
             padded_path = tmp_dir / f"beat{idx:02d}.padded.mp3"
 
-            print(f"  [beat {idx}] {words} words, target {target:.1f}s "
-                  f"({source})", file=sys.stderr)
-
-            # Step 1: render the raw per-beat TTS
+            # Step 1: render the raw per-beat TTS first, so we know its true length
             render_with_openai(narration, voice, raw_path)
             raw_duration = probe_duration(raw_path)
+            required = raw_duration + lead_in_seconds + 0.5  # 0.5s trailing silence
 
-            if raw_duration + lead_in_seconds > target + 0.3:
+            # Last-beat auto-extend: if the final beat's narration (which usually
+            # contains the score stinger) overflows the video beat duration, we
+            # extend the audio target past the video. assemble_recap.py will
+            # freeze-frame the last clip to match. This is better than truncating
+            # the closing line mid-sentence.
+            if is_last_beat and required > target:
+                original_target = target
+                target = required
                 print(
-                    f"    ⚠ raw narration is {raw_duration:.1f}s + {lead_in_seconds:.1f}s "
-                    f"lead-in = {raw_duration + lead_in_seconds:.1f}s, but target is "
-                    f"{target:.1f}s. Will be truncated.",
+                    f"  [beat {idx}] {words} words, extending target from "
+                    f"{original_target:.1f}s to {target:.1f}s for the closing line",
                     file=sys.stderr,
                 )
+            else:
+                print(f"  [beat {idx}] {words} words, target {target:.1f}s "
+                      f"({source})", file=sys.stderr)
+                if required > target + 0.3:
+                    print(
+                        f"    ⚠ raw narration is {raw_duration:.1f}s + "
+                        f"{lead_in_seconds:.1f}s lead-in = "
+                        f"{raw_duration + lead_in_seconds:.1f}s, but target is "
+                        f"{target:.1f}s. Will be truncated.",
+                        file=sys.stderr,
+                    )
+
+            total_target += target
 
             # Step 2: pad with silence at the head + trail
             lead_ms = int(lead_in_seconds * 1000)

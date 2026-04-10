@@ -22,6 +22,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -33,6 +34,7 @@ RECAPS_DIR = Path(__file__).parent.parent / "data" / "recaps"
 CHARACTER_REFERENCE = RECAPS_DIR / "character_reference.png"
 
 MODEL_ID = "veo-3.1-lite-generate-preview"
+NANO_BANANA_MODEL = "nano-banana-pro-preview"
 MAX_DURATION_SECONDS = 8  # Veo 3.1 caps at 8s per clip
 
 # Veo 3.1 Lite only accepts a discrete set of durations. The error message
@@ -158,6 +160,75 @@ def load_reference_image(path: Path) -> types.Image:
     )
 
 
+# ---------------------------------------------------------------------------
+# Per-beat scene still generation (nano banana)
+# ---------------------------------------------------------------------------
+
+def generate_scene_still(
+    *,
+    client: "genai.Client",
+    character_reference_path: Path,
+    beat: dict,
+    shot_list: dict,
+    style: str,
+    out_path: Path,
+) -> None:
+    """Generate a scene-specific first frame for one beat via nano-banana-pro.
+
+    Conditions on the canonical character reference image (so the adventurer's
+    silhouette is preserved across beats) plus a textual scene description
+    drawn from the beat's scene_prompt + carried_items. Output is a 16:9 still
+    that Veo will use as the first frame of that beat's clip.
+    """
+    char_ref_bytes = character_reference_path.read_bytes()
+    enforcer = STYLE_ENFORCERS[style]
+
+    prompt = (
+        f"Generate a single cinematic still frame in 16:9 landscape format. "
+        f"This is the opening frame of a video clip — compose it as a "
+        f"deliberate cinematic shot, framed and lit with intent.\n\n"
+        f"Scene: {beat['scene_prompt']}\n\n"
+        f"Character: {shot_list['base_character']} {beat['carried_items']}\n\n"
+        f"The character should look exactly like the figure in the input "
+        f"reference image — same cloak, same hood, same proportions, same "
+        f"silhouette, same face-in-shadow rendering — but placed into the "
+        f"scene described above with whatever the carried_items field says "
+        f"they have. Reuse the input image's character identity verbatim; "
+        f"adapt only the setting and the carried gear.\n\n"
+        f"Style enforcer: {enforcer}\n\n"
+        f"This single still frame must look like it was captured from a "
+        f"prestige fantasy television production. No text overlays, no UI, "
+        f"no watermarks. 16:9 landscape."
+    )
+
+    response = client.models.generate_content(
+        model=NANO_BANANA_MODEL,
+        contents=[
+            prompt,
+            types.Part.from_bytes(data=char_ref_bytes, mime_type="image/png"),
+        ],
+        config=types.GenerateContentConfig(
+            response_modalities=["TEXT", "IMAGE"],
+        ),
+    )
+
+    image_bytes = None
+    for cand in response.candidates:
+        for part in cand.content.parts:
+            inline = getattr(part, "inline_data", None)
+            if inline and getattr(inline, "data", None):
+                image_bytes = inline.data
+                break
+        if image_bytes:
+            break
+
+    if not image_bytes:
+        raise SystemExit(
+            f"nano banana returned no image for beat {beat['beat_index']}"
+        )
+    out_path.write_bytes(image_bytes)
+
+
 def build_prompt(beat: dict, shot_list: dict, style: str) -> str:
     """Assemble the Veo prompt from the beat's scene_prompt + continuity fields.
 
@@ -256,12 +327,35 @@ def render_beat(
     )
 
     print("Submitting video generation request...", file=sys.stderr)
-    operation = client.models.generate_videos(
-        model=MODEL_ID,
-        prompt=prompt,
-        image=load_reference_image(args.character_reference),
-        config=config,
-    )
+
+    # Retry on 429 RESOURCE_EXHAUSTED — Veo 3.1 Lite has a low per-minute
+    # quota and batched runs trip it constantly. Sleep 60s and retry up to
+    # 5 times before giving up.
+    from google.genai import errors as _genai_errors
+    for attempt in range(1, 6):
+        try:
+            operation = client.models.generate_videos(
+                model=MODEL_ID,
+                prompt=prompt,
+                image=load_reference_image(args.character_reference),
+                config=config,
+            )
+            break
+        except _genai_errors.ClientError as e:
+            if "RESOURCE_EXHAUSTED" in str(e) or "429" in str(e):
+                wait = 60 * attempt  # 60s, 120s, 180s, 240s, 300s
+                print(
+                    f"  [429] rate-limited — sleeping {wait}s then retrying "
+                    f"(attempt {attempt}/5)",
+                    file=sys.stderr,
+                )
+                time.sleep(wait)
+                continue
+            raise
+    else:
+        raise SystemExit(
+            f"Gave up after 5 rate-limit retries on beat {beat_index}"
+        )
 
     start = time.time()
     while not operation.done:
@@ -299,6 +393,17 @@ def main() -> int:
                         help="Render every beat in the shot list sequentially. "
                              "Skips beats whose output file already exists (use "
                              "--no-skip-existing to force).")
+    parser.add_argument("--chain-beats", action="store_true",
+                        help="With --all-beats: use each beat's last frame as the "
+                             "first-frame conditioning image for the next beat. "
+                             "Only works for shot lists where adjacent beats are in "
+                             "adjacent locations — incompatible with most recaps.")
+    parser.add_argument("--scene-stills", action="store_true",
+                        help="Generate a per-beat scene-specific first frame using "
+                             "nano-banana-pro (conditioned on --character-reference) "
+                             "before each Veo call. Recommended when adjacent beats "
+                             "are in unrelated locations. Mutually exclusive with "
+                             "--chain-beats.")
     parser.add_argument("--no-skip-existing", dest="skip_existing",
                         action="store_false", default=True,
                         help="With --all-beats, regenerate beats even if output exists.")
@@ -325,6 +430,8 @@ def main() -> int:
 
     if not args.all_beats and args.beat_index is None:
         parser.error("Either --beat-index N or --all-beats is required.")
+    if args.chain_beats and args.scene_stills:
+        parser.error("--chain-beats and --scene-stills are mutually exclusive.")
 
     args.out_dir.mkdir(parents=True, exist_ok=True)
     shot_list = load_shot_list(args.episode_id)
@@ -342,10 +449,78 @@ def main() -> int:
         client = genai.Client(api_key=api_key)
 
     total_cost = 0.0
-    for beat in beats_to_render:
+    initial_reference = args.character_reference  # preserve for the log header
+    for beat_loop_idx, beat in enumerate(beats_to_render):
+        beat_idx = beat["beat_index"]
+
+        # Inter-beat delay to stay under Veo 3.1 Lite Preview's per-minute
+        # quota. Each generation takes ~45s anyway so this adds ~1.2min total
+        # to a 7-beat run, and prevents 429 storms.
+        if beat_loop_idx > 0 and not args.dry_run:
+            time.sleep(15)
+
+        if args.chain_beats and beat_idx > 1:
+            prev_chain_frame = args.out_dir / f".chain_frame_beat{beat_idx - 1:02d}.png"
+            if prev_chain_frame.exists():
+                args.character_reference = prev_chain_frame
+            else:
+                print(
+                    f"  ⚠ chain: previous frame {prev_chain_frame.name} missing, "
+                    f"falling back to {initial_reference.name}",
+                    file=sys.stderr,
+                )
+                args.character_reference = initial_reference
+
+        if args.scene_stills:
+            scene_still_path = (
+                args.out_dir
+                / f"{args.episode_id}.beat{beat_idx:02d}.scenestill.png"
+            )
+            if scene_still_path.exists() and args.skip_existing:
+                print(
+                    f"  scene still: cached {scene_still_path.name}",
+                    file=sys.stderr,
+                )
+            elif client is not None:
+                print(
+                    f"  scene still: generating {scene_still_path.name} via "
+                    f"{NANO_BANANA_MODEL}...",
+                    file=sys.stderr,
+                )
+                generate_scene_still(
+                    client=client,
+                    character_reference_path=initial_reference,
+                    beat=beat,
+                    shot_list=shot_list,
+                    style=args.style,
+                    out_path=scene_still_path,
+                )
+            args.character_reference = scene_still_path
+
         total_cost += render_beat(
             client=client, shot_list=shot_list, beat=beat, args=args,
         )
+
+        # If chaining, extract the last frame of this beat for the next one —
+        # even if we skipped a regeneration (so the chain survives reruns).
+        if args.chain_beats:
+            out_path = (
+                args.out_dir
+                / f"{args.episode_id}.beat{beat_idx:02d}.{args.style}.mp4"
+            )
+            chain_frame = args.out_dir / f".chain_frame_beat{beat_idx:02d}.png"
+            if out_path.exists():
+                subprocess.run(
+                    ["ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
+                     "-sseof", "-0.1", "-i", str(out_path),
+                     "-vframes", "1", str(chain_frame)],
+                    check=True,
+                )
+            else:
+                print(
+                    f"  ⚠ chain: beat {beat_idx} output missing, chain broken",
+                    file=sys.stderr,
+                )
 
     print("=" * 72, file=sys.stderr)
     print(f"Rendered {len(beats_to_render)} beat(s). Actual cost: ${total_cost:.3f}",
