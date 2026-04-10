@@ -130,6 +130,76 @@ def _enforce_verified_scores(kb_text: str, verified_bullets: list[str]) -> str:
     return "\n".join(lines)
 
 
+def _dedup_items_found(kb_text: str) -> str:
+    """Deduplicate the Items Found section: one entry per unique item.
+
+    For each bullet in Items Found, extract the item name (text before the
+    first " — " or " at " delimiter), keep only the first occurrence per
+    item name, and strip transient drop/movement annotations from the kept
+    entry.
+
+    All other sections are left untouched.
+    """
+    sections = _parse_sections(kb_text)
+    if "Items Found" not in sections:
+        return kb_text
+
+    items_bullets = sections["Items Found"]
+    seen_items: dict[str, str] = {}  # item_name_lower -> cleaned bullet
+    for bullet in items_bullets:
+        # Strip the bullet marker to get raw text
+        raw = re.sub(r'^[\*\-\+]\s+', '', bullet.strip())
+        # Extract item name: text before " — " or " at "
+        item_match = re.split(r'\s+[—–]\s+|\s+at\s+', raw, maxsplit=1)
+        item_name = item_match[0].strip().rstrip('.').lower()
+        if item_name in seen_items:
+            continue  # keep only the first entry per item
+        # Strip transient drop/movement annotations from the kept entry.
+        # These appear after "(taken...)" as "; dropped ...", "; left ...",
+        # "; lost ...", "; deposited ...", "; placed ...", "; re-taken ...",
+        # or standalone "dropped in ..." entries with no spawn location.
+        cleaned = re.sub(
+            r';\s*(?:dropped|left|lost|deposited|placed|re-taken|moved)\b[^)]*',
+            '',
+            bullet,
+        )
+        # Also clean up note annotations that leak episode-specific info
+        cleaned = re.sub(
+            r';\s*note:\s*score change not in verified list[^)]*',
+            '',
+            cleaned,
+        )
+        # Clean up trailing whitespace inside parens and dangling semicolons
+        cleaned = re.sub(r';\s*\)', ')', cleaned)
+        cleaned = re.sub(r'\(\s*\)', '', cleaned)  # remove empty parens
+        cleaned = cleaned.rstrip('. ').rstrip()
+        # If the bullet was just "- Item — dropped in X" with no spawn info, skip it
+        if re.match(r'^[\*\-\+]\s+\S.*\s+[—–]\s+dropped\s', bullet.strip()):
+            continue
+        seen_items[item_name] = cleaned
+
+    sections["Items Found"] = list(seen_items.values())
+
+    # Re-render in canonical order (same logic as _enforce_verified_scores)
+    lines: list[str] = []
+    rendered: set[str] = set()
+    for section_name in _SECTIONS:
+        bullets = sections.get(section_name, [])
+        if bullets:
+            if lines:
+                lines.append("")
+            lines.append(f"**{section_name}:**")
+            lines.extend(bullets)
+            rendered.add(section_name)
+    for section_name, bullets in sections.items():
+        if section_name not in rendered and bullets:
+            if lines:
+                lines.append("")
+            lines.append(f"**{section_name}:**")
+            lines.extend(bullets)
+    return "\n".join(lines)
+
+
 def _merge_kb(existing_kb: str, new_kb: str) -> str:
     """Merge new KB entries into existing KB, deduplicating by normalized content.
 
@@ -231,6 +301,9 @@ def update_knowledge(state: State, client: instructor.Instructor, config: GameCo
 
         # Structural guardrail: replace Score Changes section with verified data
         content = _enforce_verified_scores(content, verified_score_bullets)
+
+        # Structural guardrail: deduplicate Items Found section
+        content = _dedup_items_found(content)
 
         persist_knowledge(content, config)
         return {"knowledge_length": len(content)}, state.update(**{S.KNOWLEDGE_BASE: content})

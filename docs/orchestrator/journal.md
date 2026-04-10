@@ -54,6 +54,17 @@ Started: 2026-03-30
 
 ---
 
+## Episode 104 → 105 — IMPROVEMENT (BLOCKER: KB Items Found cross-episode pollution)
+**Trigger:** KB Items Found section has grown to ~170 lines with 5-10 duplicate entries per item, each carrying episode-specific drop annotations. ep95 wasted ~14 turns chasing items at wrong locations based on stale KB drops.
+**Hypothesis:** Three concurrent defects cause KB Items Found to accumulate unbounded transient state: (1) the knowledge.md prompt instructs the LLM to "Note if taken or left behind", causing it to record per-episode drops; (2) _merge_kb() deduplicates by exact normalized text but different drop annotations normalize differently, so duplicates survive; (3) nothing strips transient annotations from merged entries.
+**Change:** Three coordinated parts: (1) Prompt change in `prompts/knowledge.md` — replaced "Note if taken or left behind" with instructions to record only original spawn locations, one entry per unique item, no drop/deposit/movement annotations. (2) Code guardrail `_dedup_items_found()` in `zorkburr/actions/knowledge.py` — structurally analogous to `_enforce_verified_scores()`, runs after merge, extracts item names from bullets, keeps only the first entry per item, strips transient annotations (dropped/deposited/placed/lost/left/re-taken). Wired into `update_knowledge` after `_enforce_verified_scores`. (3) Data cleanup of `data/knowledge.md` to be handled separately by the orchestrator.
+**Reasoning:** BLOCKER-class — the KB Items Found section is producing broken output (170 lines of noise, stale drop locations presented as strategic facts). All three parts address the same root cause. Prompt prevents new pollution; code guardrail catches leakage; data cleanup (separate) resets the accumulated mess.
+**Target metric:** Items Found section has <=1 entry per unique item. No drop/movement annotations in Items Found bullets. Next episode's agent never references a prior-episode drop location as a current item location.
+**Validation:** 9/9 new unit tests pass in `tests/test_knowledge.py`. Full test suite: 201/202 pass (1 pre-existing failure in test_config.py unrelated to this change — hardcoded model name mismatch). End-to-end test confirms: a KB with 10 duplicate "Platinum bar" entries + 5 "Painting" entries + various drop annotations collapses to 6 unique clean entries with no drop annotations.
+**Result:** PENDING
+
+---
+
 ## Episode 91 → 92 — IMPROVEMENT (max_turns bump — user-directed)
 **Trigger:** ep91 gemini-3-flash-preview reached 45/350 at t78 and was still making structural progress at t100 (explored attic, tried unlocking wooden door, cycling through scoring path). max_turns=100 cut the run off mid-exploration. gemini's velocity is ~4× slower than Sonnet's per-point, so 100 turns isn't enough runway to show whether it can push past 45.
 **Hypothesis:** Giving gemini-3-flash-preview 200 turns instead of 100 will let it push past the 45 plateau. Even if velocity stays ~17 turns/point, another 100 turns at that rate could add ~5-6 more points (50-51). Better outcomes possible if the agent finds the east-from-troll +5 kill, the dam puzzle (historically unsolved), or underground exploration yielding more treasures.
@@ -1035,6 +1046,41 @@ The session has landed 5 confirmed infrastructure wins (memory-consolidation rou
 
 ---
 
+## Session Summary (in progress)
+**Episodes run this session:** 3 (ep102, ep103, ep104)
+**Best score:** 95/350 (ep104) — second-best ever (ep94 = 102)
+**Improvements made:** 4 changes across 2 improvement cycles
+  1. ep101→102: objective_model swap gemini-3-flash → **DEGRADED, REVERTED**
+  2. ep102→103 BLOCKER bundle: objective_model revert + map.json wipe → **IMPROVED** (85)
+  3. ep103→104: weight management protocol in agent.md → **IMPROVED** (95)
+**Trajectory:** 55 → 85 → 95 (strong upward trend)
+**Gap to beat ep94:** 7 points (95 vs 102). Attributable to one late chimney violation (bar dropped at t186) and no Egyptian Room sceptre/coffin collected.
+
+---
+
+## Episode 104 — COMPLETE (score 95/350 — SESSION HIGH, second-best EVER)
+**Turns:** 200 (max_turns)
+**Final score:** 95/350 (peak 95 at t175 — bar take from Loud Room)
+**Locations visited:** 29
+**End reason:** max_turns clean
+**Memory stats:** mem_total=76, mem_new=44, mem_consolidated=8
+
+### Score milestones
+- t6: 10 (kitchen) → t20: 35 (cellar) → t23: 40 (troll east)
+- **t30: tie rope to railing at Dome (EARLIEST EVER)**
+- **t33: 54 (torch take +14 — deep zone at t33)**
+- t59: 58 (painting +4) → **t67: 64 (torch deposit +6)**
+- t79: 70 (painting deposit +6) → **t104: 80 (bag +10)** → t120: 85 (bag deposit +5)
+- **t175: 95 (bar take +10)**
+
+### Weight management protocol: 9/10 correct item classifications at chimney/weight events
+One late violation at t186 (dropped bar before bell); all other events correctly dropped expendables/functionals before valuables. vs ep103: 0/2 correct (both dropped ALL treasures).
+
+### Comparison: ep103=85, ep104=95 (+10), first deposit 44 turns earlier, deep zone reached (ep103 didn't)
+**Trend:** 55→85→**95**. Three consecutive improvements. Only 7 points behind all-time best (ep94=102).
+
+---
+
 ## Episode 103 — Turn 25 Checkpoint
 **Type:** HEALTHY
 **Score:** 50/350 (delta: +50 since start — kitchen +10 t5, cellar +25 t11, troll east +5 t14, bar +10 t20)
@@ -1442,6 +1488,6 @@ treasures). Problem fixture t105: original `drop painting, bar` changed to
 still drops more than necessary with 3 treasures in inventory — the protocol
 improved reasoning but the context had 3 treasures competing for 1 slot). Healthy
 fixtures t109, t118, t20 all preserved correct behavior with no regression.
-**Result:** PENDING
+**Result:** **IMPROVED** — ep104 final 95/350 (+10 vs ep103 baseline of 85). Weight management protocol produced 9/10 correct item classifications at chimney events (vs ep103's 0/2). Deep zone reached at t30 (earliest ever) because the rope was NOT dropped. All three target metrics substantially met: (1) 9/10 chimney events correctly classified (one late violation at t186), (2) no items lost to theft at unprotected locations, (3) score 95 exceeds the 85 target. The protocol's biggest impact was enabling the deep zone — torch (+14 take +6 deposit = +20) was the single largest scoring component.
 
 ---

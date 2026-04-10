@@ -30,7 +30,7 @@ BREVITY: Each bullet must be ONE concise line — no multi-sentence explanations
 
 **Score Changes:** Each score increase/decrease with the location name and ID (e.g., "at Living Room (R193)") and triggering action (NO turn numbers).
 **Puzzle Mechanics Discovered:** Interactions that revealed how something works (e.g., "turning dial at Control Room (R42) opened blast door").
-**Items Found:** Item name and location with ID where found. Note if taken or left behind.
+**Items Found:** Item name and original spawn location with ID (where the item first exists in the game world). One entry per unique item — do not re-add items already listed. Do NOT record where items were dropped, deposited, or moved during gameplay — current item locations are transient state tracked elsewhere.
 **Dangerous Areas:** Locations (with IDs) and actions that caused death or damage.
 **Failed Approaches:** Manipulation actions (use, move, push, pull, open, cut, pry, turn, etc.) attempted 2+ times that consistently failed, so the agent can avoid repeating them. Do NOT list "examine" or "look" as failed approaches — examining is information-gathering, not a manipulation attempt. A single failed examine tells you nothing about whether physical manipulation (move, push, pull, lift) would succeed on the same object.
 **Unexplored Leads:** Exits seen but not taken, locked doors, dark passages — with location name and ID. Do NOT list navigation paths or exits — these are tracked by the map system. Only list NOTABLE unexplored features (locked doors, dark passages, items seen but not taken).
