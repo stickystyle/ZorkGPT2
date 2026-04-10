@@ -69,7 +69,19 @@ def assemble_narration(shot_list: dict) -> tuple[str, list[str]]:
     return full, lines
 
 
+def _load_dotenv() -> None:
+    """Load .env file into os.environ (uv run doesn't auto-load it)."""
+    env_file = Path(__file__).parent.parent / ".env"
+    if env_file.exists():
+        for line in env_file.read_text().splitlines():
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                k, _, v = line.partition("=")
+                os.environ.setdefault(k.strip(), v.strip().strip("'\""))
+
+
 def pick_provider(requested: str | None) -> str:
+    _load_dotenv()
     if requested:
         return requested
     if os.environ.get("ELEVENLABS_API_KEY"):

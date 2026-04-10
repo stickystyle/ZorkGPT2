@@ -123,29 +123,46 @@ def concat_videos(clips: list[Path], out_path: Path) -> None:
         list_path.unlink(missing_ok=True)
 
 
+def _video_has_audio(path: Path) -> bool:
+    """Return True if the video file contains an audio stream."""
+    result = subprocess.run(
+        ["ffprobe", "-v", "error", "-select_streams", "a",
+         "-show_entries", "stream=index", "-of", "csv=p=0", str(path)],
+        capture_output=True, text=True,
+    )
+    return bool(result.stdout.strip())
+
+
 def mix_narration(
     video_path: Path,
     narration_path: Path,
     out_path: Path,
     ambient_volume: float,
 ) -> None:
-    """Mix a narration mp3 over the video's ambient audio.
+    """Mix a narration mp3 over the video's audio (if any).
 
-    The ambient track is attenuated by `ambient_volume` (0.0 = silent,
-    1.0 = original) so the narration sits clearly on top of the Veo-generated
-    ambient bed. The final audio duration is the *longest* of the two — if
-    the narration is shorter than the video, the tail will be pure ambient.
+    If the video has an ambient audio track (e.g. from Veo), it is
+    attenuated by `ambient_volume` and mixed with the narration.
+    If the video has no audio (e.g. from Runway), the narration is
+    laid directly on top of the video.
     """
-    filter_complex = (
-        f"[0:a]volume={ambient_volume}[ambient];"
-        f"[ambient][1:a]amix=inputs=2:duration=longest:dropout_transition=0[aout]"
-    )
+    has_audio = _video_has_audio(video_path)
+
+    if has_audio:
+        filter_complex = (
+            f"[0:a]volume={ambient_volume}[ambient];"
+            f"[ambient][1:a]amix=inputs=2:duration=longest:dropout_transition=0[aout]"
+        )
+        audio_args = ["-filter_complex", filter_complex, "-map", "[aout]"]
+    else:
+        # No ambient track — just use the narration as-is
+        audio_args = ["-map", "1:a"]
+
     run_ffmpeg([
         "-i", str(video_path),
         "-i", str(narration_path),
-        "-filter_complex", filter_complex,
+        *audio_args,
         "-map", "0:v",
-        "-map", "[aout]",
         "-c:v", "copy",
         "-c:a", "aac",
         "-b:a", "192k",

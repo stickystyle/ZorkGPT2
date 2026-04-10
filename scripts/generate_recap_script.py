@@ -1,14 +1,18 @@
 #!/usr/bin/env python3
-"""Generate an Attenborough-style video recap shot list for a ZorkBurr episode.
+"""Generate a 3-pass video recap pipeline for a ZorkBurr episode.
+
+Pass 1 — Visual Director: reads dossier, produces 10-15 candidate shots
+Pass 2 — Editor: selects 6-9 shots, arranges into scenes, locks timeline
+Pass 3 — Narrator: writes voiceover to the locked edit
 
 Pulls the episode's full action history from data/burr_state.db, compiles a
-compact "dossier" of the dramatic spine (score events, first visits, repeated
-actions, memories, opening/closing turns), feeds it to an LLM director, and
-writes the resulting shot list as JSON.
+compact "dossier" of the dramatic spine, then runs each pass through an LLM.
 
 Usage:
     uv run scripts/generate_recap_script.py --episode-id ep98
     uv run scripts/generate_recap_script.py --episode-id ep98 --dossier-only
+    uv run scripts/generate_recap_script.py --episode-id ep98 --pass1-only
+    uv run scripts/generate_recap_script.py --episode-id ep98 --pass2-only
     uv run scripts/generate_recap_script.py --episode-id ep98 --model anthropic/claude-opus-4.6
 """
 from __future__ import annotations
@@ -34,185 +38,200 @@ OUT_DIR = Path(__file__).parent.parent / "data" / "recaps"
 
 
 # ---------------------------------------------------------------------------
-# Response schema
+# Pass 1 schema — Visual Director: candidate shots
 # ---------------------------------------------------------------------------
 
-class RecapBeat(BaseModel):
-    beat_index: int = Field(
-        ge=1,
-        description="1-based sequential beat number across the WHOLE recap "
-        "(not reset per scene). For a 5-shot recap the indices run 1..5.",
+class CandidateShot(BaseModel):
+    shot_id: int = Field(ge=1, description="Sequential 1-based shot number")
+    turn_range: str = Field(description='Turns this shot spans, e.g. "T1-T5" or "T14-T16"')
+    location: str = Field(description="Where this takes place")
+    continuous_action: str = Field(
+        description="Plain English description of the continuous action sequence"
     )
-    scene_id: int = Field(
-        ge=1,
-        le=3,
-        description=(
-            "Which scene this beat belongs to. Must be 1, 2, or 3. Two beats "
-            "with the same scene_id are in the same scene and MUST share "
-            "location and continuous action. Two beats with different "
-            "scene_ids are in different scenes — the cut between them is a "
-            "deliberate location change. There must be exactly 3 distinct "
-            "scene_id values across the recap (1, 2, 3 in chronological order)."
-        ),
+    on_screen_action: str = Field(
+        description="What the camera sees — framing, movement, physical action"
     )
-    scene_title: str = Field(
-        description=(
-            "Short human-readable name for this beat's scene, e.g. 'The "
-            "House', 'The Plumber's Reservoir', 'The Long Walk Home'. The "
-            "same string repeats for every beat in the same scene."
-        ),
+    inventory_at_start: list[str] = Field(description="Items carried at shot start")
+    inventory_at_end: list[str] = Field(description="Items carried at shot end")
+    visual_richness: str = Field(description="high / medium / low")
+    category: str = Field(
+        description="physical_comedy / ritual / discovery / "
+        "environmental_transformation / journey / quiet_moment"
     )
-    turn_range: str = Field(description='Game turns covered, e.g. "T1-T5" or "T195"')
-    title: str = Field(description="Short beat title for human reference")
-    carried_items: str = Field(
-        description=(
-            "What the adventurer is physically carrying during this beat, in "
-            "visual terms — e.g. 'a large gilded painting clutched to the chest "
-            "with both hands; a brass lantern swinging from the belt; nothing "
-            "else'. Must reflect the dossier's inventory_at_turn for the turn(s) "
-            "this beat covers. If the character has just dropped items, describe "
-            "the drop visually."
-        )
+    suggested_duration_seconds: int = Field(
+        ge=4, le=10,
+        description="Suggested duration in seconds (provider may constrain further)"
     )
-    scene_prompt: str = Field(
-        description=(
-            "Detailed visual description for text-to-video. MUST incorporate "
-            "base_character AND carried_items. Do not contradict carried_items "
-            "(e.g. don't describe a sword if the adventurer has dropped it)."
-        )
-    )
-    on_screen_action: str = Field(description="One-line summary of what the viewer sees")
-    narration: str = Field(description="Attenborough voiceover line(s) for this beat")
-    duration_seconds: int = Field(
-        ge=3,
-        le=8,
-        description=(
-            "Beat duration in seconds, hard-capped at 8 by the downstream "
-            "video generator (Veo 3.1 Lite)."
-        ),
+    notes: str = Field(description="Context for the editor")
+
+
+class VisualDirectorOutput(BaseModel):
+    episode_id: str
+    total_turns: int
+    final_score: str
+    candidate_shots: list[CandidateShot] = Field(
+        min_length=10, max_length=20,
+        description="10-15 candidate shots (up to 20 allowed)"
     )
 
     @model_validator(mode="after")
-    def _validate_narration_for_tts(self):
-        """Reject single-word sentences, two-word sentences, and period-
-        separated lists. These patterns are written-comedy tricks that do
-        not survive TTS — uniform pause delivery makes them sound flat.
-        See prompts/recap_director.md "Critical: write for the TTS engine".
-        """
-        import re
+    def _validate_shots(self):
+        ids = [s.shot_id for s in self.candidate_shots]
+        if ids != sorted(ids):
+            raise ValueError(f"shot_ids must be in ascending order, got {ids}")
+        if len(set(ids)) != len(ids):
+            raise ValueError(f"duplicate shot_ids: {ids}")
+        return self
 
-        text = self.narration.strip()
-        # Split on sentence boundaries (period, ?, !), keeping non-empty pieces
-        sentences = [
-            s.strip() for s in re.split(r"[.!?]+", text) if s.strip()
-        ]
-        if not sentences:
+
+# ---------------------------------------------------------------------------
+# Pass 2 schema — Editor: locked timeline
+# ---------------------------------------------------------------------------
+
+class EditShot(BaseModel):
+    sequence: int = Field(ge=1, description="Order within the scene (1-based)")
+    source_shot_id: int = Field(ge=1, description="Which candidate shot this came from")
+    turn_range: str
+    on_screen_action: str = Field(
+        description="Refined visual description for text-to-video"
+    )
+    inventory_at_start: list[str]
+    inventory_at_end: list[str]
+    duration_seconds: int = Field(ge=4, le=10, description="Locked duration in seconds")
+    framing_notes: str = Field(
+        description="Camera direction: wide/medium/close, movement, focus"
+    )
+    mood: str = Field(description="One or two words for visual style")
+
+
+class EditScene(BaseModel):
+    scene_id: int = Field(ge=1, description="Sequential scene number")
+    scene_title: str
+    location: str
+    transition_in: str | None = Field(
+        default=None,
+        description="How we arrive (null for first scene)"
+    )
+    shots: list[EditShot] = Field(
+        min_length=1, max_length=3,
+        description="1-3 shots in this scene"
+    )
+    transition_out: str | None = Field(
+        default=None,
+        description="How we leave (null for last scene)"
+    )
+
+
+class EditorOutput(BaseModel):
+    episode_id: str
+    title: str = Field(description="Punchy video title")
+    logline: str = Field(description="One sentence, under 140 chars")
+    total_duration_seconds: int = Field(
+        ge=40, le=90,
+        description="Sum of all shot durations"
+    )
+    final_score_stinger: str = Field(description='Display text, e.g. "90 / 350"')
+    scenes: list[EditScene] = Field(
+        min_length=2, max_length=4,
+        description="2-4 scenes"
+    )
+
+    @model_validator(mode="after")
+    def _validate_timeline(self):
+        total_shots = sum(len(s.shots) for s in self.scenes)
+        if not 6 <= total_shots <= 9:
             raise ValueError(
-                f"beat {self.beat_index}: narration is empty"
+                f"need 6-9 total shots, got {total_shots}"
             )
+        actual_duration = sum(
+            shot.duration_seconds
+            for scene in self.scenes
+            for shot in scene.shots
+        )
+        if actual_duration != self.total_duration_seconds:
+            raise ValueError(
+                f"total_duration_seconds={self.total_duration_seconds} but "
+                f"shot durations sum to {actual_duration}"
+            )
+        # Scene IDs must be sequential
+        scene_ids = [s.scene_id for s in self.scenes]
+        if scene_ids != list(range(1, len(self.scenes) + 1)):
+            raise ValueError(f"scene_ids must be sequential, got {scene_ids}")
+        return self
 
+
+# ---------------------------------------------------------------------------
+# Pass 3 schema — Narrator: voiceover
+# ---------------------------------------------------------------------------
+
+class NarratedShot(BaseModel):
+    scene_id: int
+    sequence: int
+    duration_seconds: int
+    word_count: int
+    narration: str
+
+    @model_validator(mode="after")
+    def _validate_narration(self):
+        import re
+        actual = len(self.narration.split())
+        if actual != self.word_count:
+            raise ValueError(
+                f"scene {self.scene_id} seq {self.sequence}: word_count says "
+                f"{self.word_count} but narration has {actual} words"
+            )
+        max_words = round(self.duration_seconds * 2.3)
+        if actual > max_words:
+            raise ValueError(
+                f"scene {self.scene_id} seq {self.sequence}: {actual} words "
+                f"exceeds budget of {max_words} for {self.duration_seconds}s shot"
+            )
+        # TTS safety: no sentence shorter than 5 words
+        sentences = [s.strip() for s in re.split(r"[.!?]+", self.narration) if s.strip()]
         for s in sentences:
             words = s.split()
             if len(words) < 5:
                 raise ValueError(
-                    f"beat {self.beat_index}: sentence '{s}' has only "
-                    f"{len(words)} words. No narration sentence may be "
-                    f"shorter than 5 words — single/two-word sentences are "
-                    f"a written-comedy trick that does not survive TTS "
-                    f"uniform-cadence delivery. Rewrite as flowing prose "
-                    f"using commas and 'and'."
+                    f"scene {self.scene_id} seq {self.sequence}: sentence "
+                    f"'{s}' has only {len(words)} words — minimum is 5 "
+                    f"(TTS uniform-cadence delivery makes short sentences flat)"
                 )
-
-        # Detect period-separated lists: 3+ consecutive sentences each with
-        # ≤2 words AFTER the first sentence boundary. This catches "Wrench.
-        # Screwdriver. Tube." style lists that slip past the per-sentence
-        # 5-word check by being broken into separate sentences. Actually
-        # the per-sentence check above will already reject these — keeping
-        # this comment for documentation.
         return self
 
 
-class RecapShotList(BaseModel):
-    title: str = Field(description="Punchy episode title")
-    logline: str = Field(description="One tweetable sentence, under 140 chars")
-    base_character: str = Field(
-        description=(
-            "The unchanging appearance of the adventurer: cloak, hood, face, "
-            "boots, build. NO items, NO weapons — those belong in each beat's "
-            "carried_items. This is the silhouette. It is reused verbatim in "
-            "every scene_prompt alongside that beat's carried_items."
-        )
-    )
-    visual_style: str = Field(description="Visual style phrase reused in every scene prompt")
-    total_duration_seconds: int = Field(
-        ge=24,
-        le=48,
-        description=(
-            "Sum of all beat durations. Target: 32-48s. At most 6 beats × "
-            "8s = 48s. Video generator hard-caps individual clips at 8s."
-        ),
-    )
-    final_score_stinger: str = Field(description="End title card line (display only, not spoken)")
-    beats: list[RecapBeat] = Field(
-        min_length=4,
-        max_length=6,
-        description=(
-            "4 to 6 beats total, grouped into exactly 3 scenes via the "
-            "scene_id field. Each scene has 1-3 beats. Adjacent beats with "
-            "the same scene_id must share location and continuous action."
-        ),
-    )
+class NarratorOutput(BaseModel):
+    episode_id: str
+    narrated_shots: list[NarratedShot] = Field(min_length=6, max_length=9)
+    total_words: int
+    total_duration_seconds: int
+    estimated_speaking_seconds: float
 
     @model_validator(mode="after")
-    def _validate_scene_grouping(self):
-        # Beats must be in beat_index order
-        indices = [b.beat_index for b in self.beats]
-        if indices != sorted(indices):
+    def _validate_totals(self):
+        actual_words = sum(s.word_count for s in self.narrated_shots)
+        if actual_words != self.total_words:
             raise ValueError(
-                f"beats must be ordered by beat_index, got {indices}"
+                f"total_words={self.total_words} but shots sum to {actual_words}"
             )
-        # Exactly 3 distinct scene_ids: 1, 2, 3
-        scene_ids = sorted({b.scene_id for b in self.beats})
-        if scene_ids != [1, 2, 3]:
+        actual_dur = sum(s.duration_seconds for s in self.narrated_shots)
+        if actual_dur != self.total_duration_seconds:
             raise ValueError(
-                f"scenes must be exactly {{1, 2, 3}}, got {scene_ids}"
+                f"total_duration_seconds={self.total_duration_seconds} but "
+                f"shots sum to {actual_dur}"
             )
-        # Scene IDs must form contiguous runs (1,1,2,2,3 — not 1,2,1,3)
-        seen_in_order = []
-        for b in self.beats:
-            if not seen_in_order or seen_in_order[-1] != b.scene_id:
-                seen_in_order.append(b.scene_id)
-        if seen_in_order != sorted(set(seen_in_order)) or len(seen_in_order) != len(set(seen_in_order)):
+        if self.estimated_speaking_seconds > self.total_duration_seconds:
             raise ValueError(
-                f"scene_ids must form contiguous runs in chronological order, "
-                f"got transitions {seen_in_order}"
+                f"estimated_speaking_seconds ({self.estimated_speaking_seconds}) "
+                f"exceeds total_duration_seconds ({self.total_duration_seconds})"
             )
-        # Each scene must have a single consistent scene_title
-        titles_per_scene: dict[int, set[str]] = {}
-        for b in self.beats:
-            titles_per_scene.setdefault(b.scene_id, set()).add(b.scene_title)
-        for sid, titles in titles_per_scene.items():
-            if len(titles) > 1:
-                raise ValueError(
-                    f"scene {sid} has multiple titles: {titles}"
-                )
-        # Each scene must have 1-3 beats
-        from collections import Counter
-        beat_counts = Counter(b.scene_id for b in self.beats)
-        for sid, count in beat_counts.items():
-            if not 1 <= count <= 3:
-                raise ValueError(
-                    f"scene {sid} has {count} beats; must be 1-3"
-                )
         return self
 
 
 # ---------------------------------------------------------------------------
-# Dossier extraction
+# Dossier extraction (unchanged from v1)
 # ---------------------------------------------------------------------------
 
 def find_episode_app(conn: sqlite3.Connection, episode_id: str) -> str:
-    """Return the most recent app_id for a given episode_id."""
     row = conn.execute(
         """
         SELECT app_id
@@ -240,11 +259,6 @@ def load_final_state(conn: sqlite3.Connection, app_id: str) -> dict[str, Any]:
 
 
 def load_inventory_timeline(conn: sqlite3.Connection, app_id: str) -> dict[int, list[str]]:
-    """Reconstruct per-turn inventory from the Burr state log.
-
-    Returns {turn_count: inventory_list} for every turn the app reached,
-    using the end-of-turn state (the highest sequence_id per turn).
-    """
     rows = conn.execute(
         """
         SELECT json_extract(state, '$.turn_count'), json_extract(state, '$.inventory')
@@ -259,19 +273,13 @@ def load_inventory_timeline(conn: sqlite3.Connection, app_id: str) -> dict[int, 
         if turn is None or inv_json is None:
             continue
         try:
-            per_turn[turn] = json.loads(inv_json)  # overwrite with later rows → end-of-turn
+            per_turn[turn] = json.loads(inv_json)
         except (TypeError, json.JSONDecodeError):
             continue
     return per_turn
 
 
 def compute_inventory_events(timeline: dict[int, list[str]]) -> list[dict[str, Any]]:
-    """Return a list of turns where inventory changed, with gained/lost diffs.
-
-    Only includes turns where the inventory actually changed from the prior
-    turn. Each event carries the full before/after so the director can narrate
-    the moment without needing to cross-reference.
-    """
     events: list[dict[str, Any]] = []
     sorted_turns = sorted(timeline.keys())
     if not sorted_turns:
@@ -299,10 +307,8 @@ def compute_inventory_events(timeline: dict[int, list[str]]) -> list[dict[str, A
 
 
 def inventory_at(timeline: dict[int, list[str]], turn: int) -> list[str]:
-    """Return the inventory at (or just before) the given turn."""
     if turn in timeline:
         return timeline[turn]
-    # Walk backward to find the nearest earlier turn with data
     for t in range(turn - 1, -1, -1):
         if t in timeline:
             return timeline[t]
@@ -315,10 +321,8 @@ def build_dossier(
     state: dict[str, Any],
     inv_timeline: dict[int, list[str]],
 ) -> dict[str, Any]:
-    """Distill the final state into a compact narrative dossier."""
     ah: list[dict] = state.get("action_history", []) or []
 
-    # Score events (every turn where the score changed)
     score_events = []
     prev_score = 0
     for a in ah:
@@ -336,7 +340,6 @@ def build_dossier(
             })
             prev_score = a["score_after"]
 
-    # First visits (location discoveries in order)
     first_visits = []
     seen_loc: set[int] = set()
     for a in ah:
@@ -352,7 +355,6 @@ def build_dossier(
             "inventory_at_turn": inventory_at(inv_timeline, a["turn"]),
         })
 
-    # Repeated action runs (3+ identical actions in a row = frustration)
     repetitions = []
     i = 0
     while i < len(ah):
@@ -372,7 +374,6 @@ def build_dossier(
         else:
             i += 1
 
-    # Opening and closing turn windows (verbatim, with reasoning)
     def snapshot(a: dict) -> dict:
         return {
             "turn": a["turn"],
@@ -387,7 +388,6 @@ def build_dossier(
     opening = [snapshot(a) for a in ah[:5]]
     closing = [snapshot(a) for a in ah[-5:]]
 
-    # Memories — the agent's own post-hoc reflections (flatten across locations)
     memories = []
     for lid, mems in (state.get("memories_by_location") or {}).items():
         if not isinstance(mems, list):
@@ -402,11 +402,9 @@ def build_dossier(
                 "text": m.get("text"),
             })
 
-    # Completed / discovered objectives
     completed = state.get("completed_objectives", []) or []
     discovered = state.get("discovered_objectives", []) or []
 
-    # Inventory story
     inv_events = compute_inventory_events(inv_timeline)
     initial_inv = inv_timeline.get(min(inv_timeline.keys()), []) if inv_timeline else []
     final_inv = state.get("inventory", [])
@@ -436,35 +434,131 @@ def build_dossier(
 
 
 # ---------------------------------------------------------------------------
-# LLM director
+# LLM calls — three passes
 # ---------------------------------------------------------------------------
 
-def generate_shot_list(dossier: dict, model_override: str | None) -> RecapShotList:
+def _call_llm(prompt_name: str, response_model, user_content: str,
+              model_override: str | None, pass_name: str):
     config = GameConfig()
     client = create_llm_client(config)
-    system_prompt = load_prompt("recap_director")
+    system_prompt = load_prompt(prompt_name)
     model = model_override or config.agent_model
 
-    user_payload = json.dumps(dossier, indent=2)
-
-    print(f"Calling director LLM ({model})...", file=sys.stderr)
+    print(f"\n[{pass_name}] Calling LLM ({model})...", file=sys.stderr)
     result = client.create(
         model=model,
-        response_model=RecapShotList,
+        response_model=response_model,
         messages=[
             {"role": "system", "content": system_prompt},
-            {
-                "role": "user",
-                "content": (
-                    "Here is the episode dossier. Produce the shot list.\n\n"
-                    f"```json\n{user_payload}\n```"
-                ),
-            },
+            {"role": "user", "content": user_content},
         ],
         temperature=0.9,
-        max_tokens=4096,
+        max_tokens=8192,
     )
     return result
+
+
+def run_pass1_visual_director(dossier: dict, model: str | None) -> VisualDirectorOutput:
+    user_content = (
+        "Here is the episode dossier. Identify 10-15 candidate shots.\n\n"
+        f"```json\n{json.dumps(dossier, indent=2)}\n```"
+    )
+    return _call_llm("recap_visual_director", VisualDirectorOutput,
+                      user_content, model, "Pass 1: Visual Director")
+
+
+PROVIDER_DURATIONS = {
+    "runway": (5, 10),
+    "veo": (4, 6, 8),
+}
+
+
+def run_pass2_editor(
+    candidates: VisualDirectorOutput, dossier: dict, model: str | None,
+    video_provider: str = "runway",
+) -> EditorOutput:
+    valid_durations = PROVIDER_DURATIONS.get(video_provider, (5, 10))
+    duration_note = (
+        f"\n\n## IMPORTANT: Duration Constraint\n\n"
+        f"The video generator ({video_provider}) only produces clips of "
+        f"exactly **{' or '.join(str(d) for d in valid_durations)} seconds**. "
+        f"Every shot's `duration_seconds` MUST be one of: {list(valid_durations)}. "
+        f"No other values are accepted. Use shorter clips for quick action "
+        f"beats and longer clips for scenes that need room to breathe."
+    )
+    user_content = (
+        "Here are the candidate shots from the visual director, "
+        "followed by the episode dossier for reference.\n\n"
+        "## Candidate Shots\n\n"
+        f"```json\n{candidates.model_dump_json(indent=2)}\n```\n\n"
+        "## Episode Dossier\n\n"
+        f"```json\n{json.dumps(dossier, indent=2)}\n```"
+        f"{duration_note}"
+    )
+    return _call_llm("recap_editor", EditorOutput,
+                      user_content, model, "Pass 2: Editor")
+
+
+def run_pass3_narrator(
+    edit: EditorOutput, dossier: dict, model: str | None,
+) -> NarratorOutput:
+    user_content = (
+        "Here is the locked edit timeline, followed by the episode dossier "
+        "for factual accuracy.\n\n"
+        "## Locked Edit Timeline\n\n"
+        f"```json\n{edit.model_dump_json(indent=2)}\n```\n\n"
+        "## Episode Dossier\n\n"
+        f"```json\n{json.dumps(dossier, indent=2)}\n```"
+    )
+    return _call_llm("recap_narrator", NarratorOutput,
+                      user_content, model, "Pass 3: Narrator")
+
+
+# ---------------------------------------------------------------------------
+# Merge passes into a final shot list for downstream tools
+# ---------------------------------------------------------------------------
+
+def merge_to_shotlist(
+    edit: EditorOutput,
+    narration: NarratorOutput,
+    dossier: dict,
+) -> dict:
+    """Produce the downstream-compatible shot list used by video gen, TTS,
+    and assembly scripts. Combines editor timeline + narrator text."""
+    narr_lookup = {
+        (n.scene_id, n.sequence): n for n in narration.narrated_shots
+    }
+    beats = []
+    beat_index = 0
+    for scene in edit.scenes:
+        for shot in scene.shots:
+            beat_index += 1
+            key = (scene.scene_id, shot.sequence)
+            narr = narr_lookup.get(key)
+            beats.append({
+                "beat_index": beat_index,
+                "scene_id": scene.scene_id,
+                "scene_title": scene.scene_title,
+                "turn_range": shot.turn_range,
+                "title": f"{scene.scene_title} #{shot.sequence}",
+                "scene_prompt": shot.on_screen_action,
+                "framing_notes": shot.framing_notes,
+                "mood": shot.mood,
+                "inventory_at_start": shot.inventory_at_start,
+                "inventory_at_end": shot.inventory_at_end,
+                "narration": narr.narration if narr else "",
+                "duration_seconds": shot.duration_seconds,
+                "word_count": narr.word_count if narr else 0,
+            })
+
+    return {
+        "episode_id": edit.episode_id,
+        "title": edit.title,
+        "logline": edit.logline,
+        "total_duration_seconds": edit.total_duration_seconds,
+        "final_score_stinger": edit.final_score_stinger,
+        "beats": beats,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -474,12 +568,20 @@ def generate_shot_list(dossier: dict, model_override: str | None) -> RecapShotLi
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--episode-id", required=True, help="e.g. ep98")
-    parser.add_argument("--model", default=None, help="Override director model")
+    parser.add_argument("--model", default=None, help="Override LLM model for all passes")
     parser.add_argument("--dossier-only", action="store_true",
-                        help="Only build & dump the dossier; skip the LLM call")
+                        help="Only build & dump the dossier; skip all LLM calls")
+    parser.add_argument("--pass1-only", action="store_true",
+                        help="Run only Pass 1 (Visual Director)")
+    parser.add_argument("--pass2-only", action="store_true",
+                        help="Run Pass 1 + Pass 2 (Editor), skip narrator")
+    parser.add_argument("--provider", choices=["runway", "veo"], default="runway",
+                        help="Video provider — determines valid shot durations "
+                             "(runway: 5/10s, veo: 4/6/8s). Default: runway")
     parser.add_argument("--out-dir", type=Path, default=OUT_DIR)
     args = parser.parse_args()
 
+    # Build dossier
     conn = sqlite3.connect(BURR_DB)
     try:
         app_id = find_episode_app(conn, args.episode_id)
@@ -505,24 +607,92 @@ def main() -> int:
     if args.dossier_only:
         return 0
 
-    shot_list = generate_shot_list(dossier, args.model)
+    # --- Pass 1: Visual Director ---
+    candidates = run_pass1_visual_director(dossier, args.model)
+    p1_path = args.out_dir / f"{args.episode_id}.candidates.json"
+    p1_path.write_text(candidates.model_dump_json(indent=2))
+    print(f"Wrote {len(candidates.candidate_shots)} candidate shots -> {p1_path.name}",
+          file=sys.stderr)
 
+    # Summary
+    for shot in candidates.candidate_shots:
+        print(
+            f"  [{shot.shot_id:2d}] {shot.turn_range:8s}  {shot.suggested_duration_seconds}s  "
+            f"{shot.visual_richness:6s}  {shot.category:30s}  {shot.location}",
+            file=sys.stderr,
+        )
+
+    if args.pass1_only:
+        return 0
+
+    # --- Pass 2: Editor ---
+    edit = run_pass2_editor(candidates, dossier, args.model, args.provider)
+    p2_path = args.out_dir / f"{args.episode_id}.edit.json"
+    p2_path.write_text(edit.model_dump_json(indent=2))
+    total_shots = sum(len(s.shots) for s in edit.scenes)
+    print(f"Wrote locked edit ({total_shots} shots, {edit.total_duration_seconds}s) -> {p2_path.name}",
+          file=sys.stderr)
+
+    # Summary
+    print(f"\n  TITLE: {edit.title}", file=sys.stderr)
+    print(f"  LOGLINE: {edit.logline}", file=sys.stderr)
+    for scene in edit.scenes:
+        print(f"\n  Scene {scene.scene_id}: {scene.scene_title} ({scene.location})",
+              file=sys.stderr)
+        if scene.transition_in:
+            print(f"    IN: {scene.transition_in}", file=sys.stderr)
+        for shot in scene.shots:
+            print(
+                f"    [{shot.sequence}] {shot.turn_range}  {shot.duration_seconds}s  "
+                f"(from candidate #{shot.source_shot_id})  {shot.mood}",
+                file=sys.stderr,
+            )
+        if scene.transition_out:
+            print(f"    OUT: {scene.transition_out}", file=sys.stderr)
+
+    if args.pass2_only:
+        return 0
+
+    # --- Pass 3: Narrator ---
+    narration = run_pass3_narrator(edit, dossier, args.model)
+    p3_path = args.out_dir / f"{args.episode_id}.narration_raw.json"
+    p3_path.write_text(narration.model_dump_json(indent=2))
+    print(
+        f"\nWrote narration ({narration.total_words} words, "
+        f"~{narration.estimated_speaking_seconds:.0f}s speaking) -> {p3_path.name}",
+        file=sys.stderr,
+    )
+
+    # Summary
+    for ns in narration.narrated_shots:
+        print(
+            f"  [S{ns.scene_id}.{ns.sequence}] {ns.duration_seconds}s  "
+            f"{ns.word_count:2d}w  \"{ns.narration}\"",
+            file=sys.stderr,
+        )
+
+    # --- Merge into final shot list ---
+    merged = merge_to_shotlist(edit, narration, dossier)
     shots_path = args.out_dir / f"{args.episode_id}.shotlist.json"
-    shots_path.write_text(shot_list.model_dump_json(indent=2))
-    print(f"\nWrote shot list -> {shots_path}", file=sys.stderr)
+    shots_path.write_text(json.dumps(merged, indent=2))
+    print(f"\nWrote merged shot list -> {shots_path}", file=sys.stderr)
 
-    # Pretty-print a human-readable summary
-    print("\n" + "=" * 72)
-    print(f"TITLE: {shot_list.title}")
-    print(f"LOGLINE: {shot_list.logline}")
-    print(f"DURATION: {shot_list.total_duration_seconds}s")
-    print(f"STINGER: {shot_list.final_score_stinger}")
-    print("=" * 72)
-    for beat in shot_list.beats:
-        print(f"\n[Beat {beat.beat_index}] {beat.turn_range} — {beat.title}  ({beat.duration_seconds}s)")
-        print(f"  ACTION: {beat.on_screen_action}")
-        print(f'  NARRATION: "{beat.narration}"')
-    print("=" * 72)
+    print("\n" + "=" * 72, file=sys.stderr)
+    print(f"TITLE: {merged['title']}", file=sys.stderr)
+    print(f"LOGLINE: {merged['logline']}", file=sys.stderr)
+    print(f"DURATION: {merged['total_duration_seconds']}s  "
+          f"({len(merged['beats'])} beats)", file=sys.stderr)
+    print(f"STINGER: {merged['final_score_stinger']}", file=sys.stderr)
+    print("=" * 72, file=sys.stderr)
+    for beat in merged["beats"]:
+        print(
+            f"\n[Beat {beat['beat_index']}] S{beat['scene_id']} {beat['turn_range']} "
+            f"— {beat['title']}  ({beat['duration_seconds']}s, {beat['word_count']}w)",
+            file=sys.stderr,
+        )
+        print(f"  ACTION: {beat['scene_prompt']}", file=sys.stderr)
+        print(f'  NARRATION: "{beat["narration"]}"', file=sys.stderr)
+    print("=" * 72, file=sys.stderr)
     return 0
 
 
