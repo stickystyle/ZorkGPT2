@@ -1561,6 +1561,138 @@ fixtures t109, t118, t20 all preserved correct behavior with no regression.
 **Reasoning:** The ep104→105 fix proved section-specific dedup works for Items Found. Free-text sections need a different key strategy since there are no natural item-name keys — prefix matching after aggressive normalization catches the room-ID/punctuation variants, and word-overlap catches paraphrased duplicates.
 **Target metric:** KB file should stay under ~250 lines (was 441); prompt tokens should stay well under 13560 limit; no more circuit breaker deaths from KB bloat.
 **Validation:** All 216 tests pass (215 + 1 pre-existing config test failure unrelated to this change). data/knowledge.md reduced from 441 lines to 226 lines. Puzzle Mechanics: 136 → 64 bullets. Dangerous Areas: 28 → 12 bullets. Failed Approaches: 100 → 45. Unexplored Leads: 108 → 48.
+**Evaluator review:** Initially REJECTED — subagent committed `data/knowledge.md` (gitignored file) to the repo. Remediated: `git rm --cached data/knowledge.md` + amend. Re-verified: 4 authorized files only, 215/216 tests pass. Data file cleaned on disk separately via inline dedup script.
+**Result:** **IMPROVED** — ep106 ran 151 turns with zero circuit breaker incidents. Context at t25 was 26,149 chars (vs ep105's 13,925 token overflow at t55). KB stayed manageable throughout. All three target metrics met: (1) KB under 250 lines ✓, (2) no token overflow ✓, (3) no circuit breaker deaths ✓.
+
+---
+
+## Episode 106 — Turn 25 Checkpoint
+**Type:** HEALTHY
+**Score:** 40/350 (delta: +40 from start)
+**Locations visited:** 12 total (12 new)
+**Avg critic score:** 0.50
+**Rejection rate:** 2/25 turns had rejections (8%)
+**Gameplay quality:** LEARNING
+  - Memory use: N/A (early game)
+  - KB alignment: Agent used echo trick at Loud Room (KB-informed), heading to take platinum bar at t25
+  - Objective quality: not yet inspected
+  - Objective pursuit: on track — underground exploration with scoring actions
+  - Learning system quality: NO CIRCUIT BREAKER at KB update points (turns 10, 20) — dedup fix validated. Context at t25 is 26,149 chars with Puzzle Mechanics at 8,000 chars (was causing 13,925 token overflow pre-fix).
+  - Pathfinding: NAVIGATING — efficient route to Loud Room
+**Triggers:** none
+**Notes:** Score 40 at t25 matches ep104/105 pace. The KB dedup BLOCKER fix is working — no token overflow at knowledge update calls. Agent is at the Loud Room about to take the platinum bar.
+
+---
+
+## Episode 106 — Turn 50 Checkpoint
+**Type:** HEALTHY
+**Score:** 54/350 (delta: +14 since turn 25)
+**Locations visited:** 15 total (3 new this block)
+**Avg critic score:** 0.50
+**Rejection rate:** 1/25 turns had rejections (4%)
+**Gameplay quality:** DRIFTING
+  - Memory use: Agent recognized thief theft in reasoning — some awareness of past events
+  - KB alignment: Used echo trick for Loud Room (correct). Weight management protocol worked — chimney climb succeeded at t39 with only sword/sack dropped.
+  - Objective quality: not inspected (quick checkpoint)
+  - Objective pursuit: Agent heading to recover stolen treasures from thief — purposeful
+  - Learning system quality: Context at t41 is 27,993 chars (well under limit). NO CIRCUIT BREAKER — dedup fix validated. 0 memories this block.
+  - Pathfinding: DRIFTING — agent went back underground (t44) to hunt thief but is wandering Cellar/Troll/Gallery area without clear progress
+**Triggers:** none — thief theft is a gameplay issue, not a system defect. Score still progressing.
+**Notes:** Score 54 at t50 is solid. Thief stole painting + platinum bar between Studio and Kitchen during chimney climb. Agent correctly identified theft and is hunting the thief. Chimney climb weight management worked perfectly. KB dedup fix validated — no token overflow at any KB update point. Dedup BLOCKER is confirmed fixed.
+
+---
+
+## Episode 106 — Turn 75 Checkpoint
+**Type:** CONCERN
+**Score:** 54/350 (delta: +0 since turn 50)
+**Locations visited:** 17 total (2 new: Damp_Cave, White_Cliffs_Beach)
+**Avg critic score:** 0.50
+**Rejection rate:** 2/25 turns had rejections (8%)
+**Gameplay quality:** DRIFTING
+  - Memory use: Agent retrieved dropped items from Studio (aware of prior drops). Some location awareness.
+  - KB alignment: Used echo trick again at Loud Room (t71) — but thief appeared and left (not a scoring opportunity since bar was already taken earlier). Agent exploring new areas consistent with KB's Unexplored Leads.
+  - Objective quality: not inspected
+  - Objective pursuit: Agent wanted to hunt thief but is exploring instead. 38 turns stagnant.
+  - Learning system quality: Context remains manageable, no token overflow. KB dedup working.
+  - Pathfinding: WANDERING — exploring new areas (White Cliffs Beach) but without clear scoring plan. 38 turns stagnant at t75.
+**Triggers:** Score stagnant (0 delta across 2 consecutive checkpoints: t25→t50 was +14, t50→t75 is +0). BUT this is a game-level challenge (thief stole both treasures) not a system defect. Agent is exploring new areas which is healthy variance.
+**Notes:** The thief is the dominant factor. It stole both the painting and platinum bar after the chimney climb (t41), leaving the agent with score 54 and no treasure recovery path found yet. 38 turns stagnant. Letting the episode continue to see if the agent recovers — finding the Treasure Room (thief's hideout) is possible and would be a major milestone.
+
+---
+
+## Episode 106 — Turn 100 Checkpoint
+**Type:** URGENT
+**Score:** 54/350 (delta: +0 since turn 50, 3 consecutive stagnant checkpoints)
+**Locations visited:** 21 total (4 new this block)
+**Avg critic score:** 0.50
+**Rejection rate:** 2/25 turns had rejections (8%)
+**Gameplay quality:** IGNORING
+  - Memory use: Agent not referencing memories or KB failure verdicts for Dam bolt
+  - KB alignment: CONTRADICTORY — KB has both "bolt won't turn" AND "bolt succeeds after water rises". Agent acts on the optimistic (false) entry. This is NOT a dedup failure — the entries are semantically different. It's a HALLUCINATED hypothesis persisted into KB.
+  - Objective quality: not inspected
+  - Objective pursuit: Agent consumed by Dam bolt loop (turns 87-100), ignoring all other objectives
+  - Learning system quality: No circuit breaker — dedup fix still holding. But the Dam bolt hallucinated entry is a KB quality problem the dedup can't fix.
+  - Pathfinding: STUCK — Dam/Dam_Lobby/Maintenance loop for turns 87-100, same `turn bolt with wrench` pattern as ep105
+**Triggers:** Score stagnant (0 delta across 3 consecutive checkpoints), Stuck loop (Dam bolt retry)
+**Notes:** Score has been 54 since turn 36 — 64 consecutive turns stagnant. The Dam bolt loop recurred despite being the exact pattern that killed ep105. Root cause: KB has a hallucinated hypothesis ("bolt succeeds after water rises") that the agent acts on optimistically, ignoring the contradicting failure verdict. This confirms the Key Learnings #1 open problem — the agent needs a general stale-belief/action-retry rule. Planned INCREMENTAL improvement for ep107: stale-belief protocol in agent.md.
+
+---
+
+## Episode 106 — Turn 125 Checkpoint
+**Type:** URGENT
+**Score:** 54/350 (delta: +0 since turn 50, 4 consecutive stagnant checkpoints, 89 turns stagnant)
+**Locations visited:** 21 total
+**Gameplay quality:** IGNORING — agent cycling through Dam loop, Studio, and exploration without scoring. Score has not changed since turn 36.
+**Triggers:** Score stagnant (89 turns), Dam bolt loop recurrence (turns 87-100)
+**Notes:** No circuit breaker — KB dedup fix validated through 125 turns of play. The gameplay issue is clear: thief stole treasures at t36, and the agent has not recovered (no Treasure Room discovery). Dam bolt loop consumed ~20 turns. The stale-belief/action-retry rule is the priority improvement for ep107.
+
+---
+
+## Episode 106 — COMPLETE (killed at t151)
+**Turns:** 151 (killed — 114 turns stagnant, no recovery prospect)
+**Final score:** 54/350
+**Locations visited:** 23
+**Objectives found:** not counted (episode killed)
+**End reason:** early_stop (orchestrator killed — 114 turns stagnant)
+**Improvement dispatched:** yes — stale-belief protocol
+
+**Key observations:**
+- KB dedup BLOCKER fix VALIDATED: No circuit breaker in 151 turns. Context manageable throughout. ep105→106 dedup fix working.
+- Thief stole painting + platinum bar at t36 after chimney climb — score stuck at 54 for remaining 115 turns
+- Dam bolt loop recurred (turns 87-100) despite KB failure verdicts
+- Agent tried to take bar at Loud Room (t150) despite it not being there — reasoning explicitly overrides room observation with KB "knowledge": "although the room description doesn't explicitly mention the platinum bar, the strategic knowledge confirms it is here"
+- Weight management protocol working (chimney climb succeeded at t39)
+- 114 turns stagnant — worst stagnation in session history
+
+**Root cause analysis:**
+The agent has NO mechanism to prefer current engine observations over stored KB facts. Three manifestations in this episode:
+1. Dam bolt: KB says "bolt succeeds after water rises" (hallucinated) — agent keeps trying despite game saying "bolt won't turn"
+2. Platinum bar: KB says "bar at Loud Room" — agent tries to take it despite game saying "isn't here" (thief stole it)
+3. General stagnation: agent repeats actions that have failed in the current episode because KB says they should work
+
+This is the belief reconciliation problem from Key Learnings #1. The fix is a stale-belief protocol in agent.md.
+
+| Episode | Score | vs Prev | Best So Far | Turns to 1st Score | Locations | KB Quality | End Reason |
+|---------|-------|---------|-------------|-------------------|-----------|------------|------------|
+| ep103   | 85    | +30     | 90          | 5                 | 31        | noisy      | max_turns  |
+| ep104   | 95    | +10     | 95          | 6                 | 29        | noisy      | max_turns  |
+| ep105   | 40    | -55     | 95          | 5                 | 13        | BLOATED    | circuit_breaker |
+| ep106   | 54    | +14     | 95          | 5                 | 23        | clean      | early_stop |
+
+**Trend:** ep105 and ep106 are both below ep104's 95 ceiling. ep105 was not representative (credit exhaustion). ep106 is representative — the thief + belief reconciliation failure is the clear bottleneck. The KB dedup fix is validated (no more token overflow) but the agent's inability to reconcile stored beliefs against live observations remains the top open problem.
+
+---
+
+## Episode 106 → 107 — IMPROVEMENT
+**Trigger:** 114-turn stagnation in ep106 (score 54/350). Agent overrides engine observations with KB "knowledge" in two concrete failures: (1) Dam bolt retried 6+ times despite game rejecting every attempt, because KB had a hallucinated conditional success entry; (2) `take bar` at Loud Room t150 despite game saying "isn't here", because agent reasoning explicitly stated "although the room description doesn't explicitly mention the platinum bar, the strategic knowledge confirms it is here."
+**Hypothesis:** The Pre-Action Belief Check (added ep100→101) put engine observations and KB entries on EQUAL footing ("Engine-supplied facts and KB-recorded verdicts are the live truth"). When they conflict, the agent picks whichever supports its current plan (confirmation bias). Three specific loopholes: (a) no authority hierarchy between engine and KB, (b) Rule 2 has an "unless" clause allowing KB conditional success entries to override repeated engine rejections, (c) Rule 1's `take X` check isn't strong enough to override KB claims about item presence.
+**Change:** Three targeted edits to the PRE-ACTION BELIEF CHECK section of `prompts/agent.md`:
+1. **Engine-supremacy hierarchy (line 62):** Replaced equal-footing language with an explicit, NON-NEGOTIABLE authority chain: `Engine observations (this turn) > Engine observations (earlier this episode) > KB entries > Your plan`. Added clear language: "When engine observations and KB entries conflict, THE ENGINE IS RIGHT AND THE KB IS STALE."
+2. **Same-episode empirical falsification (Rule 2):** Removed the exploitable "unless the KB itself records a specific new condition" clause. Added a NON-NEGOTIABLE same-episode retry limit: if action X has been tried 2+ times this episode and rejected every time, it is empirically falsified — do not retry regardless of KB conditional success entries. Added explicit prohibition on self-invented preconditions.
+3. **Definitive absence for `take X` (Rule 1):** Strengthened from "item is not in this room" to "item is DEFINITIVELY ABSENT from this room RIGHT NOW." Added explicit handling for game responses like "isn't here" as HARD ENGINE VERDICTS. Added: "KB saying 'X is at this location' when the engine says it isn't = KB is stale, not the engine being wrong."
+**Reasoning:** The ep94→95 stale-route fix worked precisely because it was absolute ("NON-NEGOTIABLE") with no escape clauses. These edits apply the same absoluteness to the broader belief check. All three changes are reasoning heuristics applicable to any text adventure (pass the Two-Question Test from prompts/CLAUDE.md). They teach HOW to resolve conflicting information sources, not WHAT to do in specific game situations.
+**Target metric:** (1) No Dam bolt retry loops (0 retries after 2 failures), (2) No phantom `take X` when game said "isn't here", (3) Score >= ep106's 54/350 (no regression from belief-check strictness).
+**Validation:** Ran `validate_prompt.py` against all 7 ep106 fixtures. Results: 5/7 structural pass. The 2 "failures" are false positives — t36 (take painting at Gallery where painting IS visible) and t46 (go east from Troll Room as navigation) were labeled "problem" with a generic description but their original actions are correct; the prompt change correctly preserved them. Critical target fixtures: t40 (thief recovery) PASSED — agent now checks inventory instead of blindly pursuing stolen items; t150 (phantom bar take) PASSED — action string changed, reasoning now notices "the platinum bar is not in the truncated description." All 3 healthy fixtures (t5, t24, t39) PASSED with identical actions preserved.
 **Result:** PENDING
 
 ---
