@@ -37,6 +37,8 @@ BREVITY: Each bullet must be ONE concise line — no multi-sentence explanations
 
 LOCATION IDS: Always include the numeric location ID in parentheses after the location name, formatted as (R<id>). Example: "Living Room (R193)", "Cellar (R25)". These IDs correspond to the map the agent sees.
 
+DO NOT RE-STATE EXISTING ENTRIES: If an entry already exists in the existing knowledge base, do NOT produce a near-duplicate with an added/removed room ID, trailing period, or minor wording change. Only add genuinely NEW facts from the recent gameplay log.
+
 SCORE CHANGES — USE ONLY THE VERIFIED LIST:
 The user message includes a "VERIFIED SCORE CHANGES" section computed directly from the game engine. This is the ONLY source of truth for what earned points. Copy these entries into your Score Changes section. Do NOT add any score changes not in the verified list. Do NOT modify the score values. If the verified list says "(no score changes in this episode)", your Score Changes section must be empty or omitted.
 

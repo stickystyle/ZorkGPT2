@@ -200,6 +200,174 @@ def _dedup_items_found(kb_text: str) -> str:
     return "\n".join(lines)
 
 
+def _dedup_freetext_sections(kb_text: str) -> str:
+    """Deduplicate free-text sections (Puzzle Mechanics, Dangerous Areas, etc.).
+
+    Unlike Items Found (which has natural item-name keys), these sections
+    contain free-text bullets where duplicates arise from:
+    - Room ID annotations: (R1), (R38), (R215) present/absent
+    - Trailing period vs no period
+    - Em-dash vs hyphen variations
+    - Slight wording differences with identical semantic content
+
+    Strategy: Two-pass dedup.
+    1. Prefix match: group by first 50 chars of normalized text.
+    2. Word-overlap match: for remaining bullets, compute Jaccard similarity
+       on word sets; merge bullets with >0.7 overlap.
+    When duplicates are found, keep the MOST DETAILED version (longest after
+    normalization).
+
+    Applies to all sections EXCEPT Score Changes (Python-controlled) and
+    Items Found (has its own dedup).
+    """
+    _SKIP_SECTIONS = {"Score Changes", "Items Found"}
+    # Non-canonical sections that are stale per-episode state and should be removed
+    _STALE_SECTIONS = {"Current situation", "Immediate plan"}
+
+    sections = _parse_sections(kb_text)
+    if not sections:
+        return kb_text
+
+    # Remove stale per-episode sections
+    for stale in _STALE_SECTIONS:
+        if stale in sections:
+            logger.info("Removed stale section '%s' (%d bullets)", stale, len(sections[stale]))
+            del sections[stale]
+
+    for section_name, bullets in sections.items():
+        if section_name in _SKIP_SECTIONS:
+            continue
+        if len(bullets) < 2:
+            continue
+
+        sections[section_name] = _dedup_bullet_list(bullets)
+        if len(sections[section_name]) < len(bullets):
+            logger.info(
+                "Deduped section '%s': %d -> %d bullets",
+                section_name, len(bullets), len(sections[section_name]),
+            )
+
+    # Re-render in canonical order
+    lines: list[str] = []
+    rendered: set[str] = set()
+    for section_name in _SECTIONS:
+        bullets = sections.get(section_name, [])
+        if bullets:
+            if lines:
+                lines.append("")
+            lines.append(f"**{section_name}:**")
+            lines.extend(bullets)
+            rendered.add(section_name)
+    for section_name, bullets in sections.items():
+        if section_name not in rendered and bullets:
+            if lines:
+                lines.append("")
+            lines.append(f"**{section_name}:**")
+            lines.extend(bullets)
+    return "\n".join(lines)
+
+
+def _dedup_bullet_list(bullets: list[str]) -> list[str]:
+    """Deduplicate a list of bullets using prefix + word-overlap matching.
+
+    Pass 1 (prefix): Group by first 50 chars of normalized text. From each
+    group, keep the longest (most detailed) entry.
+
+    Pass 2 (word overlap): For remaining bullets, compute Jaccard similarity
+    on word-sets; merge pairs with >0.7 overlap, keeping the longer one.
+    """
+    # Pass 1: prefix grouping
+    PREFIX_LEN = 50
+    groups: dict[str, list[tuple[str, str]]] = {}  # prefix -> [(norm, original)]
+    for bullet in bullets:
+        norm = _normalize_freetext(bullet)
+        key = norm[:PREFIX_LEN]
+        if key not in groups:
+            groups[key] = []
+        groups[key].append((norm, bullet))
+
+    # From each prefix group, keep only the best (longest normalized text)
+    after_pass1: list[str] = []
+    seen_prefixes: set[str] = set()
+    for bullet in bullets:
+        norm = _normalize_freetext(bullet)
+        key = norm[:PREFIX_LEN]
+        if key in seen_prefixes:
+            continue
+        seen_prefixes.add(key)
+        group = groups[key]
+        best = max(group, key=lambda x: len(x[0]))
+        after_pass1.append(best[1])
+
+    # Pass 2: word-overlap merging for remaining bullets
+    # This catches paraphrased dupes that differ in the first 50 chars.
+    # Uses two metrics:
+    # - Jaccard similarity (intersection/union) >= 0.55
+    # - Containment: fraction of shorter bullet's words in longer >= 0.80
+    # Either metric being met indicates a near-duplicate.
+    JACCARD_THRESHOLD = 0.55
+    CONTAINMENT_THRESHOLD = 0.75
+    norms = [_normalize_freetext(b) for b in after_pass1]
+    word_sets = [set(n.split()) for n in norms]
+    absorbed: set[int] = set()  # indices absorbed into another bullet
+
+    for i in range(len(after_pass1)):
+        if i in absorbed:
+            continue
+        for j in range(i + 1, len(after_pass1)):
+            if j in absorbed:
+                continue
+            ws_i, ws_j = word_sets[i], word_sets[j]
+            union = ws_i | ws_j
+            if not union:
+                continue
+            intersection = ws_i & ws_j
+            jaccard = len(intersection) / len(union)
+            # Containment: how much of the shorter set is in the longer set
+            smaller = min(len(ws_i), len(ws_j))
+            containment = len(intersection) / smaller if smaller > 0 else 0
+
+            if jaccard >= JACCARD_THRESHOLD or containment >= CONTAINMENT_THRESHOLD:
+                # Keep whichever is longer (more detailed); absorb the other
+                if len(norms[j]) > len(norms[i]):
+                    absorbed.add(i)
+                    break  # i is absorbed; stop comparing i vs others
+                else:
+                    absorbed.add(j)
+
+    return [b for idx, b in enumerate(after_pass1) if idx not in absorbed]
+
+
+def _normalize_freetext(bullet: str) -> str:
+    """Normalize a free-text bullet for near-duplicate detection.
+
+    Strips: bullet markers, room ID annotations like (R1)/(R38)/(R215),
+    trailing periods, bold markers, em-dash/hyphen normalization,
+    extra whitespace, articles/determiners, and lowercases everything.
+    """
+    text = re.sub(r'^[\*\-\+]\s+', '', bullet.strip())
+    # Remove bold markers
+    text = text.replace('**', '')
+    # Remove room ID annotations like (R1), (R38), (R215)
+    text = re.sub(r'\s*\(R\d+\)', '', text)
+    # Remove range annotations like (R18-R32)
+    text = re.sub(r'\s*\(R\d+-R\d+\)', '', text)
+    # Normalize em-dashes and en-dashes to hyphens
+    text = text.replace('—', '-').replace('–', '-')
+    # Normalize backtick-quoted commands (remove backticks for comparison)
+    text = text.replace('`', '')
+    # Strip trailing period(s) and whitespace
+    text = text.rstrip('. ').strip()
+    # Collapse multiple spaces
+    text = re.sub(r'\s+', ' ', text)
+    text = text.lower()
+    # Remove common articles/determiners for tighter prefix matching
+    text = re.sub(r'\b(the|a|an)\b', '', text)
+    # Re-collapse spaces after article removal
+    text = re.sub(r'\s+', ' ', text).strip()
+    return text
+
+
 def _merge_kb(existing_kb: str, new_kb: str) -> str:
     """Merge new KB entries into existing KB, deduplicating by normalized content.
 
@@ -304,6 +472,9 @@ def update_knowledge(state: State, client: instructor.Instructor, config: GameCo
 
         # Structural guardrail: deduplicate Items Found section
         content = _dedup_items_found(content)
+
+        # Structural guardrail: deduplicate free-text sections (Puzzle Mechanics, Dangerous Areas, etc.)
+        content = _dedup_freetext_sections(content)
 
         persist_knowledge(content, config)
         return {"knowledge_length": len(content)}, state.update(**{S.KNOWLEDGE_BASE: content})

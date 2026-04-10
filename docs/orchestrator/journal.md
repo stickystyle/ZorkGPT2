@@ -61,7 +61,7 @@ Started: 2026-03-30
 **Reasoning:** BLOCKER-class — the KB Items Found section is producing broken output (170 lines of noise, stale drop locations presented as strategic facts). All three parts address the same root cause. Prompt prevents new pollution; code guardrail catches leakage; data cleanup (separate) resets the accumulated mess.
 **Target metric:** Items Found section has <=1 entry per unique item. No drop/movement annotations in Items Found bullets. Next episode's agent never references a prior-episode drop location as a current item location.
 **Validation:** 9/9 new unit tests pass in `tests/test_knowledge.py`. Full test suite: 201/202 pass (1 pre-existing failure in test_config.py unrelated to this change — hardcoded model name mismatch). End-to-end test confirms: a KB with 10 duplicate "Platinum bar" entries + 5 "Painting" entries + various drop annotations collapses to 6 unique clean entries with no drop annotations.
-**Result:** PENDING
+**Result:** **IMPROVED** — ep105 Items Found section confirmed clean: ~37 unique entries, no drop/deposit annotations, no duplicates per item name. The dedup code and prompt change are working as intended. However, the SAME cross-episode pollution pattern persists in Puzzle Mechanics and Dangerous Areas sections (not covered by `_dedup_items_found()`), and the resulting KB bloat pushed prompt tokens past OpenRouter's limit (13925 > 13560), causing circuit breaker at t55.
 
 ---
 
@@ -1489,5 +1489,78 @@ still drops more than necessary with 3 treasures in inventory — the protocol
 improved reasoning but the context had 3 treasures competing for 1 slot). Healthy
 fixtures t109, t118, t20 all preserved correct behavior with no regression.
 **Result:** **IMPROVED** — ep104 final 95/350 (+10 vs ep103 baseline of 85). Weight management protocol produced 9/10 correct item classifications at chimney events (vs ep103's 0/2). Deep zone reached at t30 (earliest ever) because the rope was NOT dropped. All three target metrics substantially met: (1) 9/10 chimney events correctly classified (one late violation at t186), (2) no items lost to theft at unprotected locations, (3) score 95 exceeds the 85 target. The protocol's biggest impact was enabling the deep zone — torch (+14 take +6 deposit = +20) was the single largest scoring component.
+
+---
+
+## Episode 105 — Turn 25 Checkpoint
+**Type:** CONCERN
+**Score:** 40/350 (delta: +40 from start)
+**Locations visited:** 12 total (12 new)
+**Avg critic score:** 0.50
+**Rejection rate:** 1/25 turns had rejections (4%)
+**Gameplay quality:** LEARNING
+  - Memory use: N/A (early game, no prior location memories to reference yet)
+  - KB alignment: Agent leveraged echo trick for Loud Room, knows chimney weight rule. Good.
+  - Objective quality: 5 well-formed / 6 total (1 duplicate: painting retrieval added twice)
+  - Objective pursuit: Agent heading underground, consistent with scoring path
+  - Learning system quality: KB Items Found section clean (dedup fix working). BUT Puzzle Mechanics and Dangerous Areas sections have massive duplication — same facts appear 3-5x with slight wording variations. KB total size is excessive. 0 memories created in first 25 turns (none triggered yet — no score-change memory events besides entry/cellar which are KB-handled).
+  - Pathfinding: NAVIGATING — standard early-game route (house→cellar→troll→east)
+**Triggers:** KB noise — Puzzle Mechanics and Dangerous Areas sections are majority duplicates (same cross-episode pollution pattern that affected Items Found, but in different sections)
+**Notes:** Score 40 at t25 is on par with ep104 pace. The KB Items Found dedup fix is working (clean section). The SAME duplication problem exists in Puzzle Mechanics and Dangerous Areas — the _dedup_items_found() code only targets Items Found bullets. This is a separate BLOCKER to address after this episode.
+
+---
+
+## Episode 105 — Turn 50 Checkpoint
+**Type:** URGENT
+**Score:** 40/350 (delta: +0 since turn 25 checkpoint)
+**Locations visited:** 13 total (1 new: Maintenance_ revisited only; effectively 0 new exploration)
+**Avg critic score:** 0.50
+**Rejection rate:** 0/25 turns had rejections (0%)
+**Gameplay quality:** IGNORING
+  - Memory use: N/A — agent hasn't visited locations with fresh memories; 0 new memories created
+  - KB alignment: CONTRADICTORY — KB has two entries about Dam bolt: one says it fails, another says it works after water rises. Agent acts on the optimistic entry, ignoring the failure verdict. This is the exact belief reconciliation problem from Key Learnings #1.
+  - Objective quality: 6 well-formed / 12 total (6 duplicates from objective update churn)
+  - Objective pursuit: Agent has objectives for chimney/painting/Loud Room but hasn't pursued any — entirely consumed by Dam bolt loop
+  - Learning system quality: 0 memories, 0 KB updates this block. KB Puzzle Mechanics section has massive duplication (same facts 3-5x). KB has contradictory bolt info.
+  - Pathfinding: STUCK — only 3 locations in 25 turns: Dam, Dam_Lobby, Maintenance_. Agent cycled wait→turn bolt→wait→turn bolt for 15+ turns.
+**Triggers:** Stuck loop (3 locations for 25 consecutive turns), Score stagnant (0 delta over 2 checkpoints), KB contradiction (bolt has failure and success entries, agent acts on success entry)
+**Notes:** Classic Dam puzzle black hole. 28 turns since progress at t46. The agent's reasoning shows it believes water level needs to rise to chest level (from KB), so it keeps waiting and retrying. But the engine keeps rejecting the command. The Puzzle Mechanics duplication is feeding the agent contradictory signals. Two interventions needed: (1) BLOCKER — KB Puzzle Mechanics/Dangerous Areas dedup (same cross-episode pollution as Items Found), (2) INCREMENTAL — general stale-belief rule in agent.md for action retries.
+
+---
+
+## Episode 105 — COMPLETE
+**Turns:** 55
+**Final score:** 40/350
+**Locations visited:** 13
+**Objectives found:** 15
+**End reason:** llm_circuit_breaker (OpenRouter 402 — credits exhausted + prompt token limit exceeded at 13925 > 13560)
+**Improvement dispatched:** yes — KB dedup BLOCKER needed
+**Memory stats:** mem_total=15, mem_new=14, mem_dedup_rejected=0, mem_superseded=2
+**Key observations:**
+- ep104→105 KB Items Found dedup fix VALIDATED: Items Found section is clean, ~37 unique entries with no drop annotations
+- BUT Puzzle Mechanics and Dangerous Areas sections have same cross-episode duplication problem (3-5x per fact)
+- KB bloat pushed prompt tokens past OpenRouter's limit — direct cause of circuit breaker
+- Agent stuck at Dam for 35 turns (t20-t55), score stagnant at 40 for entire second half
+- KB has contradictory Dam bolt entries: "won't turn" AND "succeeds after water rises" — agent acts on optimistic entry
+- OpenRouter credits appear exhausted — cannot run further episodes until replenished
+
+| Episode | Score | vs Prev | Best So Far | Turns to 1st Score | Locations | KB Quality | End Reason |
+|---------|-------|---------|-------------|-------------------|-----------|------------|------------|
+| ep103   | 85    | +30     | 90          | 5                 | 31        | noisy      | max_turns  |
+| ep104   | 95    | +10     | 95          | 6                 | 29        | noisy      | max_turns  |
+| ep105   | 40    | -55     | 95          | 5                 | 13        | BLOATED    | circuit_breaker |
+
+**Trend:** ep105 is not representative of system quality — it died from credit exhaustion at turn 55 (only 28% of budget). The Dam stuck loop (turns 20-55) is a recurring pattern and the KB bloat is now a hard blocker (prompt exceeds token limit).
+
+---
+
+## Episode 105 → 106 — IMPROVEMENT
+**Trigger:** KB bloat caused prompt token overflow (13925 > 13560 limit) at ep105 t55, killing the episode via circuit breaker. Puzzle Mechanics had 136 bullets (28 duplicate groups), Dangerous Areas had 28 bullets (6 duplicate groups).
+**Hypothesis:** The `_merge_kb()` function deduplicates by exact normalized text, but cross-episode LLM outputs introduce near-duplicates via: (1) room ID annotations added/removed, (2) trailing period variations, (3) article insertion ("the", "a"), (4) slight wording changes. These accumulate unboundedly across episodes.
+**Change:** Added `_dedup_freetext_sections()` in `zorkburr/actions/knowledge.py` — a two-pass dedup (50-char prefix grouping + Jaccard/containment word-overlap) that runs on every `update_knowledge` call after `_dedup_items_found()`. Normalization strips room IDs like (R1), articles, backticks, trailing periods, and em-dashes. Also removes stale per-episode sections ("Current situation", "Immediate plan"). Updated `prompts/knowledge.md` to instruct LLM not to re-state existing entries with minor variations. Added 14 new tests.
+**Reasoning:** The ep104→105 fix proved section-specific dedup works for Items Found. Free-text sections need a different key strategy since there are no natural item-name keys — prefix matching after aggressive normalization catches the room-ID/punctuation variants, and word-overlap catches paraphrased duplicates.
+**Target metric:** KB file should stay under ~250 lines (was 441); prompt tokens should stay well under 13560 limit; no more circuit breaker deaths from KB bloat.
+**Validation:** All 216 tests pass (215 + 1 pre-existing config test failure unrelated to this change). data/knowledge.md reduced from 441 lines to 226 lines. Puzzle Mechanics: 136 → 64 bullets. Dangerous Areas: 28 → 12 bullets. Failed Approaches: 100 → 45. Unexplored Leads: 108 → 48.
+**Result:** PENDING
 
 ---
