@@ -977,6 +977,116 @@ The session has landed 5 confirmed infrastructure wins (memory-consolidation rou
 
 ---
 
+## Episode 102 — Turn 25 Checkpoint
+**Type:** HEALTHY
+**Score:** 45/350 (delta: +45 from start — clean opening)
+**Locations visited:** 9 (West_House, North_House, Behind_House, Kitchen, Living_, Cellar, East_Chasm, Gallery, Studio)
+**Avg critic score:** 0.50 (critic disabled, placeholder value)
+**Rejection rate:** 3/25 turns (12%) — one spiral at t17 `take paper` (force-accepted at 3 rejections, no actual problem)
+**Gameplay quality:** LEARNING
+  - Memory use: 46 active memories across 23 locations from prior episodes; agent's painting take at t15 properly applied weight management
+  - KB alignment: Agent followed chimney route via Cellar→East_Chasm→Gallery (KB-recorded scoring path), dropped 6 items at Studio t18 before chimney climb (consistent with KB weight warnings)
+  - Objective quality (FIRST EP WITH GEMINI-3-FLASH OBJECTIVE MODEL): 1 active + 15 completed in just 25 turns. Active objective is specific and grounded in actual gameplay event ("Retrieve the sword, bottle, sack, and leaflet from the Studio" — exact items dropped at t18). Completion detector is significantly more eager than Ministral baseline.
+  - Objective pursuit: Agent's actions align with objectives (chimney route execution matches "Put the painting in the trophy case to score points")
+  - Learning system quality: KB has substantial strategic content from ep94/98/101; objective text noticeably more specific than prior episodes
+  - Pathfinding: NAVIGATING — chimney route taken cleanly, no MAP_MISMATCH or KNOWN_FAILURE retries
+**Triggers:** none
+**Notes:** Different opening sequence than ep98/100/101 — went painting-first via Cellar→East_Chasm→Gallery rather than bar-first via Loud Room. Both routes are valid and yield similar scoring. **Initial signal on objective_model swap (ep101→102 IMPROVEMENT, commit 484281f) is mixed**: gemini-3-flash produces more specific text and detects completions more aggressively, but there is visible duplication ("move rug" t10 + "Move the rug to reveal the trap door" t23 are the same event). Need full episode to judge whether this is net positive vs ep101's baseline.
+
+---
+
+## Episode 102 — Turn 50 Checkpoint
+**Type:** CONCERN
+**Score:** 45/350 (delta: **+0** since t25 checkpoint — STAGNANT block)
+**Locations visited:** 13 total (1 new this block: Attic)
+**Avg critic score:** 0.50 (critic disabled)
+**Rejection rate:** 0/25 turns (0%) — clean execution
+**Gameplay quality:** DRIFTING
+  - Memory use: Agent's reasoning at t39 explicitly cited Navigation Protocol Rule 0 (stale-route rule) when engine exits didn't match map data — rule fired CORRECTLY
+  - KB alignment: Agent followed chimney pattern correctly (drop ballast, climb)
+  - Objective quality: 3 active discovered objectives, 18 completed — completion detector remains aggressive (e.g., "open trap door" completed twice at t10 and t30 as separate objectives)
+  - Objective pursuit: Agent has coherent plan (return to Studio for items → Attic for rope → Dome Room for descent path)
+  - Learning system quality: KB now contains the Dam puzzle solution discovered in earlier session
+  - Pathfinding: **MISREADING MAP** — at t38 the agent tried to descend chimney from Kitchen→Studio, which is impossible (chimney is one-way Studio→Kitchen). The agent's `MAP_DATA` has a bogus reverse edge from pre-ep98 episodes. The stale-route rule recovered correctly but cost ~5 wasted turns (t34-39). **THIS IS Open Problem #6 (data/map.json corruption) actively causing measurable harm.**
+**Triggers:** Score stagnation (1st consecutive — 2nd would trigger improvement). Note: this is the first concerning checkpoint of ep102 — the next 25 turns will show whether the deep-zone descent plan executes successfully.
+**Notes:** The 25-turn block was largely consumed by:
+  1. Map_graph corruption recovery (t34-39, ~5 turns wasted)
+  2. Going back to Studio via Cellar route to retrieve dropped items (t40-44)
+  3. Climbing chimney back to Living/Kitchen and then to Attic (t45-50)
+  No score progress, but the agent is now positioned to execute the rope→Dome→Torch path. The DEEP issue exposed: **map_graph corruption from old episodes (Open Problem #6) is no longer just theoretical** — it caused observable wasted turns. This is now a candidate for a BLOCKER fix after ep102 completes (after the objective_model swap effect is fully measured).
+
+---
+
+## Episode 102 — Turn 75 Checkpoint
+**Type:** CONCERN
+**Score:** 45/350 (delta: **+0** since t50 — TWO consecutive stagnant checkpoints; would normally fire improvement trigger)
+**Locations visited:** 17 total (4 new this block: Behind_House, Clearing, Forest, Forest_Path, Up_a_Tree, North_House)
+**Avg critic score:** 0.50 (critic disabled)
+**Rejection rate:** 1/25 turns (~4%)
+**Gameplay quality:** DRIFTING
+  - Memory use: Agent followed deep-zone plan but dropped the rope at Studio t67 (needed for Dome→Torch path) — major plan failure
+  - KB alignment: Agent dropped rope before fully understanding chimney constraints — execution sloppy
+  - Objective quality: **DEGRADED.** Phantom objectives discovered: "Retrieve the screwdriver and tube dropped in the Troll Room" (referencing items that don't exist in this episode), "Find the screwdriver and tube previously left..." (re-added after being removed). Location_id mismatches observed (objective texts use wrong R# vs location_name). Aggressive completion churn.
+  - Objective pursuit: Agent's plan was internally coherent but the execution was hampered by phantom objectives and map_graph confusion
+  - Learning system quality: KB strategic content remains good; objective system is producing noise
+  - Pathfinding: **WANDERING/MISREADING MAP** — at t55-57 the agent BOUNCED Living↔Kitchen multiple times trying to descend the chimney from Kitchen→Studio (impossible), only correcting course after the engine refused. Same map_graph corruption from t34-39 fired AGAIN.
+**Triggers:** Score stagnation 2/2 (would normally fire improvement). Map_graph corruption (Open Problem #6) caused observable wasted turns AGAIN at t55-57. Phantom objectives at t50.
+**Notes:** This is the strongest signal yet that the objective_model swap (ep101→102) is **net DEGRADING**. Phantom objectives ("screwdriver and tube") + location_id confusion + completion churn are misleading the agent. **However**, the agent then went to Up_a_Tree at t75 and took the egg at t76 (+5). This is the first egg take in many episodes — possibly an emergent benefit of the new objective_model proposing the egg as a goal? Need to verify in Burr by checking if the egg objective was added before t75. **Tentative verdict on the objective_model swap: produces both new opportunities AND new noise — net effect TBD pending full episode score.**
+
+---
+
+## Episode 102 — ABORTED (killed at t116, score 55/350, peak 55, broken loop)
+**Turns:** 116 of 200 (orchestrator killed — broken loop, see ep101→102 verdict below)
+**Final score:** 55/350 (peak 55 at t83 — egg deposit)
+**Locations visited:** ~17
+**Objectives found:** 6 active + 27+ completed (gemini-3-flash objective_model produced significant churn)
+**End reason:** orchestrator killed due to compounding gameplay defects — agent stuck in a Studio drop-rope-climb-chimney-back loop that lost the deep zone option twice (t67 dropped rope, recovered at t100, dropped AGAIN at t112)
+**Memory stats (interim):** mem_new=5+, mem_total=46
+
+### Score milestones
+- t5: 10 (kitchen entry)
+- t12: 35 (cellar — direct route, no detour)
+- t15: 39 (painting take in Gallery)
+- t22: 45 (painting deposit in trophy case)
+- t23-t75: ZERO progress for 52 turns (map_graph corruption + Studio loops)
+- t76: 50 (egg take from Up_a_Tree — emergent, possibly objective_model influence)
+- t83: 55 (egg deposit in trophy case)
+- t84-t116: ZERO progress, broken Studio loop
+
+### Diagnostic findings (this episode is a goldmine of failure modes)
+
+**1. Objective_model swap (gemini-3-flash) is producing PHANTOM OBJECTIVES.** Verified at t50 update_objectives call. Specific instances:
+   - `"Retrieve the screwdriver and tube dropped in the Troll Room"` — neither item exists in this episode (these are Maintenance Room items from the Dam puzzle area, not the Troll Room). Added at t50, removed mid-block, then RE-ADDED as `"Find the screwdriver and tube previously left in the Troll Room area"`.
+   - `"Retrieve the sword, leaflet, and manual dropped in the Studio [Studio]"` — added at t50 (correct items dropped at t18, but with wrong location_id formatting `[R45 — Studio]` where R45 is actually Maintenance Room, not Studio which is location 94).
+   - Other objectives use mismatched location_id vs location_name pairs systematically.
+   The Ministral baseline (ep100) had ~5-7 active objectives with no phantom items. gemini-3-flash on this role has 6 active objectives that include hallucinated content.
+
+**2. Map_graph corruption (Open Problem #6) is now actively harmful.** Manifested twice:
+   - **t34-39:** Agent at Studio→Kitchen (chimney up, OK), then tried to descend chimney from Kitchen via 'down', failed, bounced Living↔Kitchen 4 times before stale-route rule recovered. ~5 wasted turns.
+   - **t55-57:** SAME exact pattern: opened trap door at Living, then went east to Kitchen, then 'down' from Kitchen (the bogus map edge), failed with "Only Santa Claus climbs down chimneys", bounced back to Living. Agent reasoning at t56: *"The World Map and memory show that 'down' from the Kitchen leads to the Studio. Decision: Move 'down' to the Studio."* — directly cites the bad map data.
+   
+   Root cause: `data/map.json` has accumulated false reverse edges from ep1-98 (pre-fix). The ep98→99 commit `3de19b6` stops adding new ones but the persisted file still contains them. The stale-route rule recovers but at significant cost.
+
+**3. Compound failure: agent kept dropping the rope at Studio.** The rope is the Dome→Torch descent prerequisite (verified ep94, ep101). Sequence:
+   - t51: took rope at Attic (good)
+   - t67: dropped rope, sword in Studio (wanted to lighten chimney load — but didn't need to drop the rope specifically)
+   - t100: returned to Studio, took sword + rope (recovery)
+   - t112: dropped sword, rope, axe in Studio AGAIN (same pattern)
+   - The agent never reached Engravings Cave or Dome Room. Deep zone was unreachable for the entire episode.
+
+**4. Velocity collapsed.** ep102 ran at ~1 turn/min — well below ep98's ~3 turns/min and ep101's ~1.5 turns/min. The new objective_model adds substantial latency (gemini-3-flash on every 10-turn objective update + every-turn completion check on top of existing gemini calls). At this rate a full 200-turn episode would take 3+ hours.
+
+### Updated Score Table
+| Episode | Score | vs Prev | Best | Locations | Mems | mem_cons | End Reason | Key Note |
+|---------|-------|---------|------|-----------|------|----------|------------|----------|
+| ep94 | **102** | +23 | **102** | 32 | 49 | 0 | max_turns | visibility bundle, +28 Torch/Egyptian |
+| ep101 | 88 | +38 | 102 | 26 | 77 | 10 | max_turns | stale-belief CONFIRMED + deep zone reproduced |
+| **ep102** | **55** | **−33** | **102** | **17** | ~46 | ? | **ABORTED** | objective_model swap DEGRADED — phantom objectives + map_graph corruption recovery loops |
+
+**Trend:** ep101→102 regression of −33 confirms the objective_model swap is net DEGRADING in production. Combined with the now-acute cost of the map_graph corruption, this episode justified an early kill.
+
+---
+
 ## Episode 101 → 102 — IMPROVEMENT (BLOCKER: objective_model Ministral → gemini-3-flash)
 **Trigger:** Last Ministral holdout in the model stack. Pattern evidence from two prior role swaps is strong: ep91-92 memory_synthesis fixture probe showed Ministral misclassified puzzle-solves as movement (fixed by gemini swap, delivered +34 score jump to ep93). ep96 critic fixture probe showed Ministral false-rejected 5/5 problem fixtures with hallucinated exit lists and compound-command misparsing (fixed by gemini swap, delivered ep97 clean critic avg 0.76 with zero spirals). The `objective_model` role in `zorkburr/actions/objectives.py` (used by `update_objectives` and `check_objective_completion`) performs the same class of structured reasoning that Ministral has been proven insufficient at twice.
 **Hypothesis:** Ministral's capacity ceiling that blocked memory synthesis and critic judgment also applies to objective tracking. Swapping to gemini-3-flash-preview will produce more accurate objective discovery and completion detection, reducing stale/wrong objectives in the agent's context. Cost: one more LLM call per 10 turns (objective updates) plus one per turn (completion checks) shifts from local/free Ministral to remote gemini-3-flash (~$0.50/$3.00 per M tokens). At ~200 calls/episode, additional cost is roughly $0.10-0.20 per episode — trivial.
@@ -984,7 +1094,10 @@ The session has landed 5 confirmed infrastructure wins (memory-consolidation rou
 **Reasoning:** BLOCKER-class infrastructure routing change. Pattern is established by two prior direct probes. This change eliminates the last Ministral role in the model stack — agent, critic, knowledge, memory, and now objective are all on gemini-3-flash-preview. Model-stack unification simplifies future debugging.
 **Target metric:** ep102 `discovered_objectives` list quality improves vs ep100 — fewer vague/stale/duplicate entries, more specific and attainable objectives. Indirect score signal: if objectives are better, the agent's plan quality should improve. Not a direct score target because this change is expected to produce a subtle improvement rather than a visible jump.
 **Validation:** No fixture probe (pattern established by prior probes). Test suite: `uv run pytest tests/ --ignore=tests/test_llm_client.py` — 192 passed, 1 pre-existing failure (test_load_config_from_toml). Production validation via ep102.
-**Result:** PENDING
+**Result:** **DEGRADED** — ep102 final 55/350 (vs ep101 88/350, −33). Objective_model gemini-3-flash produced phantom objectives ("screwdriver and tube" — items that don't exist in the current episode), location_id vs location_name mismatches in objective formatting, and aggressive completion churn. Velocity collapsed to ~1 turn/min (vs ep101 ~1.5/min). The phantom objectives appeared to mislead the agent's planning at multiple points (e.g., the Studio loop where the agent kept trying to retrieve items it never had).
+**Hypothesis verdict:** **FALSIFIED** — gemini-3-flash on the objective role is NOT a strict improvement over Ministral. The pattern from memory and critic swaps does NOT generalize to objective tracking. Why the difference: memory synthesis and critic judgment are pattern-classification tasks (good fit for capable LLM); objective discovery requires creative goal generation grounded in the current game state, where capable LLMs can over-confidently invent goals from partial cues (KB mentions of items elsewhere in the game become "objectives" in the wrong room). Ministral's lower fluency may have been a feature, not a bug, here — it produced shorter/less-specific objectives that didn't hallucinate.
+
+---
 
 ---
 
@@ -1135,5 +1248,42 @@ The session has landed 5 confirmed infrastructure wins (memory-consolidation rou
   - Learning system quality: KB + memories healthy; critic is the broken subsystem.
 **Triggers:** none firing formally (avg critic 0.58, rejections 24%). BUT the critic is *semantically* misaligned even on accepted actions — it has a "revisits = bad" bias that directly contradicts Zork's deposit loop.
 **Notes:** Critic last modified in **ep7** per Key Learnings (~3 changes, last ep7). This is the oldest untouched subsystem and has been degrading agent behavior since ep86. The t22/t24 cascade is a NEW observation: critic false rejections don't just waste a turn, they **corrupt the agent's model of the world** because the agent interprets repeated rejection as ground truth ("system says south is problematic"). If score stagnates through t50, critic is the dispatch target — hypothesis: the critic prompt needs an explicit "revisits to drop items or deposit treasure are valid and required" rule, OR the critic model needs to be swapped off local Ministral-3-14B.
+
+---
+
+## Episode 102 → 103 — IMPROVEMENT (BLOCKER bundle: objective_model revert + map.json cleanup)
+**Trigger:** ep102 ABORTED at t116 score 55 (−33 vs ep101). Two compounding
+infrastructure failures: (a) gemini-3-flash on objective_model produced phantom
+objectives at ep102 t50 ("screwdriver and tube" referencing items not in this
+episode); (b) data/map.json bogus Kitchen→down→Studio reverse edge caused two
+measurable confusion loops at t34-39 and t55-57 (~10 wasted turns total).
+**Hypothesis:** (a) Reverting objective_model to Ministral eliminates the
+phantom-objective failure mode and restores the proven ep98-101 baseline.
+(b) Wiping the persisted map.json eliminates the bogus reverse edges from
+pre-ep98 episodes; the already-fixed forward-only `add_connection` ensures
+the rebuilt map will be correct.
+**Change:**
+1. `pyproject.toml` — `objective_model` reverted from `remote/google/gemini-3-flash-preview`
+   back to `mistralai/ministral-3-14b-reasoning`. Single line.
+2. `data/map.json` — moved to `data/map.json.bak.ep102` as backup. Next
+   episode start will create a fresh empty map and rebuild via observation.
+   Note: data/ is gitignored, so this change does NOT appear in the git commit
+   diff — it is a runtime state reset only.
+**Reasoning:** Both BLOCKER-class infrastructure fixes per orchestrator rules
+(infrastructure fixes can be combined in one episode). Neither is a strategic
+prompt change. The objective_model revert tests the falsified hypothesis directly
+by restoring the prior state. The map.json wipe tests whether removing the
+persistent bad data eliminates the observed routing errors (since the code-level
+`add_connection` fix from ep98→99 commit `3de19b6` is already in place).
+**Target metric:** (1) ep103 score ≥ 75 (recovers most of the regression).
+(2) Zero phantom objectives in ep103 discovered_objectives. (3) Zero "Only Santa
+Claus" chimney-down failures (the bogus Kitchen→Studio map edge is gone).
+**Validation:** Test suite: `uv run pytest tests/ --ignore=tests/test_llm_client.py`
+— 192 passed, 1 failed (pre-existing `test_load_config_from_toml` unrelated to
+this change). Map backup verified: `data/map.json.bak.ep102` present (14522 bytes),
+`data/map.json` absent (will be recreated empty by next episode's initialize_episode).
+No fixture probe (config/data resets, not prompt changes — fixture probes are
+for prompt logic).
+**Result:** PENDING
 
 ---
