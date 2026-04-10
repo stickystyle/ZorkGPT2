@@ -894,6 +894,78 @@ The session has landed 5 confirmed infrastructure wins (memory-consolidation rou
 
 ---
 
+## Episode 101 — COMPLETE (max_turns, score 88/350, deep-zone reproduction first since ep94)
+**Turns:** 200 (full max_turns budget)
+**Final score:** 88/350 (peak 88 at t118 — sceptre deposit; no death, no respawn penalty)
+**Locations visited:** 26
+**Objectives found:** 15
+**End reason:** max_turns clean
+**Memory stats:** mem_total=**77 (session high)**, mem_new=42, mem_dedup_rejected=0, mem_superseded=13, mem_ephemeral_pruned=3, **mem_consolidated=10** (second consecutive episode with non-zero consolidation, validating commit `5d7bb77`)
+
+### Score milestones
+- t5: 10 (kitchen entry)
+- t14: 35 (cellar)
+- t19: 40 (east from troll)
+- t23: 50 (platinum bar take, Loud)
+- t36: 54 (painting take, Gallery)
+- **t37: silent thief loss** (game response: "A seedy-looking individual... quietly abstracted some valuables from the room and from your possession") — both painting AND platinum bar taken from inventory
+- **t38: STALE-BELIEF RULE FIRED** — agent's reasoning explicitly recognized: *"The thief just stole my treasures (the platinum bar and the painting) and I am currently unarmed."* Set new objective: "Recover stolen treasures from the thief in the Treasure Room." This is the rule's intended behavior in production for the first time.
+- t39-40: agent climbed chimney to Kitchen → Attic → **took rope and knife** (rope is the ep94 Dome Room descent prerequisite, taken without ever being explicitly planned for)
+- t40-65: navigation back through map, eventually reached Engravings Cave at t62
+- **t65: `tie rope to railing` at Dome Room** — first time since ep94 the rope-Dome ritual was executed
+- **t66: descend to Torch Room**
+- **t67: take torch +14, move to Temple → score 68**
+- t76: take sceptre +4 → 72 (Egyptian Room)
+- **t78: take coffin +10 → 82 (peak)**
+- t79-115: long return trip through deep zone → Altar → Temple → Torch → Dome → Engravings → Round → E-W Passage → Troll → Cellar → East Chasm → Gallery → Studio → chimney → Kitchen → Living
+- **t118: put sceptre in case +6 → 88 (final)**
+- t119-200: agent returned to deep zone twice more attempting recovery, never scored again
+
+### Session-defining behavioral wins (NOT score-related but enabled the score)
+
+1. **Stale-belief rule production validation** — at t38 the agent recognized a silent inventory event the very next turn, named the mismatch in its reasoning, and replanned. ep98 and ep100 had the IDENTICAL thief event in the same Studio location and proceeded with phantom-inventory actions. ep101's behavior change is single-variable attributable to the prompt rule added in commit `3659c29`. The rule works exactly as designed.
+
+2. **Deep zone reproduction** — first time since ep94 (~7 episodes ago) the agent has reached the Torch Room and Egyptian Room scoring zones. The path requires: rope from Attic → Engravings Cave → Dome Room → `tie rope to railing` → descend → Torch Room → take torch (+14) → Temple → south to Egyptian Room → take sceptre (+4) → take coffin (+10). All steps executed correctly. The rope take was emergent — driven by the stale-belief recovery plan after the thief loss, not by an explicit "go get the rope" objective. This is unplanned cross-episode learning paying off via a different reasoning pathway.
+
+3. **Coffin lost between t78 and t113** — the coffin was in inventory at t78 but gone by t113. Cause was likely the chimney climb's weight-based auto-drop (consistent with KB warnings about heavy loads in the chimney) or a second silent thief encounter. The agent did not detect the loss in real-time (unlike the t37 thief loss, which it caught immediately). The stale-belief rule fired ONCE in this episode but not for the coffin loss — possibly because the loss happened during a multi-step action sequence and the inventory check didn't get triggered between drops.
+
+4. **Consolidation now consistently operational** — ep100 had `mem_consolidated=8`, ep101 has `mem_consolidated=10`. Both episodes hit the 5-memory-per-location threshold and consolidation ran with sensible drop/merge decisions. Commit `5d7bb77` is fully validated end-to-end now.
+
+### Critic-disable + extractor-deletion + objective_model swap effects (this was the FIRST episode running ALL of them simultaneously after the post-ep100 changes — but objective_model swap actually didn't take effect until the NEXT process load, so ep101 still had Ministral on objectives)
+- Compound commands worked cleanly throughout
+- Zero LLM-critic spirals (by construction)
+- 5 programmatic-validator rejections across 200 turns (~2.5%)
+- Per-turn rate held at ~1 turn/min average (slower than ep98's ~3 turns/min — possibly variance, possibly slow gemini API moments)
+
+### Updated Score Table (ep94 onward)
+| Episode | Score | vs Prev | Best | Locations | Mems | mem_cons | End Reason | Key Note |
+|---------|-------|---------|------|-----------|------|----------|------------|----------|
+| ep94 | **102** | +23 | **102** | 32 | 49 | 0 | max_turns | visibility bundle, +28 Torch/Egyptian |
+| ep95 | 90 | −12 | 102 | 24 | 31 | 0 | killed | Reservoir trunk |
+| ep96 | 54 | −36 | 102 | 21 | ~30 | 0 | killed | thief loss + ballast bug |
+| ep97 | 70 | +16 | 102 | 16 | 22 | 0 | death (thief) | critic swap CONFIRMED |
+| ep98 | **90** | +20 | 102 | 34 | 33 | 0 | max_turns | critic-disable CONFIRMED |
+| ep99 | 65* | -25 | 102 | 23 | 19 | 0 | CRASH (DB lock) | extractor del + map_graph fix |
+| ep100 | 50 | -15 | 102 | 18 | 26 | 8 | death (thief) | consolidation finally fired |
+| **ep101** | **88** | **+38** | **102** | **26** | **77 (high)** | **10** | **max_turns** | **stale-belief CONFIRMED + deep zone reproduced** |
+
+**Trend (ep98→101):** 90 → 65* → 50 → **88**. ep101 reverses the regression and matches the post-extractor-deletion baseline while adding the deep-zone scoring path that has been missing since ep94. The +38 vs ep100 is the largest single-episode score jump in the session.
+
+### What ep101 confirms about the session's experimental hypotheses
+- **Stale-belief rule** (`3659c29`): CONFIRMED in production. The single-variable behavioral change is observable on the exact failure mode it targets (silent inventory event recognition) within one turn of the event.
+- **Critic-disable** (`1663389`): still confirmed — no rejection spirals, compound commands working.
+- **Extract_info deletion** (`873c37d`): still confirmed — execute_action's direct Jericho calls populate exits/visible_objects without issue.
+- **Map_graph forward-only** (`3de19b6`): no observable regressions from the change. Behavioral validation will accumulate over more episodes.
+- **Memory_model consolidation** (`5d7bb77`): now validated in two consecutive episodes (ep100=8, ep101=10).
+- **objective_model swap** (`484281f`): NOT yet validated in production — ep101 was launched BEFORE the commit took effect (Python process loaded the old config). ep102+ will be the first runs with gemini-3-flash on objectives.
+
+### Remaining gameplay defects (unchanged from prior episodes)
+1. **Coffin/treasure loss during multi-step sequences** — stale-belief rule fires per-turn but a 5-action compound command can lose state mid-sequence
+2. **Return-trip from deep zone takes ~30 turns of confused navigation** (t79-110) — same as ep94's late-game pattern, not addressed by any change yet
+3. **Thief continues to be the dominant enemy threat** — ep101 t37 showed silent loss; the stale-belief rule recovers from it but doesn't prevent it
+
+---
+
 ## Episode 100 → 101 — IMPROVEMENT (INCREMENTAL: stale-belief reasoning protocol)
 **Trigger:** Across ep97-100, three distinct failure patterns all trace to the same root cause — agent doesn't reconcile stored beliefs (plan, KB facts) against current engine state before committing to an action. Specific instances: ep99 t29 retried `turn bolt with wrench` despite KB explicitly recording it as a failed attempt; ep100 t53 proposed `take bar` in a room where the bar was no longer present (thief had stolen it 20 turns earlier); ep100 t106 proposed `attack man with axe` invoking a general combat priority rule despite KB explicitly stating the thief is not killable via combat — died at t106, score 60→50.
 **Hypothesis:** The agent has the correct information in its context every turn (KB content, live inventory, live visible_objects) but lacks an explicit reasoning protocol to reconcile action preconditions against that information. The ep94→95 stale-route rule handles a narrow slice of this (planned direction not in engine exits) and is behaviorally confirmed. Generalizing that rule to cover inventory, visible_objects, and KB failure verdicts should close the remaining belief-reconciliation failure modes without adding game-specific knowledge.

@@ -1,19 +1,29 @@
 #!/usr/bin/env python3
 """Render a ZorkBurr episode recap shot list as spoken audio.
 
-Reads a shot list produced by scripts/generate_recap_script.py, concatenates
-the narration lines with natural pauses between beats, and produces an mp3 of
-the full recap so you can hear whether the Attenborough writing works out
-loud *before* investing in real TTS or video generation.
+Reads a shot list produced by scripts/generate_recap_script.py and produces
+an mp3 of the narration. Two modes:
+
+Flat mode (default): concatenates all beat narrations into one TTS call,
+producing a single mp3 of ~45-65s that you can listen to in isolation to
+judge whether the Attenborough writing works out loud.
+
+Per-beat-sync mode (--per-beat-sync): generates ONE TTS call per beat,
+pads each to match the beat's video duration (lead-in silence + trailing
+silence), and concatenates into a master mp3 that is timecode-aligned to
+the video timeline. Beat N's narration plays DURING beat N's video. This
+is what assemble_recap.py mixes over the concatenated video.
 
 Provider selection (auto-detected in this order, or pass --provider):
     1. elevenlabs   — if ELEVENLABS_API_KEY is set (best quality)
     2. openai       — if OPENAI_API_KEY is set (decent British voice: "fable")
     3. say          — macOS built-in, zero cost (default voice: "Daniel")
 
+Note: per-beat-sync mode currently only supports --provider openai.
+
 Usage:
     uv run scripts/render_recap_audio.py --episode-id ep98
-    uv run scripts/render_recap_audio.py --episode-id ep98 --voice Grandpa
+    uv run scripts/render_recap_audio.py --episode-id ep98 --per-beat-sync
     uv run scripts/render_recap_audio.py --episode-id ep98 --provider openai
 """
 from __future__ import annotations
@@ -135,6 +145,134 @@ def render_with_elevenlabs(text: str, voice: str, out_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Per-beat sync mode
+# ---------------------------------------------------------------------------
+
+def probe_duration(path: Path) -> float:
+    """Return duration in seconds, or 0.0 if ffprobe fails."""
+    result = subprocess.run(
+        ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+         "-of", "default=noprint_wrappers=1:nokey=1", str(path)],
+        capture_output=True, text=True,
+    )
+    if result.returncode != 0:
+        return 0.0
+    return float(result.stdout.strip() or 0)
+
+
+def render_per_beat_sync(
+    *,
+    shot_list: dict,
+    episode_id: str,
+    provider: str,
+    voice: str,
+    out_path: Path,
+    out_dir: Path,
+    default_beat_duration: float,
+    lead_in_seconds: float,
+    style: str,
+) -> None:
+    """Generate per-beat TTS, pad to video beat durations, concatenate.
+
+    For each beat:
+      1. Call TTS with just that beat's narration (one API call per beat).
+      2. If the beat's video file exists on disk, use its exact duration as
+         the padding target. Otherwise fall back to default_beat_duration.
+      3. Prepend lead_in_seconds of silence (so the narration doesn't start
+         immediately on cut) and pad the tail to the beat's target duration.
+      4. Truncate to the beat duration (safety clamp in case TTS ran long).
+    Then concatenate all padded beat-audio files into the master mp3.
+    """
+    if provider != "openai":
+        raise SystemExit(
+            f"--per-beat-sync currently only supports --provider openai "
+            f"(requested: {provider}). OpenAI TTS is cheap enough for per-beat "
+            f"calls; ElevenLabs and `say` can be added later."
+        )
+    if shutil.which("ffmpeg") is None:
+        raise SystemExit("ffmpeg not found — required for --per-beat-sync.")
+
+    beats = shot_list["beats"]
+    tmp_dir = out_dir / f".{episode_id}.audiotmp"
+    tmp_dir.mkdir(exist_ok=True)
+
+    padded_files: list[Path] = []
+    total_target = 0.0
+    total_words = 0
+
+    print(f"Generating {len(beats)} per-beat TTS clips...", file=sys.stderr)
+    try:
+        for beat in beats:
+            idx = beat["beat_index"]
+            narration = beat["narration"].strip()
+            words = len(narration.split())
+            total_words += words
+
+            # Determine target duration from the video file if it exists
+            video_path = out_dir / f"{episode_id}.beat{idx:02d}.{style}.mp4"
+            if video_path.exists():
+                target = probe_duration(video_path)
+                source = f"{video_path.name}"
+            else:
+                target = default_beat_duration
+                source = f"default ({default_beat_duration}s)"
+            total_target += target
+
+            raw_path = tmp_dir / f"beat{idx:02d}.raw.mp3"
+            padded_path = tmp_dir / f"beat{idx:02d}.padded.mp3"
+
+            print(f"  [beat {idx}] {words} words, target {target:.1f}s "
+                  f"({source})", file=sys.stderr)
+
+            # Step 1: render the raw per-beat TTS
+            render_with_openai(narration, voice, raw_path)
+            raw_duration = probe_duration(raw_path)
+
+            if raw_duration + lead_in_seconds > target + 0.3:
+                print(
+                    f"    ⚠ raw narration is {raw_duration:.1f}s + {lead_in_seconds:.1f}s "
+                    f"lead-in = {raw_duration + lead_in_seconds:.1f}s, but target is "
+                    f"{target:.1f}s. Will be truncated.",
+                    file=sys.stderr,
+                )
+
+            # Step 2: pad with silence at the head + trail
+            lead_ms = int(lead_in_seconds * 1000)
+            subprocess.run(
+                ["ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
+                 "-i", str(raw_path),
+                 "-af", f"adelay={lead_ms}|{lead_ms},apad=whole_dur={target}",
+                 "-t", str(target),
+                 "-acodec", "libmp3lame", "-q:a", "2",
+                 str(padded_path)],
+                check=True,
+            )
+            padded_files.append(padded_path)
+
+        # Concat all padded beats into the master
+        list_path = tmp_dir / "concat.txt"
+        with list_path.open("w") as fh:
+            for p in padded_files:
+                fh.write(f"file '{p.name}'\n")
+        subprocess.run(
+            ["ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
+             "-f", "concat", "-safe", "0",
+             "-i", str(list_path),
+             "-c", "copy",
+             str(out_path)],
+            check=True,
+        )
+
+        master_dur = probe_duration(out_path)
+        print(f"\nMaster narration: {master_dur:.1f}s "
+              f"(target {total_target:.1f}s, {total_words} words total)",
+              file=sys.stderr)
+    finally:
+        import shutil as _shutil
+        _shutil.rmtree(tmp_dir, ignore_errors=True)
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -154,6 +292,18 @@ def main() -> int:
              "say: Daniel/Grandpa. openai: fable/onyx. elevenlabs: George/Brian.",
     )
     parser.add_argument("--out-dir", type=Path, default=RECAPS_DIR)
+    parser.add_argument("--per-beat-sync", action="store_true",
+                        help="Generate one TTS call per beat and sync to beat "
+                             "video durations (for final assembly). Requires --provider openai.")
+    parser.add_argument("--beat-duration", type=float, default=8.0,
+                        help="Fallback beat duration in seconds if the video "
+                             "file isn't on disk yet (default: 8)")
+    parser.add_argument("--lead-in-seconds", type=float, default=0.3,
+                        help="Silence inserted at the start of each beat's "
+                             "narration (default: 0.3)")
+    parser.add_argument("--style", default="cinematic",
+                        help="Style suffix used to find per-beat video files "
+                             "for duration probing (default: cinematic)")
     args = parser.parse_args()
 
     shotlist_path = args.out_dir / f"{args.episode_id}.shotlist.json"
@@ -181,10 +331,23 @@ def main() -> int:
         "openai": DEFAULT_OPENAI_VOICE,
         "elevenlabs": DEFAULT_ELEVENLABS_VOICE,
     }[provider]
-    print(f"Rendering audio via provider={provider} voice={voice}...", file=sys.stderr)
+    print(f"Rendering audio via provider={provider} voice={voice}"
+          f" (per_beat_sync={args.per_beat_sync})...", file=sys.stderr)
 
     audio_path = args.out_dir / f"{args.episode_id}.narration.mp3"
-    if provider == "say":
+    if args.per_beat_sync:
+        render_per_beat_sync(
+            shot_list=shot_list,
+            episode_id=args.episode_id,
+            provider=provider,
+            voice=voice,
+            out_path=audio_path,
+            out_dir=args.out_dir,
+            default_beat_duration=args.beat_duration,
+            lead_in_seconds=args.lead_in_seconds,
+            style=args.style,
+        )
+    elif provider == "say":
         render_with_say(full_text, voice, audio_path)
     elif provider == "openai":
         render_with_openai(full_text, voice, audio_path)
