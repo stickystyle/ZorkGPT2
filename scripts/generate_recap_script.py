@@ -92,6 +92,45 @@ class RecapBeat(BaseModel):
         ),
     )
 
+    @model_validator(mode="after")
+    def _validate_narration_for_tts(self):
+        """Reject single-word sentences, two-word sentences, and period-
+        separated lists. These patterns are written-comedy tricks that do
+        not survive TTS — uniform pause delivery makes them sound flat.
+        See prompts/recap_director.md "Critical: write for the TTS engine".
+        """
+        import re
+
+        text = self.narration.strip()
+        # Split on sentence boundaries (period, ?, !), keeping non-empty pieces
+        sentences = [
+            s.strip() for s in re.split(r"[.!?]+", text) if s.strip()
+        ]
+        if not sentences:
+            raise ValueError(
+                f"beat {self.beat_index}: narration is empty"
+            )
+
+        for s in sentences:
+            words = s.split()
+            if len(words) < 5:
+                raise ValueError(
+                    f"beat {self.beat_index}: sentence '{s}' has only "
+                    f"{len(words)} words. No narration sentence may be "
+                    f"shorter than 5 words — single/two-word sentences are "
+                    f"a written-comedy trick that does not survive TTS "
+                    f"uniform-cadence delivery. Rewrite as flowing prose "
+                    f"using commas and 'and'."
+                )
+
+        # Detect period-separated lists: 3+ consecutive sentences each with
+        # ≤2 words AFTER the first sentence boundary. This catches "Wrench.
+        # Screwdriver. Tube." style lists that slip past the per-sentence
+        # 5-word check by being broken into separate sentences. Actually
+        # the per-sentence check above will already reject these — keeping
+        # this comment for documentation.
+        return self
+
 
 class RecapShotList(BaseModel):
     title: str = Field(description="Punchy episode title")

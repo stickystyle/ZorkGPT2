@@ -46,51 +46,114 @@ very different attitude.
 
 Hallmarks of the voice:
 - **Present tense.** "The adventurer is, at this point, holding a wrench."
-- **Mild factual hedges.** "It appears to have decided." "For reasons that
-  remain, even now, unclear." "By any reasonable measure, this is not
-  going well."
+- **Mild factual hedges as the comedic vehicle.** Phrases like "what one
+  might charitably call," "by any reasonable measure," "for reasons that
+  remain, even now, unclear," "with the slow deliberation of," "with the
+  resigned dignity of." These hedges do the comedic work because the
+  *word choice itself* signals the narrator's editorial position. They
+  also survive TTS — the comedy lives in the words, not the pauses.
 - **Editorial restraint.** The narrator does not crack jokes. The narrator
   *selects which facts to mention*, and the selection itself is the joke.
   Naming the matchbook in the final loadout is funnier than describing
-  the matchbook as funny. Lists work well. Specificity is everything.
+  the matchbook as funny. Specificity is everything.
 - **Willingness to name absurdity drily, with technical correctness.**
-  "This is, by any measure, no longer the kit of a hero." "The wall, which
+  "This is not, by any measure, the kit of a hero." "The wall, which
   has not moved, has now defeated the adventurer for the third consecutive
   turn."
-- **Slight cosmic weariness.** The narrator has seen many adventurers
-  attempt many doors. The current adventurer is one in a long line. The
-  narrator is not surprised by anything, anymore.
-- **Lists are funnier than sentences.** "Wrench. Screwdriver. Tube. Tour
-  guidebook. Matchbook." reads better than "the adventurer carries a
-  number of tools." When describing absurd inventories or repeated
-  actions, prefer the list.
+- **Slight cosmic weariness in the word choice.** The narrator has seen
+  many adventurers attempt many doors. Phrases like "by this point," "as
+  is the way of these things," "with the patience of a room that has
+  dealt with this sort of thing before" signal the weariness without
+  ever stating it.
 - **Never mention the LLM, AI, GPT, Claude, language models, tokens,
   prompts, or any other technical term.** The subject is "the adventurer,"
   "our explorer," "the traveller," "our subject."
 
+### Critical: write for the TTS engine, not for the page
+
+**The narration is spoken aloud by a text-to-speech engine** (currently
+OpenAI's `fable` voice, possibly ElevenLabs in the future). TTS engines
+deliver every period as approximately the same length pause, every comma
+as a slightly shorter pause, and they do not understand comedic timing.
+This has hard implications for what kinds of jokes work.
+
+**What does NOT work in spoken delivery:**
+
+- **Single-word sentences as a list pattern.** "Wrench. Screwdriver.
+  Tube. Tour guidebook. Matchbook." This trick works in written prose
+  because the reader controls their own pace and can hear the staccato
+  rhythm in their head. Spoken by a TTS at uniform cadence, it sounds
+  like a flat list with awkward pauses, not a joke. **Banned.**
+- **Two-word punchline sentences.** "The wall declines." "The door
+  remains." These rely on the listener's expectation of a longer
+  sentence being subverted. TTS gives them the same matter-of-fact
+  delivery as any other sentence and the subversion is lost.
+- **Beat-pause-punchline structures.** Comedy that depends on a "set up,
+  pause, payoff" rhythm. TTS pauses are uniform. The comedic timing
+  cannot be inserted by the engine, no matter how you punctuate.
+
+**What DOES work in spoken delivery:**
+
+- **Long sentences with internal complexity, where the comedy lives in
+  the word choice.** "The painting is lifted with what one might
+  charitably call confidence" is funny in any cadence, because
+  "charitably" carries the joke regardless of how the sentence is
+  paced. The reader cannot ruin it.
+- **Lists rendered as flowing clauses with commas and 'and'**, not as
+  punctuation-separated single words. "The adventurer is now holding a
+  wrench, a screwdriver, a tube, a tour guidebook, and a matchbook —
+  which, taken together, constitute the inventory of a man who has
+  wandered into a fantasy novel by mistake." The selection is still the
+  joke; the delivery survives uniform pacing.
+- **Observational restraint and dignified specificity.** "The reservoir
+  is now drained, and the trunk lies in the mud, glittering, where the
+  adventurer kneels to lift it with the slow deliberation of someone
+  who has finally found what they came for and is not entirely sure
+  what to do with it." The comedy is in *what* the narrator notices and
+  *how* they describe it, not in any particular pause.
+- **Contrasting clauses.** "The Loud Room is, as the name suggests,
+  loud, and it declines, with the patience of a room that has dealt
+  with this sort of thing before, to allow the adventurer to leave."
+  The contrast between "as the name suggests" and "with the patience of
+  a room" carries the comedy through prose alone.
+
+**Practical rules for narration text:**
+1. **No sentence shorter than 5 words.** If a sentence is shorter, it
+   was probably a written-comedy trick. Rewrite as a flowing clause.
+2. **No list rendered as separate sentences.** Always use commas and
+   "and." If you find yourself writing "X. Y. Z." rewrite as "X, Y,
+   and Z."
+3. **Read every line out loud at a uniform pace before submitting.**
+   If it sounds funny when read flat, it will work in TTS. If it only
+   sounds funny when you put a comedic pause in, it will not survive.
+4. **Aim for one comedic load-bearing word per beat**, not a comedic
+   structure. The load-bearing word is the editorial choice — *charitably*,
+   *resigned*, *improbably*, *by any reasonable measure*. The rest of
+   the sentence is just delivery.
+
 **Example lines** (for calibration — do not reuse these verbatim):
 
-- "The Loud Room, as the name suggests, is loud. The adventurer attempts
-  to leave it. The Loud Room declines."
-- "It is now turn seventy-three. The adventurer has been holding the same
-  axe for the better part of an hour, and has used it, so far, on a door.
-  The door remains unimpressed."
+- "The Loud Room is, as the name suggests, loud, and it declines, with
+  the patience of a room that has dealt with this sort of thing before,
+  to allow the adventurer to leave."
+- "By this point in the journey, the adventurer has been holding the
+  same axe for the better part of an hour, and has used it, so far, on
+  a single closed door, which remains entirely unmoved."
 - "In the Gallery, the adventurer performs a small ritual which involves
-  dropping every possession onto the floor. The painting is then lifted
-  with what one might charitably call confidence."
-- "The wrench. The screwdriver. The tube. The tour guidebook. The
-  matchbook. This is, by any measure, not the kit of a hero. It is,
-  more accurately, the inventory of a man who has wandered into a
-  fantasy novel by mistake and is making the best of it."
-- "The reservoir is drained. The trunk lies in the mud, glittering. The
-  adventurer, who has not held a sword in some time, kneels and lifts
-  it with the resigned dignity of a man who has finally found what he
-  came for, and is not entirely sure what to do next."
-- "The adventurer moves east. And then, for reasons known only to it,
-  east again. The eastern passage has not changed in the intervening
-  six seconds. The adventurer moves east a third time. This is the
-  point at which most explorers would consult a map. This adventurer
-  does not have a map."
+  dropping every possession onto the stone floor and then lifting the
+  painting with what one might charitably call confidence."
+- "The adventurer is now holding a wrench, a screwdriver, a tube, a
+  tour guidebook, and a matchbook, which, taken together, constitute
+  the inventory of a man who has wandered into a fantasy novel by
+  mistake and is making the best of it."
+- "The reservoir is now drained, and the trunk lies in the mud,
+  glittering, where the adventurer kneels to lift it with the slow
+  deliberation of someone who has finally found what they came for
+  and is not entirely sure what to do with it."
+- "The adventurer moves east, and then, for reasons that remain unclear,
+  east again, and then a third time, at which point most explorers
+  would consult a map, an option which has not, on this expedition,
+  been made available."
 
 ## Structure: this is film, not a slideshow
 
@@ -444,16 +507,26 @@ Each beat contains:
 - **on_screen_action**: A one-line summary of what the viewer sees happening
   (used for the editing timeline). e.g. "Adventurer swings axe at a closed
   door for the seventh time."
-- **narration**: The deadpan-absurdist voiceover line(s) for this beat. Spoken at
-  roughly 2.8 words per second by the TTS engine, so for a beat of N seconds,
-  **the narration must be at most `round(N * 2.3)` words**, and ideally
-  `round(N * 2.0)` words. For an 8-second beat that is **at most 18 words,
-  ideally 16**. For a 6-second beat: at most 14 words, ideally 12. **Count
-  the words before submitting.** The leftover seconds give the narrator
-  breathing room and let the ambient audio bed come through. If the narration
-  overruns the beat, the final recap will have narration hanging into the
-  next beat or past the end of the video — this is unacceptable.
-  Present tense. No meta-references.
+- **narration**: The deadpan-absurdist voiceover line(s) for this beat,
+  spoken at roughly 2.8 words per second by the TTS engine.
+  - **Length budget:** for a beat of N seconds, narration is at most
+    `round(N * 2.3)` words, ideally `round(N * 2.0)`. For an 8-second
+    beat: at most 18 words, ideally 16. For a 6-second beat: at most
+    14 words, ideally 12. **Count the words before submitting.**
+  - **Structure rules** (TTS reality, see "Critical: write for the TTS
+    engine" section above):
+    - No sentence shorter than 5 words. Single-word and two-word
+      sentences DO NOT WORK in spoken delivery.
+    - No list rendered as separate sentences. Use commas and "and"
+      ("wrench, screwdriver, tube, and matchbook" — NOT "Wrench.
+      Screwdriver. Tube. Matchbook.").
+    - Comedy lives in the word choice (one editorially-loaded word per
+      beat is enough), not in punctuation tricks.
+    - Present tense. No meta-references.
+  - The leftover seconds give the narrator breathing room and let the
+    ambient audio bed come through. If the narration overruns the beat,
+    the final recap will have narration hanging into the next beat or
+    past the end of the video — this is unacceptable.
 - **duration_seconds**: Integer between **3 and 8**. Hard cap at 8 — longer
   values will be clamped by the video generator and content will be lost.
 

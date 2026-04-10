@@ -197,6 +197,7 @@ def render_per_beat_sync(
     tmp_dir.mkdir(exist_ok=True)
 
     padded_files: list[Path] = []
+    beat_timings: list[dict] = []
     total_target = 0.0
     total_words = 0
 
@@ -204,18 +205,18 @@ def render_per_beat_sync(
     try:
         for i, beat in enumerate(beats):
             idx = beat["beat_index"]
-            is_last_beat = (i == len(beats) - 1)
             narration = beat["narration"].strip()
             words = len(narration.split())
             total_words += words
 
-            # Determine target duration from the video file if it exists
+            # Determine the *video* duration from the beat file if it exists.
+            # This is the floor — audio will never be shorter than video.
             video_path = out_dir / f"{episode_id}.beat{idx:02d}.{style}.mp4"
             if video_path.exists():
-                target = probe_duration(video_path)
+                video_duration = probe_duration(video_path)
                 source = f"{video_path.name}"
             else:
-                target = default_beat_duration
+                video_duration = default_beat_duration
                 source = f"default ({default_beat_duration}s)"
 
             raw_path = tmp_dir / f"beat{idx:02d}.raw.mp3"
@@ -226,32 +227,32 @@ def render_per_beat_sync(
             raw_duration = probe_duration(raw_path)
             required = raw_duration + lead_in_seconds + 0.5  # 0.5s trailing silence
 
-            # Last-beat auto-extend: if the final beat's narration (which usually
-            # contains the score stinger) overflows the video beat duration, we
-            # extend the audio target past the video. assemble_recap.py will
-            # freeze-frame the last clip to match. This is better than truncating
-            # the closing line mid-sentence.
-            if is_last_beat and required > target:
-                original_target = target
-                target = required
+            # Option B: never truncate. Every beat auto-extends its target past
+            # the video duration if the narration needs more time. assemble_recap.py
+            # will freeze-frame each beat's video individually to match.
+            target = max(video_duration, required)
+            if target > video_duration + 0.05:
                 print(
                     f"  [beat {idx}] {words} words, extending target from "
-                    f"{original_target:.1f}s to {target:.1f}s for the closing line",
+                    f"{video_duration:.1f}s (video) to {target:.1f}s (audio) "
+                    f"({source})",
                     file=sys.stderr,
                 )
             else:
-                print(f"  [beat {idx}] {words} words, target {target:.1f}s "
-                      f"({source})", file=sys.stderr)
-                if required > target + 0.3:
-                    print(
-                        f"    ⚠ raw narration is {raw_duration:.1f}s + "
-                        f"{lead_in_seconds:.1f}s lead-in = "
-                        f"{raw_duration + lead_in_seconds:.1f}s, but target is "
-                        f"{target:.1f}s. Will be truncated.",
-                        file=sys.stderr,
-                    )
+                print(
+                    f"  [beat {idx}] {words} words, target {target:.1f}s "
+                    f"({source})",
+                    file=sys.stderr,
+                )
 
             total_target += target
+            beat_timings.append({
+                "beat_index": idx,
+                "video_duration": round(video_duration, 3),
+                "audio_duration": round(target, 3),
+                "freeze_pad_seconds": round(max(0.0, target - video_duration), 3),
+                "words": words,
+            })
 
             # Step 2: pad with silence at the head + trail
             lead_ms = int(lead_in_seconds * 1000)
@@ -279,6 +280,18 @@ def render_per_beat_sync(
              str(out_path)],
             check=True,
         )
+
+        # Write the sidecar manifest so assemble_recap.py knows how to pad
+        # each beat video individually.
+        timings_path = out_dir / f"{episode_id}.beat_timings.json"
+        timings_path.write_text(json.dumps({
+            "episode_id": episode_id,
+            "style": style,
+            "lead_in_seconds": lead_in_seconds,
+            "total_audio_seconds": round(total_target, 3),
+            "beats": beat_timings,
+        }, indent=2) + "\n")
+        print(f"Wrote beat timings -> {timings_path.name}", file=sys.stderr)
 
         master_dur = probe_duration(out_path)
         print(f"\nMaster narration: {master_dur:.1f}s "

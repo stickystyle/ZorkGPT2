@@ -65,6 +65,38 @@ def run_ffmpeg(args: list[str]) -> None:
         print(result.stderr.strip(), file=sys.stderr)
 
 
+def normalize_clip(
+    input_path: Path,
+    output_path: Path,
+    pad_seconds: float,
+) -> None:
+    """Re-encode a clip to a uniform profile, optionally freeze-padding its tail.
+
+    Every beat clip is pushed through this in Option B, whether or not it
+    needs padding, so the concat demuxer downstream sees identical codec
+    params across all clips. When pad_seconds > 0, the last video frame is
+    cloned for that long and the audio is silence-padded to match.
+    """
+    vf_parts = []
+    af_parts = []
+    if pad_seconds > 0:
+        vf_parts.append(f"tpad=stop_mode=clone:stop_duration={pad_seconds}")
+        af_parts.append(f"apad=pad_dur={pad_seconds}")
+    vf = ",".join(vf_parts) if vf_parts else "null"
+    af = ",".join(af_parts) if af_parts else "anull"
+    run_ffmpeg([
+        "-i", str(input_path),
+        "-vf", vf,
+        "-af", af,
+        "-c:v", "libx264", "-preset", "fast", "-crf", "18",
+        "-pix_fmt", "yuv420p",
+        "-c:a", "aac", "-b:a", "192k",
+        "-ar", "48000",
+        "-movflags", "+faststart",
+        str(output_path),
+    ])
+
+
 def concat_videos(clips: list[Path], out_path: Path) -> None:
     """Concatenate clips losslessly using the concat demuxer.
 
@@ -89,22 +121,6 @@ def concat_videos(clips: list[Path], out_path: Path) -> None:
         ])
     finally:
         list_path.unlink(missing_ok=True)
-
-
-def pad_video_tail(input_path: Path, output_path: Path, pad_seconds: float) -> None:
-    """Extend a video by freeze-framing its last visual frame and padding audio.
-
-    Uses tpad + apad filters. Re-encodes video (copy doesn't work with filter).
-    """
-    run_ffmpeg([
-        "-i", str(input_path),
-        "-vf", f"tpad=stop_mode=clone:stop_duration={pad_seconds}",
-        "-af", f"apad=pad_dur={pad_seconds}",
-        "-c:v", "libx264", "-preset", "fast", "-crf", "18",
-        "-c:a", "aac", "-b:a", "192k",
-        "-movflags", "+faststart",
-        str(output_path),
-    ])
 
 
 def mix_narration(
@@ -169,60 +185,86 @@ def main() -> int:
     if not narration_path.exists():
         raise SystemExit(
             f"Narration not found: {narration_path}\n"
-            f"Run: uv run scripts/render_recap_audio.py --episode-id {args.episode_id}"
+            f"Run: uv run scripts/render_recap_audio.py --episode-id {args.episode_id} --per-beat-sync"
         )
 
-    # Summary
-    total_video_duration = sum(probe_duration(c) for c in clips)
+    # Option B: per-beat freeze padding. render_recap_audio.py (with
+    # --per-beat-sync) writes a sidecar listing how long each beat's audio
+    # actually is, which may exceed the beat's video duration. We freeze-pad
+    # each clip individually so the narration lands inside its own shot.
+    timings_path = args.out_dir / f"{args.episode_id}.beat_timings.json"
+    if not timings_path.exists():
+        raise SystemExit(
+            f"Beat timings sidecar not found: {timings_path}\n"
+            f"Run: uv run scripts/render_recap_audio.py --episode-id {args.episode_id} --per-beat-sync"
+        )
+    timings = json.loads(timings_path.read_text())
+    timings_by_idx = {b["beat_index"]: b for b in timings["beats"]}
+
+    # Pair each clip to its timing entry by beat index
+    def clip_beat_index(clip: Path) -> int:
+        # ep98.beat03.cinematic.mp4 -> 3
+        stem = clip.name.split(".")[1]  # "beat03"
+        return int(stem.replace("beat", ""))
+
     narration_duration = probe_duration(narration_path)
     print("=" * 72, file=sys.stderr)
     print(f"Episode:       {args.episode_id}", file=sys.stderr)
     print(f"Style:         {args.style}", file=sys.stderr)
     print(f"Beat clips:    {len(clips)}", file=sys.stderr)
+    total_target = 0.0
     for c in clips:
-        print(f"  {probe_duration(c):5.1f}s  {c.name}", file=sys.stderr)
-    print(f"Video total:   {total_video_duration:.1f}s", file=sys.stderr)
+        idx = clip_beat_index(c)
+        t = timings_by_idx.get(idx, {})
+        vdur = probe_duration(c)
+        adur = t.get("audio_duration", vdur)
+        pad = max(0.0, adur - vdur)
+        total_target += adur
+        marker = f"  +{pad:4.1f}s pad" if pad > 0.05 else ""
+        print(f"  video {vdur:5.1f}s  audio {adur:5.1f}s{marker}  {c.name}",
+              file=sys.stderr)
+    print(f"Total target:  {total_target:.1f}s", file=sys.stderr)
     print(f"Narration:     {narration_duration:.1f}s  ({narration_path.name})", file=sys.stderr)
     print(f"Ambient level: {args.ambient_volume:.0%}", file=sys.stderr)
     print("=" * 72, file=sys.stderr)
 
-    # Step 1: concat videos to a temp file
-    print("\n[1/3] concatenating clips...", file=sys.stderr)
-    concat_path = args.out_dir / f"{args.episode_id}.concat.{args.style}.mp4"
-    concat_videos(clips, concat_path)
-    print(f"  -> {concat_path.name}", file=sys.stderr)
+    # Step 1: normalize + freeze-pad each beat clip individually
+    print("\n[1/3] normalizing and per-beat freeze-padding...", file=sys.stderr)
+    normalized_clips: list[Path] = []
+    for c in clips:
+        idx = clip_beat_index(c)
+        t = timings_by_idx.get(idx)
+        vdur = probe_duration(c)
+        if t is None:
+            pad_seconds = 0.0
+        else:
+            pad_seconds = max(0.0, t["audio_duration"] - vdur)
+        out_clip = args.out_dir / f"{args.episode_id}.beat{idx:02d}.{args.style}.padded.mp4"
+        normalize_clip(c, out_clip, pad_seconds)
+        normalized_clips.append(out_clip)
+        print(f"  [beat {idx}] +{pad_seconds:.1f}s -> {out_clip.name}",
+              file=sys.stderr)
 
-    # Step 2: freeze-frame pad the tail if narration is longer than video.
-    # This handles the common case where the closing beat's narration
-    # (containing the score stinger) overflows its video duration.
-    video_to_mix = concat_path
-    if narration_duration > total_video_duration + 0.1:
-        pad_seconds = narration_duration - total_video_duration + 0.3  # small buffer
-        print(f"\n[2/3] padding video tail by {pad_seconds:.1f}s "
-              f"(narration {narration_duration:.1f}s > video {total_video_duration:.1f}s)...",
-              file=sys.stderr)
-        padded_path = args.out_dir / f"{args.episode_id}.padded.{args.style}.mp4"
-        pad_video_tail(concat_path, padded_path, pad_seconds)
-        video_to_mix = padded_path
-        concat_path.unlink(missing_ok=True)  # no longer needed
-    else:
-        print("\n[2/3] no tail padding needed (narration fits within video).",
-              file=sys.stderr)
+    # Step 2: concat the normalized clips (all share codec params now)
+    print("\n[2/3] concatenating padded clips...", file=sys.stderr)
+    concat_path = args.out_dir / f"{args.episode_id}.concat.{args.style}.mp4"
+    concat_videos(normalized_clips, concat_path)
+    print(f"  -> {concat_path.name}", file=sys.stderr)
 
     # Step 3: mix narration
     print("\n[3/3] mixing narration over ambient...", file=sys.stderr)
     final_path = args.out_dir / f"{args.episode_id}.final.{args.style}.mp4"
     mix_narration(
-        video_path=video_to_mix,
+        video_path=concat_path,
         narration_path=narration_path,
         out_path=final_path,
         ambient_volume=args.ambient_volume,
     )
 
-    # Clean up the intermediate file
-    if video_to_mix != final_path:
-        video_to_mix.unlink(missing_ok=True)
+    # Clean up intermediates
     concat_path.unlink(missing_ok=True)
+    for nc in normalized_clips:
+        nc.unlink(missing_ok=True)
 
     final_duration = probe_duration(final_path)
     final_size_mb = final_path.stat().st_size / (1024 * 1024)
