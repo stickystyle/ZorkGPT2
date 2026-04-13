@@ -266,3 +266,274 @@ Replaced with explicit failure verdicts: "tested multiple times with water risin
 **Summary:** Resolved two infrastructure BLOCKERs (KB duplication causing token overflow) and one gameplay INCREMENTAL (engine-over-KB hierarchy). The Dam bolt loop — the dominant stagnation cause — is fully resolved through the combination of engine-supremacy prompt rule + KB data cleanup. Score trajectory is healthy (70-80 range with clean system), though below ep104's 95 ceiling. The remaining ceiling gap is primarily from thief interactions and late-game exploration efficiency.
 
 ---
+
+## Episode 109 — Turn 26 Checkpoint
+**Type:** HEALTHY
+**Score:** 40/350 (delta: +40 from start)
+**Locations visited:** 12 total (12 new this block)
+**Avg critic score:** 0.50 (critic disabled, fixed value)
+**Rejection rate:** 1/26 turns had rejections (4%)
+**Gameplay quality:** LEARNING
+  - Memory use: No memory synthesis triggered yet (first 26 turns, only 2 score events). KB content is rich from prior episodes. Agent acted on KB knowledge at t16 (attack troll with sword — one-shot kill).
+  - KB alignment: Agent exploring Dam area (t21-26) — KB records bolt as failed, agent hasn't attempted bolt. Good alignment so far.
+  - Objective quality: 7 discovered / 0 completed — objectives are specific and actionable (deposit treasures, explore troll hole, chimney climb)
+  - Objective pursuit: Agent navigating toward Dam/Maintenance area — exploring but not yet pursuing deposit objectives
+  - Learning system quality: KB is clean (dedup working), rich strategic content from prior episodes. No new memories yet (expected at this stage).
+  - Pathfinding: NAVIGATING — agent followed a coherent path: West House → Kitchen → Living Room → Cellar → Troll → East → Dam area. Good use of known map connections.
+**Triggers:** none
+**Notes:** Strong early game — 40 points in 26 turns with efficient pathing. Agent dropped expendables (leaflet, bottle) to pick up guidebook/matchbook at Dam Lobby, showing reasonable weight management. Now in Maintenance Room — key question is whether it attempts the bolt (KB says failed) or moves on.
+
+---
+
+## Episode 109 — Turn 50 Checkpoint
+**Type:** HEALTHY
+**Score:** 50/350 (delta: +10 since last checkpoint)
+**Locations visited:** 16 total (4 new this block: Deep Canyon, North-South Passage, Round Room, Stream View)
+**Avg critic score:** 0.50 (critic disabled)
+**Rejection rate:** 0/25 turns had rejections (0%)
+**Gameplay quality:** LEARNING
+  - Memory use: No new memories this block (dedup working — echo/bar pattern already in KB). Agent acted on KB at t41 (used `echo` command in Loud Room, a known puzzle mechanic from KB).
+  - KB alignment: Agent did NOT attempt bolt at Dam (KB records it as failed). Good compliance. Used echo trick for platinum bar per KB. No contradictions observed.
+  - Objective quality: 13 discovered / 3 completed — some duplicates creeping in (wooden door objective re-added at t40 despite prior failure). Mix of specific and vague.
+  - Objective pursuit: Agent took bar (objective completed t43), now navigating toward Living Room to deposit — clear pursuit of deposit objective.
+  - Learning system quality: KB clean, rich from prior episodes. Memory dedup rejecting redundant entries correctly.
+  - Pathfinding: NAVIGATING — agent heading back via Cellar → East Chasm toward Living Room for deposit. Coherent routing.
+**Triggers:** none
+**Notes:** Score progressing at reasonable pace. Agent efficiently used `echo` + weight management to get platinum bar. Now routing toward Living Room to deposit. Spent turns 26-42 exploring Dam area without attempting the bolt — engine-supremacy rule holding. Some wasted turns examining bubble/control panel at Dam (t34-35) but not excessive.
+
+---
+
+## Episode 109 — Turn 77 Checkpoint
+**Type:** HEALTHY
+**Score:** 65/350 (delta: +15 since last checkpoint)
+**Locations visited:** 18 total (2 new this block: Engravings Cave, Dome Room)
+**Avg critic score:** 0.50 (critic disabled)
+**Rejection rate:** 0/27 turns had rejections (0%)
+**Gameplay quality:** LEARNING
+  - Memory use: No new memories this block (prior KB coverage sufficient). Agent correctly didn't descend Dome without rope — KB records "cannot go down without fracturing many bones."
+  - KB alignment: Excellent. Weight management worked perfectly: carried bar through chimney with just lantern (t54-55), deposited, went back for painting same way (t73-75). No treasures dropped in Studio — the ep107/108 regression is NOT repeating.
+  - Objective quality: 15 discovered / 10 completed — good turnover. Some duplicate objectives re-added (wooden door, chimney) but not harmful.
+  - Objective pursuit: Strong — completed 7 objectives this block including 3 deposit objectives.
+  - Learning system quality: KB clean, objectives system actively tracking and completing.
+  - Pathfinding: NAVIGATING — two clean chimney round-trips (bar deposit, painting deposit). Efficient routing.
+**Triggers:** none
+**Notes:** Best chimney execution seen in any episode — two separate round-trips, both with correct weight management. Score 65 at t77 is on pace for 80+ if the agent finds more treasures. Agent now has just lantern in inventory and is at Living Room — needs to go find more items (egg, bag, coffin, etc.).
+
+---
+
+## Episode 109 — Turn 100 Checkpoint
+**Type:** HEALTHY
+**Score:** 75/350 (delta: +10 since last checkpoint)
+**Locations visited:** 22 total (6 new this block: Clearing, Forest, Forest Path, Up a Tree, North House, Behind House)
+**Avg critic score:** 0.50 (critic disabled)
+**Rejection rate:** 2/25 turns had rejections (8%)
+**Gameplay quality:** LEARNING
+  - Memory use: 0 new memories this episode so far. KB from prior episodes providing sufficient coverage for current actions. Agent correctly used KB knowledge for echo trick, chimney weight rules, egg location.
+  - KB alignment: Strong. Agent followed known scoring paths efficiently. No bolt attempts, no KB contradictions.
+  - Objective quality: 13 discovered / 18 completed — excellent turnover, objectives being actively pursued and completed.
+  - Objective pursuit: Very strong — egg retrieval + deposit loop completed (t78-90). Now retrieving cached items from Studio.
+  - Learning system quality: KB clean, objectives system working well. Memory system quiet but not broken (prior KB coverage sufficient).
+  - Pathfinding: NAVIGATING — efficient above-ground egg retrieval path. Minor issue: stuck at chimney t98-100 with too many items. KB records the solution (drop more items) so should self-correct.
+**Triggers:** none
+**Notes:** Score 75 at t100 is solid — 3 treasures deposited (bar, painting, egg). Agent stuck at chimney with too many items (t98-100) — dropped sword but still carrying tube, matchbook, manual, sack. Should resolve in next few turns per KB guidance. No scoring stagnation concern yet. The 0-memory episode is notable but not a trigger — KB coverage from 100+ prior episodes is comprehensive for the paths this agent is taking.
+
+---
+
+## Episode 109 — Turn 125 Checkpoint
+**Type:** CONCERN
+**Score:** 75/350 (delta: +0 since last checkpoint — stagnant for 35 turns)
+**Locations visited:** 27 total (0 new this block — only 6 unique locations visited: Studio, Gallery, Kitchen, Living Room, Cellar, East Chasm)
+**Avg critic score:** 0.50 (critic disabled)
+**Rejection rate:** 4/25 turns had rejections (16%)
+**Gameplay quality:** DRIFTING
+  - Memory use: Agent has 21 new memories created this episode (cumulative) but reasoning shows stale beliefs about Studio contents (believes bar, brass bell, skeleton key are there — they aren't).
+  - KB alignment: KB has chimney rules ("drop matchbook, tube, screwdriver, wrench, guidebook, manual") but agent repeatedly fails chimney with tube+matchbook+sword (t98, 100, 113), drops only 1-2 items, tries again, fails again.
+  - Objective quality: 15 discovered / 22 completed — objectives are active but some are stale (deposit egg already done, retrieve items that don't exist in Studio).
+  - Objective pursuit: Agent pursuing "retrieve items from Studio" and "deposit in trophy case" but the items it seeks (bar, bell, key) aren't in Studio. Shuttling non-scoring items (sack, tube, matchbook) up chimney for no benefit.
+  - Learning system quality: KB clean and comprehensive. Memory system producing dedup_rejected (good — not creating noise). But agent isn't applying chimney weight rules from KB within-episode.
+  - Pathfinding: WANDERING — agent cycling Studio → chimney fail → Gallery → Cellar → Living Room → back down → repeat. 35 turns stagnant, 0 new locations. Stale-route rule fired at t125 but led to long-way-around instead of dropping items.
+**Triggers:** Score stagnant (0 delta across turns 90-125, 35 turns). Area-stuck (6 locations cycling).
+**Notes:** The agent exhausted its known scoring paths (bar, painting, egg deposited) and is now burning turns shuttling non-value items through the chimney. The fundamental issue is the agent doesn't know where to find the next treasure (bag in Maze, coffin underground, etc.) and is defaulting to busywork. Not dispatching improvement yet — this is a natural plateau when the agent has collected the "easy" above-ground treasures. The remaining 100 turns should push it to explore new areas. If score is still 75 at the 150 checkpoint, will investigate.
+
+---
+
+## Episode 109 — Turn 150 Checkpoint
+**Type:** CONCERN
+**Score:** 85/350 (delta: +10 since last checkpoint)
+**Locations visited:** 28 total (1 new this block: Maze)
+**Avg critic score:** 0.50 (critic disabled)
+**Rejection rate:** 1/25 turns had rejections (4%)
+**Gameplay quality:** DRIFTING
+  - Memory use: 23 new memories cumulative (dedup rejecting 3, superseded 6). Agent still not creating new memories this block despite scoring in maze.
+  - KB alignment: Agent correctly navigated to maze, found bag (+10) and skeleton key. Followed chimney pattern but still struggles with weight — tries dropping one item at a time (t145 sword → fail t146, t147 matchbook+tube → fail t148, t150 key). Taking 5 turns to do what should take 1.
+  - Objective quality: 14 discovered / 25 completed — odd objective completions (marking "retrieve items from Maze" as complete at t145 when in Studio, marking "retrieve screwdriver from Troll Room" at t135 when in Maze). Objective system has loose completion criteria.
+  - Objective pursuit: Actively pursuing bag deposit — coherent goal, just inefficient execution.
+  - Learning system quality: KB clean. Memory dedup working. Objectives have loose completion matching.
+  - Pathfinding: NAVIGATING — maze navigation efficient (4 turns in, 4 turns out). Chimney route is the bottleneck, not navigation.
+**Triggers:** none (score stagnation resolved — +10 this block)
+**Notes:** Score recovered to 85 after maze trip. The recurring chimney weight issue (agent drops items one at a time instead of all at once) costs 3-5 turns per chimney trip. Not a prompt issue — the KB already specifies which items to drop. The agent reads KB but applies it incrementally rather than all at once. This is a behavioral pattern of the model, not a system defect. 50 turns remaining.
+
+---
+
+## Episode 109 — Turn 177 Checkpoint
+**Type:** CONCERN
+**Score:** 90/350 (delta: +5 since last checkpoint — bag deposit at t153)
+**Locations visited:** 29 total (1 new: Attic)
+**Avg critic score:** 0.50 (critic disabled)
+**Rejection rate:** 0/25 turns had rejections (0%)
+**Gameplay quality:** DRIFTING
+  - Memory use: Agent retrieved rope from Attic (t163) — KB records "tie rope to railing at Dome Room." This shows KB-driven planning. But now stuck in maze unable to reach destination.
+  - KB alignment: Agent has a coherent plan: rope for Dome descent, skeleton key for grating. But it entered the maze to reach the grating room and is now wandering (t170-177, 8 turns in maze with no exit found).
+  - Objective quality: Objectives appear active but agent is maze-trapped with no clear exit path.
+  - Objective pursuit: Strong intent (rope+key+knife gathered purposefully) but execution blocked by maze navigation.
+  - Learning system quality: KB clean. Memory system quiet (23 new cumulative).
+  - Pathfinding: WANDERING — 8 consecutive turns in maze with "all alike" rooms. Agent has the map data but maze rooms are hard to distinguish. Encountered thief at t175.
+**Triggers:** none (score improved +5; maze wandering is expected in Zork)
+**Notes:** Score 90 with 23 turns left. Agent showed excellent strategic planning: deposited bag, retrieved skeleton key + rope + knife for Dome/grating objectives. Now spending remaining turns stuck in the maze trying to reach the grating room. Unlikely to score more this episode. 90 is a strong result — 4th best ever (ep104=95, ep101=88, ep103=85). The agent has 4 treasures deposited (bar, painting, egg, bag). If it had reached the Dome with the rope, the coffin/sceptre scoring path could push past 100.
+
+---
+
+## Episode 109 — COMPLETE
+**Turns:** 200 (max_turns)
+**Final score:** 90/350
+**Locations visited:** 29
+**Objectives found:** 13
+**End reason:** max_turns
+**Memory stats:** total=95, new=32, dedup_rejected=3, superseded=10, ephemeral_pruned=1, consolidated=16
+**Improvement dispatched:** no
+
+**Key observations:**
+- **Excellent early game (t1-90):** 75 points in 90 turns. Clean chimney round-trips for bar, painting, egg deposits. Best weight management seen — no treasures dropped in Studio.
+- **Mid-game stagnation (t91-134):** 35 turns cycling Studio ↔ chimney ↔ Living Room shuttling non-value items. Agent couldn't find new treasures and defaulted to busywork.
+- **Late recovery (t135-153):** Found bag in maze (+10), deposited. Strategic planning to get rope + skeleton key for Dome/grating objectives.
+- **Belief reconciliation failure (t184-193):** Agent gathered rope for Dome descent, then DROPPED rope in Studio (t184) to climb chimney, went to Dome (t193) without rope, couldn't descend. This is the #1 open problem from Key Learnings manifesting again — agent has a plan, gathers the tools, then discards a critical tool for a tactical need and doesn't reconcile.
+- **Dam bolt loop: ZERO attempts.** Engine-supremacy rule + KB cleanup fully resolved this. Not a single bolt attempt in 200 turns.
+- **Thief encounter (t175):** "Finding nothing of value, he left." Agent wasn't carrying valuables in the maze — correct behavior.
+- **Skeleton key unused:** Agent carried it through the whole second half but never reached the grating room.
+
+| Episode | Score | vs Prev | Best So Far | Turns to 1st Score | Locations | KB Quality | End Reason |
+|---------|-------|---------|-------------|-------------------|-----------|------------|------------|
+| ep104   | 95    | +10     | 95          | 6                 | 29        | noisy      | max_turns  |
+| ep105   | 40    | -55     | 95          | 5                 | 13        | BLOATED    | circuit_breaker |
+| ep106   | 54    | +14     | 95          | 5                 | 23        | clean      | early_stop |
+| ep107   | 80    | +26     | 95          | 5                 | 21        | clean      | max_turns  |
+| ep108   | 70    | -10     | 95          | 5                 | 24        | clean      | circuit_breaker |
+| ep109   | 90    | +20     | 95          | 6                 | 29        | clean      | max_turns  |
+
+**Trend:** ep109 (90) is the 2nd highest score ever, matching the 80-95 range of the best full-200-turn episodes. The system is HEALTHY — KB clean, bolt loop eliminated, weight management improved (no Studio treasure drops). The remaining ceiling is belief reconciliation (dropping rope before reaching Dome) and mid-game exploration efficiency (35 turns of busywork at t91-134 when all easy treasures were deposited). Score trajectory across full-run episodes: ep101=88, ep103=85, ep104=95, ep107=80, ep109=90 — consistent 80-95 band.
+
+---
+
+## Episode 110 — Turn 25 Checkpoint
+**Type:** HEALTHY
+**Score:** 50/350 (delta: +50 from start — fastest ever)
+**Locations visited:** 12 total (12 new this block)
+**Avg critic score:** 0.50 (critic disabled)
+**Rejection rate:** 1/25 turns had rejections (4%)
+**Gameplay quality:** LEARNING
+  - Memory use: KB-driven — agent used `echo` trick for bar, killed troll one-shot. All from prior KB.
+  - KB alignment: Excellent. No bolt attempts, efficient pathing to Loud Room via Deep Canyon.
+  - Objective quality: Not yet checked but agent is clearly pursuing scoring actions.
+  - Objective pursuit: 50 points in 25 turns — strong intent and execution.
+  - Learning system quality: KB clean from prior session fixes.
+  - Pathfinding: NAVIGATING — efficient route: West House → Kitchen → Living → Cellar → Troll → E-W → Round → Deep Canyon → Loud. Faster than ep109.
+**Triggers:** none
+**Notes:** Best 25-turn start in recent memory — 50 points by t25 (ep109 had 40 at t26). Agent skipped Dam exploration and went straight to Loud Room for the bar. More efficient use of early turns.
+
+---
+
+## Episode 110 — Turn 50 Checkpoint
+**Type:** CONCERN
+**Score:** 54/350 (delta: +4 since last checkpoint — thief stole bar+painting at t37)
+**Locations visited:** 15 total (3 new this block: North-South Passage, Chasm, Gallery)
+**Avg critic score:** 0.50 (critic disabled)
+**Rejection rate:** 3/25 turns had rejections (12%)
+**Gameplay quality:** DRIFTING
+  - Memory use: Agent recognized the theft at t38 (reasoning: "The thief appeared and stole the platinum bar and the painting"). Good awareness.
+  - KB alignment: KB records thief behavior and Treasure Room location. Agent set objective "Recover stolen treasures from the thief's hideaway in Treasure Room (R100)" but hasn't pursued it yet.
+  - Objective quality: New objective (recover from thief) is well-formed with specific location.
+  - Objective pursuit: Agent went underground after theft but is exploring Chasm area (t49-50) rather than heading to Cyclops Room → Treasure Room path. 13 turns stagnant.
+  - Learning system quality: KB clean.
+  - Pathfinding: WANDERING — agent lost direction after the theft. Went up chimney with just manual+lantern (no treasures to deposit), came back down, now at Chasm examining cracks.
+**Triggers:** none (thief encounter is external variance, not a system defect; agent recognized it and set correct objective)
+**Notes:** The thief stole both the bar and painting at t37 — devastating. Agent correctly identified the Treasure Room as recovery target but hasn't navigated there. The Cyclops Room path (say "ulysses" → Treasure Room upstairs) is in the KB. This is a gameplay execution challenge, not a system defect. Score effectively reset to 54 (just the +4 painting take bonus). 150 turns remaining — plenty of time to recover if the agent pursues the thief.
+
+---
+
+## Episode 110 — Turn 77 Checkpoint
+**Type:** CONCERN
+**Score:** 54/350 (delta: +0 since last checkpoint — 40 turns stagnant)
+**Locations visited:** 18 total (3 new this block: Damp Cave, White Cliffs Beach, Dome Room)
+**Avg critic score:** 0.50 (critic disabled)
+**Rejection rate:** 0/25 turns had rejections (0%)
+**Gameplay quality:** IGNORING
+  - Memory use: Not referencing thief recovery objective in reasoning. Agent at t70 focused on "check Loud Room for items" instead of pursuing Cyclops → Treasure Room path.
+  - KB alignment: KB has Cyclops/Treasure Room path but agent isn't referencing it. Agent went to Loud Room 3 times (t53, t63, t70) — bar already taken.
+  - Objective quality: "Recover stolen treasures from thief's hideaway" objective was set at t38 but never pursued.
+  - Objective pursuit: IGNORING — 0% of last 25 actions aligned with the thief recovery objective.
+  - Learning system quality: KB clean. Objectives set correctly but not driving behavior.
+  - Pathfinding: WANDERING — cycling Deep Canyon ↔ Loud Room ↔ Round Room, then to Damp Cave/White Cliffs Beach. No directional intent.
+**Triggers:** Score stagnant (0 delta across 2 consecutive checkpoints). Objective drift (agent has active objectives but <20% of last 25 actions align). max_turns_stuck=40 about to trigger early_stop at ~t77.
+**Notes:** The `max_turns_stuck=40` detection will end this episode imminently — agent last scored at t37, stuck detection fires at t77. The thief encounter was devastating (lost 14 points worth of items) and the agent failed to execute its own recovery plan (Cyclops → Treasure Room). The agent explored new areas (Damp Cave, White Cliffs Beach) which is not wasted — those get added to memories/map. But the core issue is objective pursuit: the agent SET the right goal but didn't ACT on it. This is the same pattern as ep109's rope-at-Dome failure — planning without execution.
+
+---
+
+## Episode 110 — COMPLETE (killed at t100)
+**Turns:** 100 (killed by orchestrator — 63 turns stagnant)
+**Final score:** 54/350
+**Locations visited:** ~22
+**End reason:** early_stop (orchestrator kill — stagnation)
+**Improvement dispatched:** pending assessment (see below)
+
+**Key observations:**
+- **Fast start derailed by thief:** Score 50 at t25 (fastest ever), painting pickup at t36 (54). Then thief stole bar AND painting at t37 in Studio.
+- **Correct diagnosis, no execution:** Agent set "Recover stolen treasures from thief's hideaway in Treasure Room (R100)" at t38 — exactly right. KB has the path (Cyclops Room → say "ulysses" → stairs → Treasure Room). Agent NEVER pursued it. Spent 63 turns exploring junk areas.
+- **Objective system dropped the recovery goal:** By t70, active objectives were all exploration-type. The thief recovery objective was replaced by generic goals.
+- **New areas discovered:** Damp Cave, White Cliffs Beach — some exploration value.
+- **No bolt attempts:** Engine-supremacy rule held despite visiting Dam/Maintenance area.
+- **Stuck detection didn't fire:** Agent kept visiting new locations, resetting the stagnation counter. `max_turns_stuck=40` uses location novelty, not just score change.
+
+**Cross-episode pattern (ep109 + ep110):**
+Both episodes showed the same structural defect: **the agent sets correct strategic objectives but abandons them when tactical friction arises.** In ep109, it gathered rope for Dome but dropped it for chimney access. In ep110, it identified the Treasure Room recovery path but never navigated there, defaulting to aimless exploration.
+
+This pattern suggests the objective system isn't driving behavior strongly enough — objectives are set and forgotten rather than actively guiding turn-by-turn decisions.
+
+| Episode | Score | vs Prev | Best So Far | Turns to 1st Score | Locations | KB Quality | End Reason |
+|---------|-------|---------|-------------|-------------------|-----------|------------|------------|
+| ep104   | 95    | +10     | 95          | 6                 | 29        | noisy      | max_turns  |
+| ep105   | 40    | -55     | 95          | 5                 | 13        | BLOATED    | circuit_breaker |
+| ep106   | 54    | +14     | 95          | 5                 | 23        | clean      | early_stop |
+| ep107   | 80    | +26     | 95          | 5                 | 21        | clean      | max_turns  |
+| ep108   | 70    | -10     | 95          | 5                 | 24        | clean      | circuit_breaker |
+| ep109   | 90    | +20     | 95          | 6                 | 29        | clean      | max_turns  |
+| ep110   | 54    | -36     | 95          | 5                 | 22        | clean      | early_stop |
+
+**Trend:** ep110 (54) is a regression but caused by thief encounter, not system defect. Full-run episodes (200 turns, no thief kill) still perform in the 80-95 band. The thief is the #1 variance source — when it strikes, the agent can't recover.
+
+---
+
+## Episode 110 → 111 — IMPROVEMENT
+**Trigger:** NEW_OBJECTIVE dead write — agent's per-turn objectives silently discarded
+**Hypothesis:** Wiring NEW_OBJECTIVE into DISCOVERED_OBJECTIVES will let the agent's
+real-time objective proposals persist and drive behavior, preventing objective drift
+after critical events (thief encounters, item loss, etc.)
+**Change:** Modified `zorkburr/actions/results.py` — `record_results` now reads
+`S.NEW_OBJECTIVE`, `S.DISCOVERED_OBJECTIVES`, and `S.COMPLETED_OBJECTIVES`, and if
+the agent's `new_objective` is non-empty, not already in the active list, and not
+already completed, appends it as a new discovered objective (capped at 15). Updated
+`tests/test_actions/test_results.py` to include the new state keys.
+**Reasoning:** The agent already generates high-quality per-turn objectives (e.g.,
+"Recover stolen treasures from thief's hideaway" at t38 in ep110) but they were
+written to state and never read. By wiring them into DISCOVERED_OBJECTIVES in
+`record_results` (which runs every turn after action execution), the agent's
+real-time objective proposals appear in context assembly on the very next turn,
+closing the 10-turn blind spot where critical objectives were lost between
+`update_objectives` cycles.
+**Target metric:** Agent's critical objectives (set via new_objective) appear in Active
+Objectives within 1 turn. In ep110-like scenarios, the thief recovery objective should
+persist through subsequent update_objectives cycles.
+**Validation:** Test suite passes (215/216; 1 pre-existing config test failure unrelated).
+Manual code review confirms wiring.
+**Result:** PENDING
+
+---

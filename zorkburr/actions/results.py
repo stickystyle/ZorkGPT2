@@ -11,9 +11,10 @@ from zorkburr.state import S
     reads=[S.PRE_LOCATION_ID, S.PRE_LOCATION_NAME, S.LOCATION_ID, S.LOCATION_NAME,
            S.ACTION_TO_TAKE, S.SCORE, S.PRE_SCORE, S.TURN_COUNT, S.GAME_OVER,
            S.MAP_DATA, S.VISITED_LOCATIONS, S.TURNS_SINCE_PROGRESS,
-           S.LAST_SCORE_CHANGE_TURN, S.REJECTION_COUNT],
+           S.LAST_SCORE_CHANGE_TURN, S.REJECTION_COUNT,
+           S.NEW_OBJECTIVE, S.DISCOVERED_OBJECTIVES, S.COMPLETED_OBJECTIVES],
     writes=[S.MAP_DATA, S.VISITED_LOCATIONS, S.TURNS_SINCE_PROGRESS,
-            S.LAST_SCORE_CHANGE_TURN, S.REJECTION_COUNT],
+            S.LAST_SCORE_CHANGE_TURN, S.REJECTION_COUNT, S.DISCOVERED_OBJECTIVES],
 )
 def record_results(state: State, config: GameConfig) -> tuple[dict, State]:
     pre_loc = state[S.PRE_LOCATION_ID]
@@ -49,6 +50,19 @@ def record_results(state: State, config: GameConfig) -> tuple[dict, State]:
     map_data = mg.to_dict()
     persist_map(map_data, config)
 
+    # Wire agent's per-turn NEW_OBJECTIVE into DISCOVERED_OBJECTIVES
+    objectives = list(state[S.DISCOVERED_OBJECTIVES])
+    new_obj = (state[S.NEW_OBJECTIVE] or "").strip()
+    if new_obj:
+        existing_texts = {o["text"] if isinstance(o, dict) else str(o) for o in objectives}
+        completed_texts = {
+            r["objective"] if isinstance(r, dict) else str(r)
+            for r in state[S.COMPLETED_OBJECTIVES]
+        }
+        if new_obj not in existing_texts and new_obj not in completed_texts:
+            objectives.append({"text": new_obj, "location_id": cur_loc, "location_name": state[S.LOCATION_NAME]})
+            objectives = objectives[:15]
+
     return (
         {"moved": moved, "score_delta": score_delta},
         state.update(**{
@@ -57,5 +71,6 @@ def record_results(state: State, config: GameConfig) -> tuple[dict, State]:
             S.TURNS_SINCE_PROGRESS: turns_since,
             S.LAST_SCORE_CHANGE_TURN: last_score_turn,
             S.REJECTION_COUNT: 0,
+            S.DISCOVERED_OBJECTIVES: objectives,
         }),
     )

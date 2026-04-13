@@ -21,6 +21,7 @@ def test_record_results_updates_map_on_movement(mock_persist):
         S.MAP_DATA: mg.to_dict(), S.VISITED_LOCATIONS: [10],
         S.TURNS_SINCE_PROGRESS: 2, S.LAST_SCORE_CHANGE_TURN: 1,
         S.REJECTION_COUNT: 0,
+        S.NEW_OBJECTIVE: "", S.DISCOVERED_OBJECTIVES: [], S.COMPLETED_OBJECTIVES: [],
     })
     result, new_state = record_results.run(state, config=_CONFIG)
     mg2 = MapGraph.from_dict(new_state[S.MAP_DATA])
@@ -40,6 +41,7 @@ def test_record_results_tracks_score_progress(mock_persist):
         S.MAP_DATA: {}, S.VISITED_LOCATIONS: [10],
         S.TURNS_SINCE_PROGRESS: 5, S.LAST_SCORE_CHANGE_TURN: 0,
         S.REJECTION_COUNT: 0,
+        S.NEW_OBJECTIVE: "", S.DISCOVERED_OBJECTIVES: [], S.COMPLETED_OBJECTIVES: [],
     })
     result, new_state = record_results.run(state, config=_CONFIG)
     assert new_state[S.TURNS_SINCE_PROGRESS] == 0
@@ -56,6 +58,7 @@ def test_record_results_resets_rejection_count(mock_persist):
         S.MAP_DATA: {}, S.VISITED_LOCATIONS: [10],
         S.TURNS_SINCE_PROGRESS: 1, S.LAST_SCORE_CHANGE_TURN: 0,
         S.REJECTION_COUNT: 2,
+        S.NEW_OBJECTIVE: "", S.DISCOVERED_OBJECTIVES: [], S.COMPLETED_OBJECTIVES: [],
     })
     _, new_state = record_results.run(state, config=_CONFIG)
     assert new_state[S.REJECTION_COUNT] == 0
