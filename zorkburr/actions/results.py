@@ -60,7 +60,7 @@ def record_results(state: State, config: GameConfig) -> tuple[dict, State]:
             for r in state[S.COMPLETED_OBJECTIVES]
         }
         if new_obj not in existing_texts and new_obj not in completed_texts:
-            objectives.append({"text": new_obj, "location_id": cur_loc, "location_name": state[S.LOCATION_NAME]})
+            objectives.insert(0, {"text": new_obj, "location_id": cur_loc, "location_name": state[S.LOCATION_NAME]})
             objectives = objectives[:15]
 
     return (
