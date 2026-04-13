@@ -534,6 +534,387 @@ Objectives within 1 turn. In ep110-like scenarios, the thief recovery objective 
 persist through subsequent update_objectives cycles.
 **Validation:** Test suite passes (215/216; 1 pre-existing config test failure unrelated).
 Manual code review confirms wiring.
+**Result:** PARTIAL — Wiring confirmed working (code review + tests). Cap bug found in ep111 (append to full list gets truncated) — hotfix committed (e33afe6, insert at position 0). Thief didn't appear in ep112 so behavioral impact (objective persistence after theft) remains untested. Structural fix is correct; follow-up episode with thief encounter needed to fully validate.
+
+---
+
+## Episode 111 — Turn 27 Checkpoint
+**Type:** HEALTHY
+**Score:** 45/350 (delta: +45 from start)
+**Locations visited:** 8 total (8 new)
+**Avg critic score:** 0.50 (critic disabled)
+**Rejection rate:** ~4% (estimated)
+**Gameplay quality:** LEARNING
+  - Different route than ep109/110 — bag-first via maze before Loud Room. Shows healthy variance.
+  - Score 45 at t27 — comparable pace (ep109=40@t26, ep110=50@t25).
+  - NEW_OBJECTIVE fix is live — will observe at later checkpoints whether per-turn objectives persist.
+**Triggers:** none
+**Notes:** First episode with NEW_OBJECTIVE fix. Standard early game, bag-first variant. Will monitor for objective persistence, especially if thief appears.
+
+---
+
+## Episode 111 — Turn 50 Checkpoint
+**Type:** CONCERN
+**Score:** 49/350 (delta: +4 since last checkpoint — painting take at t32, then thief stole painting+bag at t34)
+**Locations visited:** 14 total (6 new this block)
+**Avg critic score:** 0.50 (critic disabled)
+**Rejection rate:** ~4% (1 rejection seen)
+**Gameplay quality:** DRIFTING
+  - Memory use: Agent recognized theft at t35 (reasoning mentions thief stole items). Set recovery plan.
+  - KB alignment: KB has Cyclops → Treasure Room path. Agent not pursuing it.
+  - Objective quality: 15 objectives — but the recovery objective was DROPPED due to cap. List is full of stale junk (5 copies of "deposit leather bag" despite bag being stolen). **NEW_OBJECTIVE fix has a cap bug: append + [:15] drops new objectives when list is full.**
+  - Objective pursuit: Agent's "Current Plan" says "retrieve stolen items from thief's hideout" but it went back to cycling Studio ↔ Gallery ↔ Cellar (t35-50). Same pattern as ep110.
+  - Learning system quality: Cap bug in fix; also, stale objectives not being cleaned up.
+  - Pathfinding: WANDERING — cycling known areas after theft, not heading to Cyclops Room.
+**Triggers:** Score stagnant since t32 (18 turns). Thief stole bag+painting at t34. NEW_OBJECTIVE cap bug.
+**Notes:** The NEW_OBJECTIVE fix wired correctly but the 15-cap means objectives appended to a full list are immediately truncated. **Follow-up fix committed (e33afe6): insert at position 0 instead of append.** The thief appearing at the Studio chimney is now a pattern (ep110 t37, ep111 t34) — the agent consistently tries to carry 4+ items through the chimney and the thief is drawn to the high-value-item location.
+
+---
+
+## Episode 111 — Turn 77 Checkpoint
+**Type:** CONCERN
+**Score:** 54/350 (delta: +5 since last — east from Troll +5 at t58)
+**Locations visited:** ~20 total
+**Avg critic score:** 0.50 (critic disabled)
+**Rejection rate:** low
+**Gameplay quality:** DRIFTING
+  - Agent cycling Studio ↔ Gallery ↔ Cellar ↔ Living Room again after thief theft at t34. Same pattern as ep110.
+  - Trying to unlock gothic door with skeleton key at t77 — KB says this doesn't work.
+  - Not pursuing Cyclops → Treasure Room path for thief recovery despite KB knowledge.
+  - NEW_OBJECTIVE cap bug prevented recovery objective from persisting (fixed for ep112).
+**Triggers:** Score stagnant 19 turns since t58.
+**Notes:** ep111 is tracking like ep110 after a thief encounter — rapid early scoring (49 by t32), thief steals treasures, agent loses direction and cycles known areas. The NEW_OBJECTIVE cap bug (now fixed) meant the recovery objective was dropped. Even so, the agent's "Current Plan" mentioned recovery but the agent didn't execute it.
+
+---
+
+## Episode 111 — COMPLETE (killed at t80)
+**Turns:** 80 (killed by orchestrator — stagnant after thief encounter)
+**Final score:** 54/350
+**Locations visited:** ~20
+**End reason:** early_stop (orchestrator kill — stagnation after thief)
+**Improvement dispatched:** yes (NEW_OBJECTIVE fix + cap hotfix)
+
+**Key observations:**
+- **Thief struck at Studio chimney AGAIN (t34)** — exact same pattern as ep110 t37. Agent carried painting+bag through chimney, failed (too heavy), thief stole both.
+- **NEW_OBJECTIVE fix validated but cap bug found:** The fix correctly wired new_objective into record_results, but the append + [:15] cap dropped the recovery objective when the list was full. **Cap fix committed (e33afe6) for ep112: insert at position 0.**
+- **Even with "Current Plan" showing recovery intent, agent didn't pursue it** — same as ep110. This suggests the problem is deeper than just objective persistence; the agent lacks a mechanism to translate strategic plans into action sequences.
+- **Two consecutive thief-derailed episodes** (ep110, ep111) — both lost ~14 points of items at the Studio chimney. The chimney is a thief hotspot.
+
+| Episode | Score | vs Prev | Best So Far | Turns to 1st Score | Locations | KB Quality | End Reason |
+|---------|-------|---------|-------------|-------------------|-----------|------------|------------|
+| ep104   | 95    | +10     | 95          | 6                 | 29        | noisy      | max_turns  |
+| ep105   | 40    | -55     | 95          | 5                 | 13        | BLOATED    | circuit_breaker |
+| ep106   | 54    | +14     | 95          | 5                 | 23        | clean      | early_stop |
+| ep107   | 80    | +26     | 95          | 5                 | 21        | clean      | max_turns  |
+| ep108   | 70    | -10     | 95          | 5                 | 24        | clean      | circuit_breaker |
+| ep109   | 90    | +20     | 95          | 6                 | 29        | clean      | max_turns  |
+| ep110   | 54    | -36     | 95          | 5                 | 22        | clean      | early_stop |
+| ep111   | 54    | +0      | 95          | 5                 | 20        | clean      | early_stop |
+
+**Trend:** Two consecutive 54-point episodes, both thief-derailed. Without thief interference, episodes score 80-95. The thief is the #1 variance source. The NEW_OBJECTIVE cap fix + insert-at-front is ready for ep112.
+
+---
+
+## Episode 112 — Turn 28 Checkpoint
+**Type:** HEALTHY
+**Score:** 40/350 (delta: +40 from start)
+**Locations visited:** ~12
+**Rejection rate:** 1 rejection in 28 turns (4%)
+**Gameplay quality:** LEARNING — standard early game, Dam area exploration, no bolt attempts.
+**Triggers:** none
+**Notes:** Both NEW_OBJECTIVE fixes live. Score 40 at t28 — normal pace. Agent in Dam area picking up tools. Monitoring for thief encounters.
+
+---
+
+## Episode 112 — Turn 50 Checkpoint
+**Type:** CONCERN
+**Score:** 40/350 (delta: +0 since last checkpoint — 34 turns stagnant)
+**Locations visited:** ~15 (6 in Dam area this block)
+**Rejection rate:** low
+**Gameplay quality:** DRIFTING
+  - Agent spent 34 turns in Dam/Maintenance/Reservoir area without scoring.
+  - At t50, agent has a plan: "Take plastic, inflate it" at Dam Base — this is actually strategic (plastic pile is a treasure).
+  - NEW_OBJECTIVE fix generating objectives: "Recover and inflate plastic treasure at Dam Base" — should persist.
+  - No bolt attempts. No thief encounter yet.
+**Triggers:** Score stagnant 34 turns (but agent has active plan at t50)
+**Notes:** Agent exploring Dam area extensively but now has a strategic plan (inflate plastic treasure). Not killing this episode — if the plastic plan works, it shows the agent discovering a new scoring path. 150 turns remaining.
+
+---
+
+## Episode 112 — Turn 76 Checkpoint
+**Type:** HEALTHY (recovering)
+**Score:** 50/350 (delta: +10 since last checkpoint — bar taken at t70)
+**Locations visited:** ~18
+**Rejection rate:** low
+**Gameplay quality:** DRIFTING → LEARNING
+  - Agent spent 54 turns stagnant (t16-70) exploring Dam area including plastic inflation attempt (failed). Finally reached Loud Room and scored +10 (bar) at t70.
+  - Now routing toward Gallery/chimney for deposit. No thief encounter yet.
+  - The long Dam exploration isn't ideal but agent did discover Dam Base as new area and attempted a novel puzzle (inflate plastic). Shows exploration behavior even if inefficient.
+**Triggers:** none (score recovered)
+**Notes:** Score 50 at t76 — behind ep109 pace (65 at t77) but the Dam detour was 30+ turns. The question is whether the agent catches up in the remaining 124 turns. Watching for chimney/thief encounter.
+
+---
+
+## Episode 112 — Turn 100 Checkpoint
+**Type:** HEALTHY
+**Score:** 70/350 (delta: +20 since last checkpoint)
+**Locations visited:** ~25
+**Rejection rate:** low
+**Gameplay quality:** LEARNING
+  - Agent recovered from slow Dam start: deposited painting (+6 at ~t84), bar (+5 at ~t93), took egg (+5 at t100).
+  - TWO successful chimney trips with no thief encounter! One with painting, one with bar — separate trips are safer.
+  - Now at Up a Tree with egg — heading for deposit. Score 70 at t100 matches ep109 pace (75 at t100).
+  - NEW_OBJECTIVE fix live but no thief encounter to test it. System performing normally.
+**Triggers:** none
+**Notes:** Clean chimney execution after the ep110/111 thief disasters. Agent doing single-treasure chimney trips — slower but safer. 100 turns remaining, on pace for 80-95.
+
+---
+
+## Episode 112 — Turn 127 Checkpoint
+**Type:** HEALTHY
+**Score:** 89/350 (delta: +14 since last checkpoint — torch at t123!)
+**Locations visited:** ~28
+**Rejection rate:** low
+**Gameplay quality:** LEARNING
+  - **DOME DESCENT ACHIEVED** — first time in recent episodes! Agent tied rope at t121, descended at t122, took torch (+14) at t123.
+  - Agent exploring Temple/Altar area: took brass bell (t125), black book (t127).
+  - Route: Attic → rope → underground → Round → Engravings → Dome → rope → Torch Room → Temple → Altar.
+  - ep109 failed this exact path (dropped rope before reaching Dome). ep112 succeeded by going directly from Attic to underground with the rope.
+  - Carrying: torch, bell, book, axe, knife, lantern — heavily loaded but in a new scoring area.
+**Triggers:** none
+**Notes:** Score 89 at t127 — approaching ep109's final score of 90 with 73 turns remaining. The torch (+14) was the biggest single scoring event seen in recent episodes. If the agent finds the Egyptian Room (coffin +15, sceptre) or Hades (candles → spirits), score could breach 100. This is the breakthrough we've been waiting for.
+
+---
+
+## Episode 112 — Turn 150 Checkpoint
+**Type:** CONCERN
+**Score:** 89/350 (delta: +0 since last — 27 turns stagnant since torch at t123)
+**Locations visited:** ~30
+**Gameplay quality:** DRIFTING
+  - Agent reached Entrance to Hades (t130) but failed the candles puzzle. Retreated through Cave/Deep Canyon.
+  - Picked up tube/plastic from Loud Room (t142) — may be planning inflation.
+  - Now cycling Studio area again. Score stagnant.
+  - Hades puzzle is complex: ring bell → pick up bell when cool → light candles → read incantation. Agent has the pieces (bell, candles, torch, book) but didn't execute the sequence correctly.
+**Triggers:** Score stagnant 27 turns (but well above 80-95 base)
+**Notes:** Score 89 already matches ep109 (90). The Dome descent was the key breakthrough — torch +14 was the biggest scoring event. Even if score stalls at 89, this is a strong episode. 50 turns remaining. The Hades puzzle failure is a learning opportunity — agent should record it in KB.
+
+---
+
+## Episode 112 — COMPLETE
+**Turns:** 200 (max_turns)
+**Final score:** 89/350
+**Locations visited:** 37 (SESSION HIGH — most ever in a single episode)
+**Objectives found:** 15
+**End reason:** max_turns
+**Memory stats:** total=55, new=38, dedup_rejected=2, superseded=6, ephemeral_pruned=2, consolidated=1
+**Improvement dispatched:** no (ep110→111 fix already deployed)
+
+**Key observations:**
+- **DOME DESCENT ACHIEVED** — first time in recent episodes. Agent tied rope at t121, descended at t122, took torch (+14!) at t123. This opened the Temple/Altar/Hades area.
+- **37 locations visited** — new record. Agent explored Dam Base, Damp Cave, White Cliffs Beach, Torch Room, Temple, Altar, Entrance to Hades, Cave. Broadest exploration in any episode.
+- **38 new memories** — strong learning output. Dome descent, Hades encounter, candle mechanics should be in KB for future episodes.
+- **No thief encounter at chimney** — agent did single-treasure chimney trips (painting first, then bar separately), which may reduce thief exposure.
+- **Hades puzzle attempted but failed** (t130-133) — agent had bell, candles, torch, book but couldn't execute the sequence. KB should now record what it tried.
+- **Long Dam stagnation** (t16-70, 54 turns) — agent spent too long exploring Dam area before going to Loud Room. This cost ~30 turns of scoring potential.
+- **NEW_OBJECTIVE fix live** — both wiring and cap fix deployed. No thief encounter to test objective persistence after theft.
+
+| Episode | Score | vs Prev | Best So Far | Turns to 1st Score | Locations | KB Quality | End Reason |
+|---------|-------|---------|-------------|-------------------|-----------|------------|------------|
+| ep105   | 40    | -55     | 95          | 5                 | 13        | BLOATED    | circuit_breaker |
+| ep106   | 54    | +14     | 95          | 5                 | 23        | clean      | early_stop |
+| ep107   | 80    | +26     | 95          | 5                 | 21        | clean      | max_turns  |
+| ep108   | 70    | -10     | 95          | 5                 | 24        | clean      | circuit_breaker |
+| ep109   | 90    | +20     | 95          | 6                 | 29        | clean      | max_turns  |
+| ep110   | 54    | -36     | 95          | 5                 | 22        | clean      | early_stop |
+| ep111   | 54    | +0      | 95          | 5                 | 20        | clean      | early_stop |
+| ep112   | 89    | +35     | 95          | 6                 | 37        | clean      | max_turns  |
+
+**Trend:** Full-run episodes (200 turns, no thief/circuit-breaker): ep107=80, ep109=90, ep112=89 — stable 80-90 band. The Dome descent in ep112 didn't produce a new ceiling because the Hades puzzle failed and post-torch stagnation (77 turns at 89). But 37 locations and 38 new memories mean future episodes will have richer KB and memories for the Temple/Hades area. The ceiling breakthrough (past 95) likely requires successfully completing the Hades puzzle in a future episode, now that the agent has experienced it and recorded it.
+
+---
+
+## Session 2026-04-13b Start
+**Previous session best:** 90/350 (ep109)
+**System state:** 80-95 band for full runs. KB clean, critic disabled, extractor removed. Belief reconciliation fix (ep106→107) deployed. NEW_OBJECTIVE wiring live.
+
+---
+
+## Episode 113 — Turn 25 Checkpoint
+**Type:** HEALTHY
+**Score:** 40/350 (delta: +40 since start)
+**Locations visited:** 11 (11 new)
+**Avg critic score:** 0.50 (critic disabled — programmatic validator only)
+**Rejection rate:** 1/25 turns had rejections (4%)
+**Gameplay quality:** LEARNING
+  - Memory use: KB loaded from prior episodes with rich content (score changes, puzzle mechanics, Dam bolt failure verdict). Agent acting on prior knowledge — went straight to Maintenance Room for tools.
+  - KB alignment: KB explicitly records "turn bolt with wrench at Dam — confirmed failure, tested exhaustively." Will monitor whether agent avoids this trap.
+  - Objective quality: 14 discovered / 15 completed. Objectives are specific and actionable (chimney climb, deposit treasures, retrieve tools). Some duplication but harmless.
+  - Objective pursuit: Agent completing objectives briskly — 15 completed in 25 turns. Currently pursuing tool retrieval at Maintenance Room.
+  - Learning system quality: KB has substantial strategic content from prior episodes. No new memories yet (early in episode).
+  - Pathfinding: NAVIGATING — direct route from house → underground → troll → Dam area. No wasted movement.
+**Triggers:** none
+**Notes:** Strongest opening in recent memory — score 40 by t25. Agent entered house (t5, +10), descended to cellar (t13, +25), killed troll (t15, +5), and navigated to Dam area for tools. Now at Dam with wrench and tube. Key test: will the belief reconciliation fix prevent Dam bolt loops?
+
+---
+
+## Episode 113 — Turn 50 Checkpoint
+**Type:** HEALTHY
+**Score:** 50/350 (delta: +10 since last checkpoint)
+**Locations visited:** 17 total (6 new this block: Dam_Base, Deep_Canyon, Loud_, Stream_View, Round_, Gallery)
+**Avg critic score:** 0.50 (critic disabled)
+**Rejection rate:** 0/25 turns had rejections (0%)
+**Gameplay quality:** LEARNING
+  - Memory use: Agent used KB knowledge of "echo" command to solve Loud Room puzzle (t39) — direct evidence of cross-episode learning.
+  - KB alignment: **Dam bolt loop AVOIDED.** Agent went to Dam area (t29-33), collected tools, but did NOT try "turn bolt with wrench" despite being at the Dam. KB's "confirmed failure" verdict is being respected. This validates the belief reconciliation fix (ep106→107).
+  - Objective quality: 12 discovered / 25 completed. Objectives well-formed and being completed rapidly.
+  - Objective pursuit: Agent pursuing deposit route — took bar at t42, navigating back to Gallery for painting.
+  - Learning system quality: KB rich from prior episodes. No new memories yet (memories trigger on score events — bar take at t42 should produce one soon).
+  - Pathfinding: NAVIGATING — efficient route Dam → Dam Base → Loud Room → underground → Gallery.
+**Triggers:** none
+**Notes:** Score 50 at t50 — solid pace. The headline: **Dam bolt loop avoided for the first time.** The ep106→107 belief reconciliation fix is working. Agent used KB-learned "echo" puzzle solution and is now at Gallery, likely heading for chimney deposit route. Zero rejections in this block.
+
+---
+
+## Episode 113 — Turn 75 Checkpoint
+**Type:** HEALTHY
+**Score:** 65/350 (delta: +15 since last checkpoint)
+**Locations visited:** ~19 total (few new — mostly chimney shuttle route)
+**Avg critic score:** 0.50 (critic disabled)
+**Rejection rate:** 2/25 turns had rejections (8%)
+**Gameplay quality:** LEARNING
+  - Memory use: Agent executing efficient multi-trip chimney deposit strategy learned from prior episodes.
+  - KB alignment: Weight management working — first chimney attempt failed (t55, too heavy), agent dropped items and succeeded on retry (t60). Second trip (bar) succeeded cleanly (t70).
+  - Objective quality: Objectives being completed steadily (painting deposit, bar deposit).
+  - Objective pursuit: Tight alignment — painting deposited (t63, +6), bar deposited (t73, +5), now egg taken (t80, +5).
+  - Learning system quality: Productive scoring block validates KB strategies.
+  - Pathfinding: NAVIGATING — efficient chimney shuttle: Gallery→Studio→Kitchen→Living→deposit, then back underground for next item. Agent went to Up a Tree for egg (t79-80) via Behind House.
+**Triggers:** none
+**Notes:** Most productive block in this episode — +15 in 25 turns from painting deposit (+6), bar deposit (+5), and painting take (+4). Score 65 at t75. Agent now has egg (t80, +5 = score 70) and is heading for deposit. On pace for 85-95+ if chimney route continues. No thief encounter yet — watching.
+
+---
+
+## Episode 113 — Turn 100 Checkpoint
+**Type:** HEALTHY
+**Score:** 75/350 (delta: +10 since last checkpoint — egg deposit at t86)
+**Locations visited:** ~21 total (2 new: Attic, Up_a_Tree)
+**Avg critic score:** 0.50 (critic disabled)
+**Rejection rate:** 2/25 turns had rejections (8%)
+**Gameplay quality:** LEARNING
+  - Memory use: Agent following KB-learned deposit route. Went to Attic for rope/knife — KB records torch at Dome requiring rope descent from prior episodes.
+  - KB alignment: Dome descent preparation in progress. Agent took rope+knife at t98, heading underground.
+  - Objective quality: Deposit objectives completing steadily.
+  - Objective pursuit: Tight — egg deposited (t86, +5), now pursuing Dome descent for torch (+14).
+  - Learning system quality: Agent reproducing ep112's breakthrough Dome descent path from KB knowledge.
+  - Pathfinding: NAVIGATING — efficient egg deposit via Behind House, then Attic for rope, heading underground.
+**Triggers:** none
+**Notes:** Score 75 at t100 — matches ep109 pace (75 at t100). Agent has rope and is heading for Dome descent (torch +14). If successful, score would reach 89 — matching ep112's final. With 100 turns remaining, there's potential to push past 89 if the agent can complete Hades puzzle or find other treasures. No thief encounter yet. Zero Dam bolt attempts this entire episode — belief reconciliation fix fully validated.
+
+---
+
+## Episode 113 — Turn 125 Checkpoint
+**Type:** CONCERN (score healthy but Hades puzzle blocked by false KB entry)
+**Score:** 89/350 (delta: +14 since last checkpoint — torch at t113)
+**Locations visited:** ~34 total (12 new this block: Dome, Torch Room, Temple, Altar, Cave, Entrance to Hades, Engravings Cave, Winding Passage)
+**Avg critic score:** 0.50 (critic disabled)
+**Rejection rate:** 2/25 turns had rejections (8%)
+**Gameplay quality:** LEARNING but blocked by false KB entry
+  - Memory use: Agent reasoning at t122 explicitly references prior Hades knowledge: "the first step is to ring the bell to paralyze the spirits, though this will cause me to drop the bell and the candles."
+  - KB alignment: **NEW FAILURE MODE — false KB entry blocks correct action.** Agent's t124 reasoning: "Strategic Knowledge warns that 'light candles with torch' at this location vaporizes the candles due to intense heat, so I must avoid that action as it is a recorded failure." This is WRONG — lighting candles with the torch is the correct Hades puzzle step. The KB has a hallucinated/overgeneralized failure verdict from a prior episode that permanently blocks the correct action.
+  - Objective quality: 15 discovered / 66 completed. Well-formed and tracked.
+  - Objective pursuit: Strong — Dome descent executed perfectly (t110-113), Hades attempt made.
+  - Learning system quality: KB mostly excellent but contains at least one false failure verdict that creates a permanent dead end. Agent won't try the action → KB never corrects → puzzle permanently unsolvable.
+  - Pathfinding: NAVIGATING — efficient route to Dome, then Temple/Altar/Hades.
+**Triggers:** None per existing checklist. But documenting NEW failure mode: **false negative KB entries create permanent dead ends**. The agent complies with the KB (correct per belief reconciliation fix), but the KB is wrong. This is the inverse of the ep106 problem (agent overriding correct engine observations with stale KB) — now the agent correctly defers to KB but the KB itself has bad data.
+**Notes:** Score 89 at t125 matches ep112's FINAL score with 75 turns remaining. The Dome descent was flawless. The Hades puzzle failure is caused by a false KB entry about candles vaporizing, not by a system reasoning deficiency. This is a data quality problem in the KB, not a prompt problem. Potential fixes: (1) KB pruning/verification mechanism, (2) "try once to verify" protocol for old failure entries, (3) manual KB cleanup. Watching remaining 75 turns for score ceiling.
+
+---
+
+## Episode 113 — Turn 150 Checkpoint
+**Type:** CONCERN (37 turns stagnant at 89)
+**Score:** 89/350 (delta: +0 since last checkpoint)
+**Locations visited:** ~36 total (broad exploration but no scoring)
+**Avg critic score:** 0.50 (critic disabled)
+**Rejection rate:** 2/25 turns had rejections (8%)
+**Gameplay quality:** DRIFTING
+  - Memory use: Agent exploring but not finding scoring paths.
+  - KB alignment: False KB entry still blocking Hades puzzle. Agent took matchbook at t142 — possible alternate approach to candle lighting (KB warns about torch specifically, not matches).
+  - Objective quality: Objectives tracked but stagnant.
+  - Objective pursuit: No active scoring objectives being pursued — agent wandering post-Hades.
+  - Learning system quality: KB false entry is the primary blocker.
+  - Pathfinding: WANDERING — broad movement through 17 locations in this block but no directed goal.
+**Triggers:** Score stagnant 0 delta across this checkpoint (37 turns total since t113). However, this is the first stagnant checkpoint — threshold is 2 consecutive. No improvement dispatch yet.
+**Notes:** Score 89 stagnant since t113. Pattern mirrors ep112 post-torch stagnation. Agent took matchbook (t142) and is heading back underground — may attempt Hades with matches. 50 turns remaining. Even at 89, this matches recent episode ceilings. The false KB entry about candle vaporization is the ceiling blocker.
+
+---
+
+## Episode 113 — Turn 175 Checkpoint
+**Type:** URGENT (score stagnant 62 turns — 2 consecutive zero-delta checkpoints)
+**Score:** 89/350 (delta: +0 since last checkpoint, +0 since t125 checkpoint)
+**Locations visited:** ~38 total (cycling same areas — Dam, Loud Room, Gallery, Reservoir South)
+**Avg critic score:** 0.50 (critic disabled)
+**Rejection rate:** 1/25 turns had rejections (4%)
+**Gameplay quality:** IGNORING
+  - Memory use: Agent not applying accumulated knowledge to find new scoring paths.
+  - KB alignment: False candle entry still blocking Hades. Agent cycling known areas.
+  - Objective quality: Stagnant — no new scoring objectives.
+  - Objective pursuit: No directed pursuit visible — aimless cycling through 14 locations in this block.
+  - Learning system quality: KB false entry is the ceiling blocker.
+  - Pathfinding: WANDERING — cycling Dam↔Reservoir South↔Deep Canyon↔Loud Room↔Gallery with no goal.
+**Triggers:** FIRED — Score stagnant (0 delta across 2 consecutive checkpoints). Root cause: false KB entry blocks Hades puzzle, and agent has exhausted other accessible scoring paths.
+**Notes:** 21 turns remaining. Score 89 is the ceiling for this episode. Will dispatch improvement after episode completion. The improvement target is clear: false negative KB entries need a "verify once" protocol so the agent re-tests old failure verdicts instead of permanently avoiding correct actions.
+
+---
+
+## Episode 113 — COMPLETE
+**Turns:** 200 (max_turns)
+**Final score:** 89/350
+**Locations visited:** 37
+**Objectives found:** 15
+**End reason:** max_turns
+**Memory stats:** total=84, new=40, dedup_rejected=3, superseded=14, ephemeral_pruned=10, consolidated=15
+**Improvement dispatched:** yes — false KB entry / stale failure verdict protocol
+
+**Key observations:**
+- **Dam bolt loop AVOIDED for the first time** — belief reconciliation fix (ep106→107) fully validated. Zero bolt attempts in 200 turns.
+- **Dome descent achieved** (t110-113) — flawless execution via rope tie + descend. Torch taken (+14).
+- **Hades puzzle BLOCKED by false KB entry** — agent had bell, book, candles, torch at Entrance to Hades (t121-124). Agent knew the ritual sequence but skipped "light candles" because KB falsely claimed "light candles with torch vaporizes candles due to intense heat." This is wrong — lighting candles with torch is the correct step.
+- **NEW failure mode: false negative KB entries create permanent dead ends.** The belief reconciliation fix correctly teaches the agent to trust KB over its own reasoning. But when the KB has WRONG failure verdicts, the agent avoids correct actions forever and the KB never self-corrects.
+- **Post-torch stagnation** (t113-200, 87 turns at 89) — identical pattern to ep112. Agent cycled Dam/Loud Room/Gallery with no scoring after Hades failure.
+- **Efficient chimney shuttle** — three deposit trips (painting, bar, egg) with proper weight management.
+- **40 new memories, 15 consolidated** — strong learning output.
+
+| Episode | Score | vs Prev | Best So Far | Turns to 1st Score | Locations | KB Quality | End Reason |
+|---------|-------|---------|-------------|-------------------|-----------|------------|------------|
+| ep107   | 80    | +26     | 95          | 5                 | 21        | clean      | max_turns  |
+| ep108   | 70    | -10     | 95          | 5                 | 24        | clean      | circuit_breaker |
+| ep109   | 90    | +20     | 95          | 6                 | 29        | clean      | max_turns  |
+| ep110   | 54    | -36     | 95          | 5                 | 22        | clean      | early_stop |
+| ep111   | 54    | +0      | 95          | 5                 | 20        | clean      | early_stop |
+| ep112   | 89    | +35     | 95          | 6                 | 37        | clean      | max_turns  |
+| ep113   | 89    | +0      | 95          | 5                 | 37        | clean+1false | max_turns  |
+
+**Trend:** Full-run episodes: ep107=80, ep109=90, ep112=89, ep113=89. System stable in the 80-90 band. ep112 and ep113 both achieved Dome descent (89) but stalled at Hades due to the same false KB entry. The ceiling breakthrough to 95+ requires: (1) fixing the false KB candle entry so Hades puzzle can complete, or (2) finding an alternative scoring path the agent hasn't explored. Option (1) is the clear next step — dispatch improvement to add a "verify once" protocol for old KB failure verdicts.
+
+---
+
+## Session Complete
+**Episodes run:** 4 (ep109, ep110, ep111, ep112)
+**Best score achieved:** 90/350 (ep109)
+**Improvements made:** 2
+  1. NEW_OBJECTIVE wiring (ep110→111) — wire agent's per-turn objectives into DISCOVERED_OBJECTIVES (BLOCKER fix)
+  2. NEW_OBJECTIVE cap fix (ep111 hotfix) — insert at position 0 to survive 15-item cap
+**System status:** PERFORMING WELL
+**Summary:** System is stable in the 80-95 band for full 200-turn episodes. Two thief-derailed episodes (ep110, ep111) exposed a NEW_OBJECTIVE dead-write bug — the agent's per-turn objective proposals were silently discarded. Fixed with wiring + cap priority. ep112 achieved the Dome descent for the first time (torch +14, 37 locations, 38 new memories) — the broadest exploration in any episode. The Hades puzzle was attempted but failed, creating learning opportunities for future episodes. The remaining ceiling (past 95) likely requires: (a) successful Hades puzzle completion, (b) thief recovery via Cyclops → Treasure Room path, or (c) both. The NEW_OBJECTIVE fix should help with (b) in future thief encounters.
+
+---
+
+## Episode 113 → 114 — IMPROVEMENT
+**Trigger:** Score stagnant at 89/350 for 87 turns (t113-200) in ep113 and ep112. Agent had all required items for Hades exorcism ritual but skipped the critical "light candles with torch" step because a false KB failure verdict claimed the torch vaporizes candles. Same false entry blocked both ep112 and ep113.
+**Hypothesis:** The belief reconciliation fix (ep106→107) correctly teaches the agent to defer to KB failure verdicts over its own reasoning. But KB failure verdicts are cross-episode observations that can be hallucinated or overgeneralized. Once a false failure verdict enters the KB, the agent never retries the action, so the KB never self-corrects — creating a permanent dead end. The system lacks a mechanism to verify stale KB failure entries against current game state.
+**Change:** Added "STALE FAILURE VERDICT VERIFICATION" sub-rule to PRE-ACTION BELIEF CHECK rule 2 in `prompts/agent.md`. When a KB failure verdict exists but the agent has NOT attempted the action this episode, and current game state provides plausible reason for success (correct items, correct location, logical sequence step), the agent must attempt the action ONCE to verify before deferring. Analogous to the stale-route "recompute once" rule applied to KB failure entries.
+**Reasoning:** This preserves the authority hierarchy (engine > KB > plan) while adding empirical verification for cross-episode KB claims. Same-episode engine rejections remain absolute (rule 2's empirical falsification). The "try once" gate prevents infinite retry loops while ensuring false KB entries get tested and corrected through gameplay experience.
+**Target metric:** Score should exceed 89/350 in ep114. Specifically, agent should attempt "light candles" at Hades despite the KB entry, discover it succeeds, and complete the exorcism ritual.
+**Validation:** PASSED (4/6 structural) — The 2 "failures" are false positives: t122 ("ring bell") and t123 ("take candles") are correctly unchanged actions tagged as "problem" because they belong to the Hades sequence, but only t124 had the wrong action. The critical fixture t124 changed from "read black book" to "light candles with torch" — exactly the desired fix. All 3 healthy fixtures (t53 painting, t86 egg deposit, t113 torch) remained unchanged — no regression. Agent reasoning at t124 now correctly identifies the stale failure verdict verification rule and attempts the action.
 **Result:** PENDING
 
 ---
