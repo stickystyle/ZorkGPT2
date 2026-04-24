@@ -36,6 +36,7 @@ Improve the system until the agent can consistently score 100+ points in Zork I,
 - The journal is your only persistent state; always append, never overwrite it
 - All subagent dispatches must include: problem, evidence excerpt, recent journal entries, scope constraints, and success criteria
 - **NEVER bake game-specific knowledge into prompts.** The thesis of this project is that the agent learns to play through experience (memories, knowledge base) — not because it was told the answers. Prompts must teach reasoning strategies, not game solutions. If an improvement subagent writes something like "move the rug to find the trap door" or "the sword is in the white house" into a prompt, that change must be reverted immediately. Prompts should say HOW to think, not WHAT to do.
+- **NEVER propose a root cause from trajectory patterns alone — read the agent's `thinking` transcript at the failure turns first.** This applies to every diagnosis moment: mid-episode trigger investigation, post-episode summary recommendations, and any "what should we fix next" suggestion between episodes. The checkpoint metrics and turn-log tell you WHAT happened; the agent's `thinking` / `plan` fields tell you WHY it chose that action. A pattern that looks like "strategic-void" or "chimney cycling" or "purposeless wandering" from the outside may actually be the agent rationally executing a plan based on a stale belief (wrong KB entry, phantom NPC event, cross-episode memory carryover). You cannot distinguish "the agent has no goal" from "the agent has a goal based on false information" without reading the reasoning. Writing a candidate fix without first reading at least 5-10 turns of `thinking` spanning the failure is speculation, not diagnosis. Use `python3 scripts/burr_gameplay.py {app_id} --turns X-Y` or `python3 scripts/burr_turn.py {app_id} N`. **If you catch yourself proposing fixes while only having read checkpoint-level data, stop and read the transcript before continuing.** This rule caught a major misdiagnosis in ep117: what appeared to be "strategic-void" (22-turn Dam loop, 2 Dome-without-rope bailouts) turned out to be KB contamination causing phantom-thief pursuit and wrong-location rope beliefs — completely different root cause and fix.
 
 ---
 
@@ -447,13 +448,39 @@ When an improvement is needed:
 
 1. **Stop the episode** (if still running): `kill <PID>`
 
-2. **Identify the specific problem** — be precise. "Rejections are high" is not enough. Read the critic justifications visible in the surrounding log context. What is the agent proposing that the critic keeps rejecting? What pattern repeats?
+2. **Identify the specific problem** — be precise. "Rejections are high" is not enough. "Agent is wandering" is not enough. "Score stagnated for 25 turns" is not a diagnosis, it's a symptom.
 
-   **When investigating a specific problematic turn in detail:**
-   ```bash
-   python3 scripts/burr_turn.py {app_id} <turn_number>
-   ```
-   This shows every pipeline step for that turn: what the agent saw, thought, proposed, what the critic scored, what Jericho returned, what was learned. Use this before dispatching an improvement subagent to build precise evidence.
+   **Mandatory: read the agent's `thinking` transcript at the failure turns.** The Core Rule on trajectory-pattern diagnosis applies here — the agent's `thinking` / `plan` fields are the ground truth for WHY the agent chose each action. Checkpoint metrics tell you WHAT happened (score flat, stuck at location X, repeated actions); only the transcript tells you WHY (stale KB belief, missed precondition, false inventory assumption, hallucinated objective). These are completely different classes of bug with completely different fixes.
+
+   **Transcript reads you MUST perform before drafting a dispatch brief:**
+
+   1. **Dump the failure window.** At least 5-10 turns spanning the failure (not just the failure turns themselves — the turns before and after show what the agent was trying to do and how it reacted to feedback):
+      ```bash
+      python3 scripts/burr_gameplay.py {app_id} --turns X-Y
+      ```
+      Look at `Thinking:`, `Plan:`, `Game says:`, `Inventory:` for each turn. For each problem turn, ask: "Does the agent's stated reason for this action make sense given the actual game state at this moment?" If YES, the agent is rational on its inputs — the bug is in the inputs (KB / memory / context assembly / objective). If NO, the bug is in the decision logic (prompt rule / model compliance).
+
+   2. **Cross-check stated beliefs against game truth.** When the agent's `thinking` cites a KB entry, a prior memory, or a past event ("I need to get back to X where Y is", "the thief stole my Z", "Q failed last time I tried"), verify against the actual KB (`burr_knowledge.py`), actual inventory (trace snapshots), and same-episode action log. Agents act on what they BELIEVE, not on what's TRUE. A false belief with a correct inference chain looks identical at the trajectory level to a correct belief with a broken inference chain.
+
+   3. **For critic/rejection issues specifically**, read the critic justifications:
+      ```bash
+      python3 scripts/burr_critic.py {app_id} --turns X-Y
+      ```
+      What is the agent proposing that the critic keeps rejecting? What pattern repeats?
+
+   4. **For deep single-turn inspection** (full pipeline trace):
+      ```bash
+      python3 scripts/burr_turn.py {app_id} <turn_number>
+      ```
+      Every pipeline step for that turn: what the agent saw, thought, proposed, what the critic scored, what Jericho returned, what was learned.
+
+   **Common misdiagnosis traps:**
+   - "Strategic-void / no commit-to-plan" — often the agent HAD a plan, but the plan was based on a false belief. Read the `Plan:` field.
+   - "Chimney cycling / gear shuffle" — often a downstream symptom of an upstream belief bug that's forcing the agent back to the same location.
+   - "Agent ignores KB" — often the agent IS reading KB, but applying a rule variant (stale-verdict, equivalence-variant, etc.) you hadn't noticed. Read the `Thinking:` for explicit KB references.
+   - "Agent is stuck" — often it's rationally pursuing a goal based on contaminated state. Read the `Thinking:` for the goal it's stating.
+
+   **If the transcript and trajectory disagree, the transcript wins.** Rewrite your diagnosis to match what the agent's reasoning actually says — not what you hypothesized from the pattern. Don't paper over the disagreement.
 
 2.5. **Extract validation fixtures** — Before dispatching the subagent, extract turn state for the problematic turns plus 2-3 healthy turns. Select the action type based on which prompt needs changing:
 
