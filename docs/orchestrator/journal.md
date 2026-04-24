@@ -489,6 +489,26 @@ Compared to ep117 (80): ep119 is −2. Given ep119 terminated 71 turns early (cr
 
 ---
 
+## META REVIEW — after ep119 (session-termination trigger, Phase 5)
+**Improvements analyzed:** 2 total, 2 resolved, 0 pending (fully caught up)
+**Verdict distribution (by subsystem):**
+  - agent: 1/1 IMPROVED, sum_score_delta +4
+  - knowledge: 0/1 IMPROVED (PARTIAL), sum_score_delta −6
+**Falsification streak:** none (each subsystem has only 1 entry; no consecutive failures on any one lever)
+**Recurring diagnosis labels (≥3 occurrences):** none in jsonl yet (both labels appeared once; too small a dataset for meta-recurrence detection)
+
+**Ad-hoc observations:**
+- **Sequential BLOCKER→INCREMENTAL cascade.** ep117→118 was a BLOCKER that cleaned KB contamination (PARTIAL verdict — targets met, score −6). ep118→119 was an INCREMENTAL that, because the KB was clean, could precisely target a NEW bug (torch-as-ballast) that was previously MASKED by phantom-belief noise. The +4 score gain validates this cascade: the BLOCKER wasn't wasted — it enabled the INCREMENTAL to land cleanly. Worth noting as a pattern: some categories of score improvement require *sequential* fixes, not standalone prompt tweaks, and a negative score delta on a BLOCKER is not automatically a bad sign if it clears context for the next dispatch.
+- **First observable rule-naming in agent reasoning.** ep119 agent thinking on drop turns contained the phrase "Score Changes audit" / "UNPROTECTED" verbatim — the first time in the jsonl dataset that a prompt rule's language was quotable in the agent's reasoning. This is a quality signal beyond score: the rule isn't just firing, it's being CITED. Future improvements that want to measure adoption should require the rule-language-in-thinking check, not just behavioral outcomes.
+- **Credit cascade externality.** ep119 terminated at t129/200 via orchestrator kill due to OpenRouter credit depletion (same failure mode as ep115 in archive). This is a session-level constraint, not a change-related failure. Future session-start check: verify OpenRouter daily-limit before dispatching — a mid-episode credit cascade poisons measurement by forcing look-loops.
+
+**Actionable signals for next episode(s):**
+- **Keep the agent-prompt audit-rule class.** The pattern "enumerate X before action Y, with a specific PROTECTED/UNPROTECTED or similar classification" (parallel to the existing navigation stale-route rule and combat-KB-check rule) has now produced one IMPROVED verdict. Next score-critical scenario worth targeting with this pattern: the Dam puzzle stall seen in ep118 t148-200 (agent experimented with open bubble / push bubble / lift bubble without consulting KB failure history). Candidate: a pre-interaction KB-failure-consult rule for locked/puzzle objects, structurally analogous to Rule 5.
+- **Do not dispatch another agent.md INCREMENTAL yet.** 1 IMPROVED is one data point; let the next session re-exercise Rule 5 to confirm it's load-bearing (not noise) before adding more agent-prompt complexity.
+- **Address the OpenRouter credit check at session start.** Add a step to Phase 0 to verify sufficient credits for ~200-turn episode before dispatching. Preempts credit-cascade measurement poisoning.
+
+---
+
 ## Session 2026-04-24 Complete
 **Episodes run:** 2 (ep116, ep117)
 **Best score achieved:** 80/350 (ep117)
@@ -697,5 +717,27 @@ Neither cause is attributable to KB contamination; the agent was operating on a 
 - Collected matchbook from Dam Lobby (gear the agent had been searching for)
 - Acquired rope + knife from Attic (had been a phantom-belief problem in ep117)
 - No phantom-belief reasoning, no KB contamination regrowth
+
+---
+
+## Session 2026-04-24 (evening, ep118+ep119) Complete
+**Episodes run:** 2 (ep118, ep119)
+**Best score achieved:** 78/350 (ep119)
+**Improvements made:** 2 resolved (ep117→118 PARTIAL, ep118→119 IMPROVED) + 1 rejected first-attempt reverted
+**System status:** STOPPED BY EXTERNAL FACTOR (OpenRouter credits) — not a stability issue
+
+**Summary:**
+- **ep118 (74/350, max_turns, 34 locations)** — measured ep117→118 KB contamination BLOCKER fix. All 3 KB-cleanness targets met: 0 "dropped in"/"stolen by" entries, 0 phantom-thief reasoning, no contamination regrowth across 200 turns. Score −6 vs ep117 due to UNRELATED bugs the clean-KB reasoning surfaced: torch-as-chimney-ballast mistake (t83, ~20-turn recovery cycle) and Dam puzzle stall (t148-200, ~40 turns on bubble/tool-chest dead-ends). Verdict resolved PARTIAL — hypothesis mechanism-wise CONFIRMED; score signal is one-episode noise.
+- **ep118→119 improvement cycle** — dispatched an agent.md pre-drop score-event audit rule targeting the torch-as-ballast pattern (different hypothesis from ep87→88's KB enumeration fix — this one moves discipline from KB enumerated list to agent-prompt audit keyed on engine-recorded score events). FIRST dispatch attempt was REJECTED by evaluator for (a) Zork-specific names in illustrative strings and (b) missing `new-label:` prefix in jsonl notes. Reverted and re-dispatched with explicit placeholder mandate. Retry passed 10/10 evaluator checks and 3/3 fixtures.
+- **ep119 (78/350, t129 orchestrator_kill, 25 locations)** — STRONG validation of Rule 5. Rule fired on 3/3 drop commands with explicit "Score Changes audit" / "UNPROTECTED" language in agent thinking (first episode with rule-language observable in reasoning). Zero PROTECTED items dropped across 129 turns. Torch preserved 80+ turns (opposite of ep118 t83 failure). Painting deposited cleanly (ep118 lost it to thief). Agent reached Egyptian Room for +14 (sceptre + coffin) — deep-dungeon scoring path no recent episode has accessed. Terminated early by orchestrator kill due to OpenRouter credit cascade (52 LLM errors in t101-125 block); with 71 more turns available the agent still held torch/sceptre/coffin in hand heading toward trophy case, so the +4 score delta vs ep118 is a CONSERVATIVE measurement.
+- **Meta-review signal:** The sequence ep117→118 (BLOCKER, PARTIAL, −6) → ep118→119 (INCREMENTAL, IMPROVED, +4) is a textbook BLOCKER→INCREMENTAL cascade. The clean-KB enabled by the first change exposed the torch-as-ballast bug precisely enough for the second change to land cleanly. Future sessions: expect some BLOCKER fixes to produce zero or negative score deltas on their own while unlocking downstream INCREMENTAL wins.
+
+**Queued future-work items (in priority order for next session):**
+1. OpenRouter credit pre-flight check in Phase 0 (preempts mid-episode credit cascades).
+2. Dam puzzle stall — a pre-interaction KB-failure-consult rule structurally analogous to Rule 5 (enumerate prior-failure KB entries for the object before trying novel interactions). Evidence in ep118 t148-200.
+3. Extractor shorthand item-name parsing (ep118 t34-35, ep119 t54/59 minor rejections).
+4. MemorySynthesisResponse schema mismatch (ep118 ~t76 validation errors — LLM returns array, schema expects object).
+
+**User note:** Session was running under `/zork-orchestrator`. Credit cascade forced termination at ep119 t129. Current KB state: clean (0 contamination entries). Current best score this session: 78 (ep119). All-time best: 95 (archived episode). Termination condition "3 consecutive HEALTHY + new best beating prior session best" NOT met — ep118 had CONCERN blocks and ep119 terminated early. External constraint (credits) is the terminating factor.
 
 ---
