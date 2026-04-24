@@ -13,6 +13,23 @@ STRICT RULES:
 3. NEVER add knowledge from outside the log. You likely know this game — ignore that knowledge entirely.
 4. BAD examples (NEVER write these): "In this game, the key is usually found...", "The nest contains...", "You need to go to X to find Y", "The standard solution is..."
 5. GOOD examples: "Took egg from bird's nest in tree (score +5)", "Entered house via kitchen window (score +10)", "Dark staircase below Kitchen requires light source — got 'too dark' without lantern"
+6. **NO TRANSIENT PER-EPISODE STATE.** NEVER record where items were dropped, deposited, moved, placed, left, or stashed — these are transient episode state that becomes stale the moment the game resets. Record only ORIGINAL SPAWN LOCATIONS (where an item first exists in the game world) and mechanic-scoring outcomes (e.g., "putting item X in container Y at location Z scores +N"). **This rule applies to EVERY section of the output, including any section you might invent (Unexplored Leads, Items Found, notes, or otherwise).** If you are tempted to write "Items dropped in ...", "X dropped at ...", "X left in ...", "X stashed in ..." — STOP and delete it.
+   - BAD: "Items dropped in Studio (R52): sword, manual, leaflet"
+   - BAD: "Nasty knife, rope, and manual dropped in Studio (R52) — not retrieved"
+   - BAD: "Gold coffin dropped at Altar (R93)"
+   - GOOD: "Rope — Attic (R10) (original spawn)"
+   - GOOD: "Depositing treasures in trophy case at Living Room (R1) scores points per treasure"
+7. **NO PAST-EPISODE NPC EVENTS PHRASED AS HISTORICAL FACTS.** NPC entries must describe the NPC's capability/mechanic (generic, reproducible across episodes) — NOT a specific event that happened in one episode. Tense and framing distinguish the two:
+   - KEEP (NPC capability/mechanic — generic and reproducible):
+     - "Thief can appear in location X and steal valuables if left on floor"
+     - "Vampire bat transports player from Bat Room to Coal Mine area"
+     - "Troll can be killed with sword in Troll Room"
+   - REMOVE (episode-specific event — transient state):
+     - "Platinum bar stolen by the thief in the Studio"
+     - "Thief robbed the agent in the Cellar"
+     - "Troll killed the agent in Troll Room"
+   - Test: does the entry use "can/does/will/causes" (mechanic) or "did/was/stole/killed" in reference to a specific past incident (event)? Keep the former, delete the latter.
+8. **SELF-TEST for every entry before writing it:** Ask yourself — "Would this entry still be true if the next episode restarted from turn 1?" If the answer is NO (the entry references a specific past event, drop, deposit, theft, or other one-time occurrence that happened in one episode), delete it. Mechanics, spawn locations, and scoring rules survive a fresh start; drops, thefts, and "already taken" annotations do not.
 
 FORMAT: Organize into these strategic categories (skip empty categories):
 
@@ -30,7 +47,7 @@ BREVITY: Each bullet must be ONE concise line — no multi-sentence explanations
 
 **Score Changes:** Each score increase/decrease with the location name and ID (e.g., "at Living Room (R193)") and triggering action (NO turn numbers).
 **Puzzle Mechanics Discovered:** Interactions that revealed how something works (e.g., "turning dial at Control Room (R42) opened blast door").
-**Items Found:** Item name and original spawn location with ID (where the item first exists in the game world). One entry per unique item — do not re-add items already listed. Do NOT record where items were dropped, deposited, or moved during gameplay — current item locations are transient state tracked elsewhere.
+**Items Found:** Item name and original spawn location with ID (where the item first exists in the game world). One entry per unique item — do not re-add items already listed. Per STRICT RULE 6, do NOT record where items were dropped, deposited, moved, or left — current item locations are transient state tracked elsewhere.
 **Dangerous Areas:** Locations (with IDs) and actions that caused death or damage.
 **Failed Approaches:** Manipulation actions (use, move, push, pull, open, cut, pry, turn, etc.) attempted 2+ times that consistently failed, so the agent can avoid repeating them. Do NOT list "examine" or "look" as failed approaches — examining is information-gathering, not a manipulation attempt. A single failed examine tells you nothing about whether physical manipulation (move, push, pull, lift) would succeed on the same object.
 **Unexplored Leads:** Exits seen but not taken, locked doors, dark passages — with location name and ID. Do NOT list navigation paths or exits — these are tracked by the map system. Only list NOTABLE unexplored features (locked doors, dark passages, items seen but not taken).

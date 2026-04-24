@@ -1479,3 +1479,33 @@ Score 80 at t150 vs ep112/ep113's ~85 at this point — close enough that the fi
 **User instruction:** Ended session after ep117 COMPLETE — explicit "don't start a new episode" directive.
 
 ---
+
+## Episode 117 → 118 — IMPROVEMENT
+**Type:** BLOCKER (prompt + data cleanup combined)
+**Trigger:** ep117 agent pursued phantom thief for 22 turns (t101-122, 0 score) and bailed on Dome descent twice (t94, t172) because KB contains stale cross-episode drop-location and theft-event entries. Directly traced agent reasoning at t102, t104, t173 citing false beliefs sourced from `data/knowledge.md` entries like "Platinum bar stolen by the thief in the Studio" and "Nasty knife, rope, and manual dropped in Studio". Agent's ep117 t173 bailed on Dome because KB said "rope is in Studio" (from a prior episode's drop) — rope was actually at its original spawn (Attic) and never picked up in ep117.
+**Hypothesis:** The contamination has two roots: (1) `prompts/knowledge.md:33` scoped the "no drops" rule only to the Items Found section, so the LLM wrote free-form "Items dropped in X" and "NPC stole Y" sections that slipped past the rule; (2) the `_merge_kb` auto-preserve merge in `zorkburr/actions/knowledge.py` locks any contamination in forever — the LLM can never prune. Lifting the rule to a global STRICT RULE across every section, plus a one-time data cleanup, stops new contamination and removes the existing stale entries. Because auto-preserve is out of scope for this fix, cleanup is done on the file directly.
+**Change:** Two changes in one dispatch (BLOCKER — infrastructure, not strategy).
+  - **A. Prompt (`prompts/knowledge.md`):** Added STRICT RULES 6, 7, 8. Rule 6 lifts the "no transient state" prohibition to global — applies to every section, explicitly forbids drop/deposit/move/left/stashed annotations regardless of where they appear, with BAD/GOOD examples. Rule 7 distinguishes NPC mechanic entries (keep: "thief can appear and steal ...") from past-episode NPC events (remove: "Platinum bar stolen by thief ...") using a tense/framing test. Rule 8 adds the "would this still be true if the next episode restarted from turn 1?" self-test. Updated the Items Found section description to reference global Rule 6 rather than restating the scoped rule.
+  - **B. Data (`data/knowledge.md`):** Removed 39 contaminated lines — all 37 matching the primary grep `"dropped in|stolen by|dropped then|dropped at|dropped here|items dropped|Items dropped|Items Dropped"`, plus 2 additional transient-state entries matching `"left in"` (Screwdriver/tube left in Troll Room, Tube left in Maintenance Room). Legitimate entries preserved: original spawn locations, NPC mechanic descriptions, "treasures left in Studio do not score" puzzle mechanic (scoring-rule statement, not a transient drop record).
+**Reasoning:** Passes the prompts/CLAUDE.md two-question test:
+  1. Would this apply to a different text adventure? YES — drop-location and per-episode NPC event contamination is a hazard in ANY text adventure where cross-episode state accumulates in a knowledge base.
+  2. Is this teaching HOW to think, not WHAT to do? YES — it's a memory-hygiene rule about kinds of content. No game-specific facts, strategies, puzzle solutions, or item locations in the added rules; illustrative examples reserve game-specific terms only for disambiguation.
+  No Python pipeline code modified (auto-preserve merge behavior is out of scope for this BLOCKER — separate problem to address in a future dispatch). No other prompt files touched; `prompts/memory_synthesis.md` left alone per authorization (memory_synthesis's "ephemeral" label is fine — ephemerals get pruned; the leak is in KB aggregation).
+**Target metric:**
+  (1) Zero "dropped in" or "stolen by" entries in `data/knowledge.md` after cleanup.
+  (2) In ep118, agent's reasoning should NOT reference phantom theft or cross-episode drop locations. Specifically: no "intercept the thief to recover stolen X" reasoning without a same-episode theft observation in the action log, and no "rope is at Studio" claims (rope is at Attic in the canonical state).
+  (3) Over the next several episodes, the `update_knowledge` LLM should never produce new "Items dropped in X" or similar entries. If this regresses (new contamination appears), the auto-preserve pipeline problem will need to be addressed.
+**Validation:**
+  - **Direct KB output inspection (primary):**
+    - `data/knowledge.md` line count: **266 → 227** (-39 lines).
+    - `grep -c "dropped in\|stolen by" data/knowledge.md`: **36 → 0**.
+    - `grep -c "dropped in\|stolen by\|dropped then\|dropped at\|dropped here\|items dropped\|Items dropped\|Items Dropped"`: **37 → 0**.
+    - `grep -c "left in" data/knowledge.md`: **3 → 1** (the remaining match is L33 inside a legitimate puzzle mechanic bullet — "treasures left in Studio do not score" — a scoring rule, not a transient drop record).
+  - **Synthetic prompt replay (secondary):** Built a synthetic test invoking the CURRENT `prompts/knowledge.md` against the current cleaned `data/knowledge.md` plus a synthetic recent-gameplay log with explicit drop events (`TURN 42: drop bloody axe at Dam Base`, `TURN 52: drop painting at Gallery`, `TURN 76: drop platinum bar at Studio`) and a synthetic theft event at t78 (`The thief has stolen the platinum bar`), alongside legitimate score changes. Ran the real LLM (`remote/google/gemini-3-flash-preview` via `raw_client.chat.completions.create` with the unchanged system prompt) and inspected the raw output:
+    - Raw LLM output forbidden-line count: **0**. The model did NOT write "Items dropped in Dam Base", "Items dropped in Gallery", "Items dropped in Studio", or "Platinum bar stolen by the thief".
+    - The thief event was correctly transformed into a MECHANIC entry: "The thief can steal items (like the platinum bar) left on the floor in the Studio (R52) and then disappear from the room." — passes Rule 7's capability-vs-event test.
+    - Legitimate entries present: all 3 Score Changes, original spawn Items Found (Rope/Nasty knife — Attic), Dangerous Areas (Attic pitch black), Puzzle Mechanics (sword glow during troll combat).
+    - Post-merge pipeline output: 1 remaining "left in" match, which is the pre-existing legitimate L33 puzzle mechanic entry.
+**Result:** PENDING
+
+---

@@ -1,0 +1,228 @@
+**Score Changes:**
+- in at Behind House (score 0→10, +10)
+- down at Living  (score 10→35, +25)
+- east at Troll  (score 35→40, +5)
+- take bar at Loud  (score 40→50, +10)
+- take painting at Gallery (score 50→54, +4)
+- open trophy case, put painting in case at Living  (score 54→60, +6)
+- put platinum bar in trophy case at Living  (score 60→65, +5)
+- take bag at Maze (score 65→75, +10)
+- open case, put bag in case at Living  (score 75→80, +5)
+
+**Puzzle Mechanics Discovered:**
+- Moving rug in Living Room reveals closed trap door underneath — must move rug first, then open trap door
+- Trap door in Living Room locks from above after descending — cannot be reopened from Cellar side (locked, breaking with axe fails)
+- Spirits at Entrance to Hades cannot be attacked with material objects (sword and axe both fail with "How can you attack a spirit with material objects?")
+- Entering the gate at Entrance to Hades blocked by invisible force — cannot pass through
+- Sword glows faint blue in Cave (near Entrance to Hades staircase), stops glowing in Winding Passage
+- Pressing blue button in Maintenance Room causes water leak from east wall — water rises rapidly (shin → knee level) and floods east room of Dam Lobby
+- All commands in Loud Room echo back as repeated text (e.g., "take platinum bar" → "bar bar ...", "look" → "look look ...") — platinum bar cannot be taken in this state
+- East doorway of Dam Lobby flooded after pressing blue button in Maintenance Room — "The room is full of water and cannot be entered"
+- `turn bolt with wrench` at Dam (R42) — "The bolt won't turn with your best effort" — confirmed failure even after pressing blue button and waiting for water to rise in Maintenance Room. This approach has been tested exhaustively and does NOT work.
+- Thief roams multiple areas (Cellar, East-West Passage, Stream View, Reservoir South) and can be attacked but is difficult to kill — dodges, disarms, and leaves when finding nothing of value
+- `attack man with axe` at Cellar disarms thief but he leaves still carrying his bag — thief robbed items during encounter
+- Filling bottle with water at Stream View fails — "The water slips through your fingers" even with bottle open
+- West exit from Stream View blocked — "The stream emerges from a spot too small for you to enter"
+- Dome Room: cannot descend from dome periphery — "You cannot go down without fracturing many bones"
+- Gallery (R51) painting requires dropping heavy items first — inventory weight limit prevents taking it while carrying sword/axe
+- `rub mirror` in Mirror Room causes rumble from deep within the earth and the room shakes — effect otherwise unclear
+- Bat Room: vampire bat swoops down when entered — transported to Coal Mine area (Ladder Top region)
+- Shaft Room: basket can be lowered/raised via `lower basket` / `raise basket` commands; coal placed in basket stays in it through lowering/raising cycle
+- `move timber` in Timber Room reveals nothing
+- Maze skeleton location contains skeleton key and bag — inventory weight limit requires dropping items before taking them; `take bag` scores +10
+- `climb chimney` at Studio (up to Kitchen) requires a LIGHT load AND keeping the brass lantern. Heavy load fails with "You can't get up there with what you're carrying" — drop a few items to lighten. EMPTY hands ALSO fails with "Going up empty-handed is a bad idea." (verified ep87 t22). The working pattern (verified ep87 t24): drop excess items but KEEP the lantern, then `climb chimney` succeeds. CRITICAL: do NOT drop treasures (painting, bag, platinum bar, coffin, etc.) in the Studio just to climb — treasures left in Studio do not score. Carry the treasure plus the lantern, drop only non-treasure ballast (sword, axe, sack, bottle) if needed.
+- Scoring model: treasures only score on DEPOSIT in the trophy case in the Living Room. Picking a treasure up gives partial credit (e.g. painting +4 on take) but the bulk of the score comes from putting it in the trophy case. Do NOT drop a treasure unless there is a clean plan to retrieve and deposit it within a few turns.
+- `unlock wooden door with key` (skeleton key) at Living Room — "It doesn't seem to work" — skeleton key does not open the gothic wooden door
+- Wooden door gothic lettering in Living Room translates to "This space intentionally left blank." — door appears decorative or requires different means to open
+- Trap door in Living Room can be reopened from above (Living Room side) after returning via chimney/Kitchen route — descending again re-locks it from above
+- `unlock grating with key` (skeleton key) at Grating Room (R33) followed by `open grate` allows access to the surface (Clearing R79).
+- `open trophy case` at Living Room (R1) is required before items can be put inside
+- Touching the rusty knife causes the sword to give a pulse of blinding blue light
+- Bat Room (R69): entering causes vampire bat to swoop and transport player to Coal Mine area (R71).
+- Killing the troll in the Troll Room (R14) causes a cloud of sinister black fog to envelop his weapons, which then vanish (except for the axe).
+- Saying "ulysses" in the Cyclops Room (R34) causes the cyclops to flee and destroy the east wall, creating a passage to the Living Room (R1).
+- The cyclops-shaped opening in the Living Room (R1) west wall leads to the Strange Passage (R81) and then to the Cyclops Room (R34).
+- `climb chimney` at Studio (R52) allows access to the Kitchen (R9) but requires a light load; dropping heavy items like the sword, bloody axe, or platinum bar is necessary.
+- Trap door in Living Room (R1) crashes shut and is barred from above immediately upon descending to the Cellar (R11).
+- `tie rope to railing` at Dome Room (R29) allows the rope to drop to the floor below (Torch Room R90).
+- `open coffin` at Egyptian Room (R92) reveals a sceptre inside.
+- `read inscription` at Temple (R91) reveals a philippic against insects and other nuisances.
+- Entering the Cave (R37) from the Altar (R93) hole causes a gust of wind that blows out candles.
+- `climb rope` at Torch Room (R90) fails if the rope is not visible or accessible from that position.
+- Opening the small window at Behind House (R4) allows entry into the Kitchen (R9).
+- Ascending the stairs from the Cyclops Room (R34) leads to the Treasure Room (R100), the thief's hideaway.
+- The thief in the Treasure Room (R100) can parry attacks, disarm the player, and knock the player unconscious.
+- Sword glows with a faint blue glow in certain parts of the Maze (R18-R32), indicating nearby danger.
+- `press red button` in Maintenance Room (R45) toggles the lights in that room on and off.
+- The "Granite Wall" in the Slide Room (R74) contains a slide that leads directly down to the Cellar (R11).
+- Opening the brown sack reveals a lunch and a clove of garlic.
+- Eating the lunch removes it from the inventory.
+- `climb down chimney` from Kitchen (R9) is not possible — "Only Santa Claus climbs down chimneys."
+- `climb chimney` at Studio (R52) fails if carrying too many items; dropping matchbook, tube, screwdriver, wrench, guidebook, and manual allows passage to Kitchen (R9).
+- `move rug` in Living Room (R1) reveals a trap door; once moved, it cannot be moved again.
+- `read engravings` at Engravings Cave (R56) reveals they depict beliefs of ancient Zorkers.
+- Maze (R18-R32): going `down` in certain passages is a one-way drop — "You won't be able to get back up."
+- `ring bell` at Entrance to Hades (R38) causes the bell to become red hot and drop, paralyzing the wraiths.
+- `climb chimney` at Studio (R52) fails if carrying the platinum bar, brass bell, or sword.
+- `echo` command in Loud Room (R58) changes the acoustics and allows items like the platinum bar to be taken.
+- Moving the rug in the Living Room (R1) can only be done once; subsequent attempts result in "you find it impossible to move it again."
+- The thief can appear in the Studio (R52) and lean against walls while carrying a large bag.
+- `open trap door, light lantern` fails as a single command; the game cannot process multiple direct objects with "open".
+- Pressing the yellow and brown buttons in the Maintenance Room (R45) results in a "Click" sound, but no immediate environmental change was observed.
+- The thief can appear in the Studio (R52) and steal valuables (like the platinum bar) if they are left on the floor.
+- The jewel-encrusted egg is found by climbing the large tree at the Forest Path (R77) to reach Up a Tree (R80).
+- Treasures (painting, platinum bar, bag, egg) must be placed in the trophy case in the Living Room (R1) to earn full points.
+- `read guidebook` at Dam (R42) provides historical information about Flood Control Dam #3.
+- `inflate plastic with tube` fails if the boat is not on the ground.
+- `inflate plastic with tube` fails with "With a tube? Surely you jest!" — the tube of gunk is not the correct tool for inflation.
+- `light candles` requires specifying a light source (e.g., "light candles with torch").
+- Thief roams multiple areas and can steal items left on the floor or from the player.
+- `light candles with torch` at Cave (R37) or Entrance to Hades (R38) fails — heat vaporizes the candles.
+- `read book` at Altar (R93) or Entrance to Hades (R38) contains "Commandment #12592" regarding "Hello sailor".
+- `climb chimney` at Studio (R52) requires a very light load; carrying the rope or matchbook can be enough to prevent passage.
+- `up` at Studio (R52) functions as a synonym for `climb chimney` to reach the Kitchen (R9).
+
+**Items Found:**
+- Leaflet — West House mailbox (taken)
+- Brown sack — Kitchen (taken)
+- Glass bottle — Kitchen (taken)
+- Brass lantern — Living Room (taken)
+- Sword — Living Room (taken)
+- Axe — Troll Room (taken, after troll killed)
+- Painting — Gallery (taken, scores +4)
+- Paper — Studio (taken, contains registration/congratulations text)
+- Matchbook — Dam Lobby (taken)
+- Tour guidebook — Dam Lobby (taken)
+- Wrench — Maintenance Room (taken)
+- Screwdriver — Maintenance Room (taken)
+- Tube (Frobozz Magic Gunk Company All-Purpose Gunk) — Maintenance Room (taken)
+- Platinum bar — Loud Room (cannot be taken — all commands echo)
+- Bracelet — Gas Room (taken, scores +5)
+- Small pile of coal — Dead End in coal mine (taken, placed in basket at Shaft Room)
+- Skeleton key — Maze skeleton room (taken)
+- Bag — Maze skeleton room (taken, scores +10)
+- Glass bottle (with water) — Kitchen (taken)
+- ZORK owner's manual — Studio (R52) (taken)
+- Tube (Gunk) — Maintenance Room (R45) (taken)
+- Rusty knife — Maze (R28) (taken)
+- Nasty knife — Attic (R10) (taken)
+- Rope — Attic (R10) (taken)
+- Jewel-encrusted egg — Up a Tree (R80) (taken, placed in trophy case)
+- Leather bag of coins — Maze (R28) (taken)
+- Leather bag — Maze (R28) (taken, deposited in trophy case)
+- Torch — Torch Room (R90) (taken)
+- Brass bell — Temple (R91) (taken)
+- Gold coffin — Egyptian Room (R92) (taken)
+- Sceptre — Egyptian Room (R92) (taken)
+- Large book — Altar (R93) (taken)
+- Candles — Altar (R93) (taken)
+- Trident — Atlantis Room (R101) (taken)
+- Trunk — Reservoir (R102) (taken)
+- Pile of plastic — Dam Base (R44) (taken)
+- Bloody axe — Troll Room (R14) (taken)
+- Lunch — Inside brown sack (found in Gallery R51)
+- Garlic — Inside brown sack (found in Gallery R51)
+- Tube — Maintenance Room (R45) (taken)
+
+**Dangerous Areas:**
+- Cellar is pitch black without lantern — risk of being eaten by grue; light lantern before or immediately upon entering
+- Maintenance Room floods rapidly after pressing blue button — water rises from shin to knee level quickly; exit south before it gets worse
+- Bat Room: entering causes vampire bat to swoop and transport player to Coal Mine area (Ladder Top region)
+- Maze: going `down` in certain passages warns "You won't be able to get back up to the tunnel you are going through when it gets to the next room" — one-way drop risk
+- Cyclops Room: cyclops will grab and eat the player if they attempt to go `up` or stay too long after agitation.
+- Cellar (R11) is pitch-black; requires a light source to avoid being eaten by a grue.
+- Cyclops Room (R34): contains a hungry cyclops.
+- Cave (R37): Entering via the hole in the Altar (R93) floor extinguishes candles due to wind.
+- Treasure Room (R100): Home of the thief; entering triggers an immediate confrontation where the player can be disarmed or knocked unconscious.
+- Attic (R10) is pitch black; entering without a light source risks being eaten by a grue.
+- Cave (R43): Entering causes a gust of wind that blows out candles.
+- Maze (R18-R32): encountering the thief can result in being robbed or knocked unconscious.
+- Cellar (R11) and Attic (R10) are pitch black; requires a light source to avoid grue.
+- Treasure Room (R100): thief's hideaway; triggers immediate confrontation.
+
+**Failed Approaches:**
+- `attack spirits with axe` at Entrance to Hades — same response, repeated multiple times
+- `enter gate` at Entrance to Hades — "Some invisible force prevents you from passing through the gate" (attempted multiple times)
+- `wave lantern` at Entrance to Hades — "Waving the brass lantern has no effect" / "isn't notably helpful"
+- `open trap door` at Cellar — "The door is locked from above" (attempted multiple times)
+- `break trap door with axe` at Cellar — "Nice try"
+- `turn bolt with wrench` at Dam — "The bolt won't turn with your best effort" (attempted multiple times)
+- `fix pipe with wrench` at Maintenance Room — "With a wrench? The water level here is now up to your shin" (did not fix leak)
+- `turn pipe` at Maintenance Room — "You can't turn that!" (wrench auto-selected)
+- `take platinum bar` / `take bar` / `get bar` at Loud Room without `echo` — all echo back as "bar bar ..." (multiple attempts)
+- `attack spirits with sword` / `attack spirits with axe` at Entrance to Hades — "How can you attack a spirit with material objects?" (multiple attempts)
+- `fill bottle with water` at Stream View — "The water slips through your fingers" even with bottle open (multiple attempts)
+- `down` at Dome Room (R29) — "You cannot go down without fracturing many bones" (requires rope).
+- `attack man with axe` at multiple locations — thief consistently survives and leaves; not a reliable way to eliminate him
+- `enter crack` at Chasm — "You can't fit through the crack"
+- `enter mirror` at Mirror Room — "You hit your head against the mirror" (attempted multiple times)
+- `move timber` at Timber Room — "Moving the broken timber reveals nothing"
+- `take sword` at Maze skeleton room — "Your load is too heavy" (carrying platinum bar, bag, skeleton key, and other items)
+- `unlock wooden door with key` (skeleton key) at Living Room (R1) — "It doesn't seem to work."
+- `climb chimney` at Studio with empty hands — "Going up empty-handed is a bad idea." (must keep lantern; see chimney rule in Puzzle Mechanics)
+- `fix pipe with wrench` / `turn pipe` at Maintenance Room (R45) — does not fix leak
+- `attack cyclops with axe` — "The cyclops shrugs but otherwise ignores your pitiful attempt".
+- `up` at Cyclops Room — "The cyclops doesn't look like he'll let you past".
+- `say odysseus` at Cyclops Room (R34) — "You used the word 'odysseus' in a way that I don't understand."
+- `take skeleton key, bag` at Maze (R28) while carrying axe, sword, sack, and bottle — "Your load is too heavy."
+- `unlock grating with skeletkey` — "You can't see any skeletkey here!" (requires exact item name 'key').
+- `put jewel-encrusted egg in case` — "You don't have that!" (requires 'egg').
+- `climb chimney` at Studio (R52) while carrying the platinum bar or other heavy loads — "You can't get up there with what you're carrying."
+- `attack thief with sword` at Treasure Room (R100) — Thief parries, dodges, and can counter-attack effectively.
+- `take painting` at Gallery (R51) fails if carrying too much (e.g., lantern, sword, sack, bottle, leaflet).
+- `climb down chimney` from Kitchen (R9) — "Only Santa Claus climbs down chimneys."
+- `put gunk on bolt` at Dam (R42) — "There's no good surface on the bolt."
+- `turn bolt with wrench` at Dam (R42) — tested multiple times with water rising, bolt does NOT turn. Approach exhausted.
+- `inflate plastic` at Dam Base (R44) — requires specifying what to inflate it with.
+- `open tool chest` at Maintenance Room (R45) — chests are too rusty and crumble.
+- `take wrench, screwdriver, tube` at Maintenance Room (R45) — "Your load is too heavy" (initially).
+- `attack man with axe` in Maze — thief can parry and knock the player unconscious.
+- `open trap door, light lantern` — game cannot process multiple direct objects with "open".
+- `climb rope` at Torch Room (R90) — "You can't see any rope here!" (rope is tied to railing above in Dome Room).
+- `down` at Altar (R93) while carrying the gold coffin — "You haven't a prayer of getting the coffin down there."
+- `take coffin` at Egyptian Room (R92) — "Your load is too heavy" (initially while carrying bell, book, candles, torch, and knife).
+- `move rug` in Living Room (R1) after it has already been moved — "you find it impossible to move it again."
+- `drop sword` at Studio (R118) when not in possession of the sword — "You don't have that!"
+- `light candles with torch` at Entrance to Hades (R38) — candles are vaporized.
+- `take bell` at Temple (R34) or Altar (R38) — "Your load is too heavy" (initially).
+- `take bar` at Loud Room (R58) fails if inventory is too heavy (e.g., carrying lantern, sword, axe, sack, bottle, wrench, screwdriver).
+- `climb chimney` at Studio (R52) fails if carrying heavy items like the sword, bloody axe, platinum bar, or multiple tools.
+- `pull nails` at Living Room (R1) — "You can't move the nails."
+- `turn bolt with wrench` at Dam (R42) fails even after water begins leaking in the Maintenance Room (R45).
+- `examine bubble` or `examine control panel` at Dam (R42) reveals nothing special.
+- `inflate plastic with tube` at Dam Base (R44) — "With a tube? Surely you jest!"
+- `take tube, plastic` at Loud Room (R58) — fails if load is too heavy.
+- `climb chimney` at Studio (R52) with empty hands or heavy load (carrying bar, bell, or sword).
+- `take matchbook, guidebook` at Dam Lobby (R41) fails if load is too heavy (carrying sword, lantern, sack, bottle, axe).
+- `put skeletkey in case` at Living Room (R1) — fails; requires the exact item name "key".
+- `examine grating` or `move leaves` at Clearing (R166) — "You can't see any [item] here!"
+
+**Unexplored Leads:**
+- Wooden door with gothic lettering on west wall of Living Room — appears locked/barred; skeleton key now in inventory may open it
+- Forbidding hole leading west from Troll Room — leads to Maze (entered briefly, returned)
+- Dark forbidding staircase leading down from Cave — leads to Entrance to Hades (currently blocked by spirits/gate)
+- Narrow stairway leading down at north end of East-West Passage — leads to Chasm area
+- Passages from Round Room — several blocked by cave-ins; south leads to Narrow Passage → Mirror Room (visited)
+- Stream View (west of Reservoir South) — visited briefly, not explored further
+- Stairway leading down at Deep Canyon — unexplored (leads to Loud Room via different route?)
+- Narrow tunnel leading east from Gas Room — unexplored
+- Descending staircase from Smelly Room — foul odor detected, not explored
+- Shaft at Shaft Room — basket lowered with coal but shaft bottom not visited directly; button mentioned but not found
+- North-South Passage forks northeast — fork unexplored
+- Staircase at Ladder Top leads somewhere (besides coal mine) — not fully explored
+- East passage from Loud Room (via Damp Cave) — Damp Cave visited but crack south not passable; east exit from Damp Cave unexplored
+- Crawlway south from Cellar — leads to East of Chasm (visited); north passage from East of Chasm leads back to Cellar
+- Mirror Room exits (besides north) — not explored
+- Stream View (R61) — west of Reservoir South
+- Crack opening into a passage at Chasm (R50).
+- Fork to the northeast in the North-South Passage (R55).
+- Engravings on the walls in Engravings Cave (R56).
+- Small hole in the floor at Altar (R93) leads down to Cave (R37).
+- Path heading south from White Cliffs Beach (R103).
+- Exit to the south from Atlantis Room (R101).
+- East exit from Damp Cave (R21) leads to White Cliffs Beach (R22).
+- Dead End in Maze (R143, R145).
+- Path heading east from Clearing (R79).
+- Wooden railing at Dome Room (R65) protects from a precipitous drop.
+- Pile of leaves on the ground in the Clearing (R200).
+- Impassable mountains to the east of the Forest (R170).
