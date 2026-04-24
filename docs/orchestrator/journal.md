@@ -312,6 +312,18 @@ Score 80 at t150 vs ep112/ep113's ~85 at this point — close enough that the fi
 
 ---
 
+## Episode 118 → 119 — IMPROVEMENT ATTEMPT REJECTED (commit b2ef40d reverted in 188a2bd)
+**Subagent change:** Added a "Mandatory pre-drop score-event audit" rule to prompts/agent.md (new §5 in CRITICAL RULES) requiring the agent to enumerate each drop candidate against "Score events this episode" and KB "Score Changes" before any drop command.
+**Evaluator verdict:** REJECT. Two failed checks:
+  1. **Check 6 (diagnosis_pattern discipline):** jsonl `notes` field was `""` but must start with `"new-label:"` + justification, since `drop-decision-overgeneralization` is a novel label (only existing label is `kb-contamination-phantom-thief`).
+  2. **Check 1 / Check 10 (game-specific knowledge leak):** The new rule text included Zork-specific strings: `"The torch/bag/etc. is protected, BUT..."` as a rationalization-pattern example, and `"the KB chimney rule already lists the treasures"` as a skipping-audit example. These fail prompts/CLAUDE.md Q1 ("Would this apply to a different text adventure?") strictly — a different text adventure has no torch, no bag, no chimney rule. Substantively the rule was game-agnostic; the *illustrative examples* leaked Zork names.
+**Action:** Reverted the commit. Re-dispatching with an explicit brief that (a) requires `new-label:` prefix in jsonl notes, and (b) mandates placeholder tokens like `<item>` / `<scored-item>` / "the existing enumerated-treasure KB entry" in place of any Zork-specific name in illustrative example text.
+
+---
+
+
+---
+
 ## Session 2026-04-24 Complete
 **Episodes run:** 2 (ep116, ep117)
 **Best score achieved:** 80/350 (ep117)
