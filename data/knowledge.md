@@ -1,13 +1,11 @@
 **Score Changes:**
-- in at Behind House (score 0→10, +10)
+- enter window at Behind House (score 0→10, +10)
 - down at Living  (score 10→35, +25)
 - east at Troll  (score 35→40, +5)
 - take bar at Loud  (score 40→50, +10)
 - take painting at Gallery (score 50→54, +4)
-- open trophy case, put painting in case at Living  (score 54→60, +6)
-- put platinum bar in trophy case at Living  (score 60→65, +5)
-- take bag at Maze (score 65→75, +10)
-- open case, put bag in case at Living  (score 75→80, +5)
+- take torch at Torch  (score 54→68, +14)
+- put torch in case at Living  (score 68→74, +6)
 
 **Puzzle Mechanics Discovered:**
 - Moving rug in Living Room reveals closed trap door underneath — must move rug first, then open trap door
@@ -63,7 +61,6 @@
 - `read engravings` at Engravings Cave (R56) reveals they depict beliefs of ancient Zorkers.
 - Maze (R18-R32): going `down` in certain passages is a one-way drop — "You won't be able to get back up."
 - `ring bell` at Entrance to Hades (R38) causes the bell to become red hot and drop, paralyzing the wraiths.
-- `climb chimney` at Studio (R52) fails if carrying the platinum bar, brass bell, or sword.
 - `echo` command in Loud Room (R58) changes the acoustics and allows items like the platinum bar to be taken.
 - Moving the rug in the Living Room (R1) can only be done once; subsequent attempts result in "you find it impossible to move it again."
 - The thief can appear in the Studio (R52) and lean against walls while carrying a large bag.
@@ -81,6 +78,8 @@
 - `read book` at Altar (R93) or Entrance to Hades (R38) contains "Commandment #12592" regarding "Hello sailor".
 - `climb chimney` at Studio (R52) requires a very light load; carrying the rope or matchbook can be enough to prevent passage.
 - `up` at Studio (R52) functions as a synonym for `climb chimney` to reach the Kitchen (R9).
+- `climb chimney` at Studio (R52) fails if carrying heavy items like the sword, platinum bar, or multiple tools.
+- `open tool chests` at Maintenance Room (R45) causes them to crumble due to rust and corrosion.
 
 **Items Found:**
 - Leaflet — West House mailbox (taken)
@@ -196,6 +195,10 @@
 - `take matchbook, guidebook` at Dam Lobby (R41) fails if load is too heavy (carrying sword, lantern, sack, bottle, axe).
 - `put skeletkey in case` at Living Room (R1) — fails; requires the exact item name "key".
 - `examine grating` or `move leaves` at Clearing (R166) — "You can't see any [item] here!"
+- `open bubble`, `push bubble`, `lift bubble`, or `open bubble with screwdriver` at Dam (R42) has no helpful effect.
+- `move tool chests` at Maintenance Room (R45) fails.
+- `climb chimney` at Studio (R52) fails if carrying the sword, book, sack, knife, and bottle simultaneously.
+- `take lunch from sack` at Maintenance Room (R45) fails if inventory is too heavy.
 
 **Unexplored Leads:**
 - Wooden door with gothic lettering on west wall of Living Room — appears locked/barred; skeleton key now in inventory may open it
@@ -218,7 +221,6 @@
 - Fork to the northeast in the North-South Passage (R55).
 - Engravings on the walls in Engravings Cave (R56).
 - Small hole in the floor at Altar (R93) leads down to Cave (R37).
-- Path heading south from White Cliffs Beach (R103).
 - Exit to the south from Atlantis Room (R101).
 - East exit from Damp Cave (R21) leads to White Cliffs Beach (R22).
 - Dead End in Maze (R143, R145).
@@ -226,3 +228,4 @@
 - Wooden railing at Dome Room (R65) protects from a precipitous drop.
 - Pile of leaves on the ground in the Clearing (R200).
 - Impassable mountains to the east of the Forest (R170).
+- Narrow path heading south from White Cliffs Beach (R22).
