@@ -1,11 +1,12 @@
 **Score Changes:**
-- enter window at Behind House (score 0→10, +10)
+- in at Behind House (score 0→10, +10)
 - down at Living  (score 10→35, +25)
 - east at Troll  (score 35→40, +5)
-- take bar at Loud  (score 40→50, +10)
-- take painting at Gallery (score 50→54, +4)
-- take torch at Torch  (score 54→68, +14)
-- put torch in case at Living  (score 68→74, +6)
+- take painting at Gallery (score 40→44, +4)
+- open case, put painting in case at Living  (score 44→50, +6)
+- take torch at Torch  (score 50→64, +14)
+- take sceptre, coffin at Egypti (score 64→68, +4)
+- take coffin at Egypti (score 68→78, +10)
 
 **Puzzle Mechanics Discovered:**
 - Moving rug in Living Room reveals closed trap door underneath — must move rug first, then open trap door
@@ -138,6 +139,7 @@
 - Maze (R18-R32): encountering the thief can result in being robbed or knocked unconscious.
 - Cellar (R11) and Attic (R10) are pitch black; requires a light source to avoid grue.
 - Treasure Room (R100): thief's hideaway; triggers immediate confrontation.
+- Entrance to Hades (R38): Contains wraiths that must be paralyzed (e.g., by ringing the bell).
 
 **Failed Approaches:**
 - `attack spirits with axe` at Entrance to Hades — same response, repeated multiple times
@@ -199,6 +201,10 @@
 - `move tool chests` at Maintenance Room (R45) fails.
 - `climb chimney` at Studio (R52) fails if carrying the sword, book, sack, knife, and bottle simultaneously.
 - `take lunch from sack` at Maintenance Room (R45) fails if inventory is too heavy.
+- `take bell` at Entrance to Hades (R38) fails if the bell is still red hot.
+- `take coffin` at Egyptian Room (R92) fails if load is too heavy (e.g., carrying guidebook and nasty knife).
+- `examine pillars` at Temple (R91) — game does not recognize the word "pillars".
+- `take all from altar` at Altar (R93) — command is not recognized as clear.
 
 **Unexplored Leads:**
 - Wooden door with gothic lettering on west wall of Living Room — appears locked/barred; skeleton key now in inventory may open it
@@ -229,3 +235,7 @@
 - Pile of leaves on the ground in the Clearing (R200).
 - Impassable mountains to the east of the Forest (R170).
 - Narrow path heading south from White Cliffs Beach (R22).
+- Passages leading east and northwest from Deep Canyon (R39).
+- Path leading north from Dam (R42).
+- Path along the stream from Reservoir South (R40).
+- Ascending staircase to the west in the Egyptian Room (R92).
