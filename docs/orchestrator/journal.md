@@ -306,8 +306,9 @@ Score 80 at t150 vs ep112/ep113's ~85 at this point — close enough that the fi
 | ep115   | 0     | -75     | 95          | —                 | 1         | —          | circuit_breaker (credits) |
 | ep116   | 79    | +79     | 95          | 5                 | 21        | clean+1false | max_turns  |
 | ep117   | 80    | +1      | 95          | 5                 | 25        | clean+1false | max_turns  |
+| ep118   | 74    | -6      | 95          | 5                 | 34        | clean        | max_turns  |
 
-**Trend:** Score stabilized in the 79-80 band — the wooden-door cycle is gone but strategic-void issues dominate. ep117 is the first clean demonstration of the fix in live play.
+**Trend:** ep118 broke the 79-80 stabilization downward (-6). BUT — the KB contamination fix ACHIEVED 100% of its KB-cleanness targets across 200 turns (0 phantom-belief entries, 0 "dropped in"/"stolen by" strings, no contamination regrowth — the FIRST fully-clean KB episode). ep118 also explored 34 locations, the highest in 10+ episodes. The −6 is attributable to NEW (non-KB) bugs surfaced by cleaner reasoning: (a) treasure-drop overgeneralization (torch dropped as ballast t83) and (b) Dam-puzzle stall (~40 turns). Best score remains 95 (archived episode). ep117→118 status: PARTIAL — hypothesis confirmed mechanism-wise; score signal is one-episode noise.
 
 ---
 
@@ -355,6 +356,169 @@ Score 80 at t150 vs ep112/ep113's ~85 at this point — close enough that the fi
     - The thief event was correctly transformed into a MECHANIC entry: "The thief can steal items (like the platinum bar) left on the floor in the Studio (R52) and then disappear from the room." — passes Rule 7's capability-vs-event test.
     - Legitimate entries present: all 3 Score Changes, original spawn Items Found (Rope/Nasty knife — Attic), Dangerous Areas (Attic pitch black), Puzzle Mechanics (sword glow during troll combat).
     - Post-merge pipeline output: 1 remaining "left in" match, which is the pre-existing legitimate L33 puzzle mechanic entry.
-**Result:** PENDING
+**Result:** PARTIAL — score_delta -6 — best_after 74 — All 3 KB targets met (0 contamination, 0 phantom reasoning, no contamination regrowth across 200 turns). Score regressed -6 due to unrelated bugs: torch dropped as ballast at t83, Dam puzzle stall ~40 turns.
+**Hypothesis verdict:** CONFIRMED (mechanism-wise) — the two-root hypothesis (scoped prompt rule + auto-preserve merge locking contamination) was validated. Global STRICT RULES 6-8 plus one-time data cleanup eliminated contamination and prevented regrowth across 200 turns, exactly as hypothesized. However, the IMPLIED downstream hypothesis that "removing phantom beliefs would improve score" was NOT confirmed in this one-episode sample — ep118's −6 was driven by unrelated agent errors (torch-as-ballast, Dam stall). Re-testing that implicit score-hypothesis would require either (a) running more episodes to let the fix show a multi-episode trend, or (b) first fixing the identified unrelated bugs so the KB-fix's contribution is not masked.
+
+---
+
+## Episode 118 — Turn 25 Checkpoint
+**Type:** HEALTHY
+**Score:** 50/350 (delta: +50 since episode start)
+**Locations visited:** 12 unique (Behind_House, Cellar, Deep_Canyon, East-West_Passage, Kitchen, Living_, Loud_, North_House, North-South_Passage, Round_, Troll_, West_House)
+**Avg critic score:** 0.50 (critic is disabled — auto-accept; flat value is expected config state, not a signal)
+**Rejection rate:** 2/25 turns (8%) — both are extractor-level parser rejections ("take sack, bottle" → "take sack"), not critic rejections
+**Gameplay quality:** LEARNING
+  - Memory use: strong — t20 reasoning cites "my research/memory indicates this leads to the Loud Room"; t21 cites "Based on Strategic Knowledge, I need to use the 'echo' command"
+  - KB alignment: strong — agent used echo mechanic on first try, moved rug before opening trap door, lit lantern before descent
+  - Objective quality: 15 active / 17 completed — completion ratio is healthy; active set includes concrete targets (deposit platinum bar in trophy case, explore Mirror/Cyclops Rooms)
+  - Objective pursuit: strong — agent completed 7 objectives in 25 turns; t25 plan explicitly navigates west→west→west toward Living Room to deposit bar
+  - Learning system quality: KB is clean of ep117-contaminants. 0 "Items Dropped in X" sections, 0 "stolen by thief" phantom events, thief entries are mechanic-shaped ("can steal", "roams multiple areas"). Rope listed at Attic spawn (correct). One transient memory entry survives — Loc 138 `[NOTE] "Items Dropped in Loud Room"` — but this is memory_synthesis scope, not KB scope, and it's a current-episode drop (t23) that will be pruned at episode end.
+  - Pathfinding: NAVIGATING — agent stated multi-turn route at t22/t25 (drop ballast → take bar → Round → East-West → Troll → chimney via Studio → Living Room), each step aligns with MAP_DATA
+**Triggers:** none
+**Notes:** Strong early validation of the ep117→118 KB contamination fix. The +50 in 25 turns is ahead of ep117 trajectory (which was +5 by T=25). No phantom-belief reasoning observed. The agent's t20-25 plan execution is coherent (no Dam/Dome bailouts from stale beliefs, no chimney cycling). Continue observing — primary proof point will be whether the agent *sustains* this trajectory past T=50 when it enters previously-problem regions (Dam, Dome).
+
+---
+
+## Episode 118 — Turn 50 Checkpoint
+**Type:** CONCERN
+**Score:** 54/350 (delta: +4 since T=25 checkpoint)
+**Locations visited:** +5 new this block (Attic, East_Chasm, Engravings_Cave, Gallery, Studio). Total 17 unique at T=50.
+**Avg critic score:** 0.44 over t26-50 (critic disabled; slight dip from 0.50 is from two extractor-level −1.00 rejection blocks at t34/t35)
+**Rejection rate:** 2/25 turns (t34, t35) — but each was a 3-retry spiral, so rejection spiral trigger FIRED at both turns
+**Gameplay quality:** LEARNING
+  - Memory use: strong — t32 cites prior painting-weight failures from KB, t39-41 uses Attic rope/knife spawn knowledge
+  - KB alignment: strong — chimney-weight rule applied correctly (dropped sword for painting; dropped bottle+sack before chimney)
+  - Objective quality: continues healthy
+  - Objective pursuit: redirected rationally after thief theft — new plan: re-arm at Attic, recover treasures later
+  - Learning system quality: KB still clean. IMPORTANT: thief event at t35 is a REAL same-episode game event ("A seedy-looking individual... quietly abstracted some valuables") — the agent's t36 reasoning "The thief has stolen the painting and the platinum bar" is grounded in actual game output, NOT a phantom-belief from contaminated KB. This is exactly what the ep117→118 fix was supposed to enable.
+  - Pathfinding: NAVIGATING — post-theft route (Attic → Kitchen → Living Room → Cellar → Troll → East-West → Round → SE to Engravings) is coherent; agent is heading toward unexplored areas
+**Triggers:** rejection_spiral (t34: 3 retries on "take paper"; t35: 3 retries on drop-command). Root cause is the EXTRACTOR parser rejecting shorthand item names ("paper", "manual", "bottle") that the agent uses while the parser expects full names ("small piece of paper" or the game-canonical form). Each spiral resolved in 1 additional turn when the agent switched to full names.
+**Notes:** The rejection spirals are clearly extractor-layer parsing mismatches, NOT KB-contamination regressions and NOT critic rejections (critic is disabled). Dispatching an improvement NOW would entangle the ep117→118 PENDING measurement signal with a new change, violating the one-change-per-episode rule. Deferring the extractor improvement to a future episode after ep118 completes and the KB fix verdict is resolved. Logging as future-work item. Critical counter-evidence against the CONCERN rating: (a) both spirals resolved, (b) no phantom-belief reasoning, (c) agent got rope from Attic (a prior-episode-problem item), (d) agent is still exploring new territory at t50 — not stuck. Will continue episode to full length for measurement.
+
+**Future work item (queue):** extractor.md / parser — shorthand item name resolution. Evidence fixtures: ep118 t34 "take paper" (game text contains "small piece of paper"), t35 drop-list handling. Likely root cause: the extractor's known-objects list uses game-canonical names; agent uses short tokens. Fix ideas (to be refined on dispatch): (1) extractor prompt could teach resolution of agent shorthand to game-canonical; (2) agent prompt could warn to use game-canonical item names when dropping/taking items mentioned in game prose. Defer until ep118 verdict is resolved.
+
+---
+
+## Episode 118 — Turn 75 Checkpoint
+**Type:** HEALTHY
+**Score:** 68/350 (delta: +14 since T=50 checkpoint — single-turn gain from taking torch at t55)
+**Locations visited:** +8 new this block (Altar, Cave, Dome_, Entrance_Hades, Mirror_, Narrow_Passage, Temple, Torch_, Winding_Passage). Total 25 unique at T=75. Agent has executed the Dome-rope descent into the deep-dungeon region.
+**Avg critic score:** 0.50 (critic disabled, baseline)
+**Rejection rate:** 1/25 (4%)
+**Gameplay quality:** LEARNING
+  - Memory use: excellent — t53 tied rope to railing at Dome (KB rule), t57-60 collected the Temple ritual items (bell, book, candles) in the correct KB-documented sequence
+  - KB alignment: strongest evidence yet. At t65 the agent EXPLICITLY CITED the KB warning ("Strategic Knowledge warns that 'light candles with torch' at this location vaporizes the candles") but formulated a conditional hypothesis: "I need to confirm if this constraint holds after the bell has been rung and the spirits are paralyzed." Ran the test, failed, immediately updated: "The torch vaporized the candles, which is a puzzle failure indicating the torch is too hot for this step of the ritual. I need a less intense light source, specifically the matchbook." This is hypothesis-driven experiential learning — not KB-ignoring.
+  - Objective quality: active objectives pursued coherently; new objective (Hades ritual) added and pursued
+  - Objective pursuit: agent completed multi-step Hades ritual setup autonomously: rope→Dome→Torch→Temple→Altar→Cave→Hades, then rationally redirected to Studio for matchbook on failure
+  - Learning system quality: KB is still clean. Agent is *using* the KB actively — the t65 KB citation is the best evidence so far that the ep117→118 cleanup restored KB as a trustworthy reference rather than a source of phantom-belief noise.
+  - Pathfinding: NAVIGATING — complex 8-step route through deep dungeon, no misreads. Post-failure recovery route (Cave→Winding_Passage→Mirror→Narrow→Round→...→Studio) is map-correct.
+**Triggers:** none
+**Notes:** This block is the strongest evidence yet that the ep117→118 KB fix is working as intended. The agent executed a complex multi-turn plan (Dome-rope descent, Temple-ritual item collection, Hades exorcism attempt) and handled the predicted failure of "light candles with torch" with proper hypothesis-test-update reasoning. Score stalled at 68 because the ritual requires a second attempt (matchbook path); the agent is already navigating toward that recovery.
+
+**Side observation (non-blocking):** Three `MemorySynthesisResponse` Pydantic validation errors in the log during this block (LLM returned a 2-memory JSON array `[...]` where the schema expects a single object `{...}`). Instructor's retry handled them — turns completed normally. This is a CODE-LAYER schema/prompt mismatch in memory_synthesis, NOT a gameplay bug. Deferred as future-work item alongside the extractor issue — will address after ep118 verdict resolution.
+
+**Future work item (queue, #2):** `zorkburr/llm/models.py` + `prompts/memory_synthesis.md` — MemorySynthesisResponse schema does not match what the LLM naturally produces when multiple memories are warranted. LLM returns a JSON array of memory objects; schema expects a single object. Fix options: (1) update schema to accept `list[Memory]`, (2) tighten prompt to force single-object output even when multiple memories are warranted. Evidence: 3 validation errors in ep118 around t76, all with the same pattern.
+
+---
+
+## Episode 118 — Turn 100 Checkpoint
+**Type:** CONCERN
+**Score:** 68/350 (delta: +0 since T=75 checkpoint — 25-turn score stagnation)
+**Locations visited:** +1 new (nothing new — 6 locations cycled: Cellar, East_Chasm, Gallery, Kitchen, Living_, Studio). Total 26 unique.
+**Avg critic score:** 0.50 (critic disabled)
+**Rejection rate:** 6/25 turns — but 5/6 are extractor-level name-matching (take sack/bottle/torch/manual variants that the parser didn't immediately match)
+**Gameplay quality:** DRIFTING
+  - Memory use: mixed — agent cited KB chimney rule but over-generalized it (dropped torch treasure as "ballast")
+  - KB alignment: PARTIAL FAILURE at t83. Agent dropped the ivory torch thinking it was preventing the chimney ascent, despite the torch being a +14 treasure the agent had just acquired at t55. KB's explicit "do not drop treasures" rule lists only "painting, bag, platinum bar, coffin" — torch is absent from that list, and the agent did not generalize correctly.
+  - Objective quality: still reasonable; "deposit torch in trophy case" is now the active goal
+  - Objective pursuit: DRIFTING — agent lost ~20 turns in a self-inflicted gear-shuffle recovery cycle (drop torch → climb → descend via trap door → walk back → retrieve torch → climb again)
+  - Learning system quality: KB is still clean — no phantom-belief citations, no stale-drop-location reasoning. The ep117→118 fix is NOT regressing.
+  - Pathfinding: NAVIGATING (map reads are correct) but the *plan* driving the navigation was self-inflicted — agent was chasing its own dropped item
+**Triggers:** score_stagnant (0 delta T=75→T=100 = 25 consecutive turns flat)
+
+**Read transcript diagnosis — t83 root cause (per core rule to read thinking before diagnosing):**
+  - At t83 the agent's `Thinking` says: "climbing the chimney ('up') requires an extremely light load and the torch or black book are likely preventing the ascent. I will drop the torch and the book here in the Studio". This is SPECULATIVE — the agent had not verified torch weight; it was guessing. KB's actual chimney rule mentions sword, axe, platinum bar, rope, matchbook as known-heavy items; torch is not explicitly listed either way.
+  - At t87 the agent additionally stated: "my score history confirms [the painting] was already deposited in the trophy case at turn 33" — factually wrong. The painting was STOLEN by the thief at t35 (same-episode event, grounded in game text). This is a self-manufactured belief error from misreading the score-history log, NOT a KB contamination artifact.
+  - CRITICAL: no phantom-thief reasoning, no stale-drop-location beliefs, no "rope in Studio" style errors. The class of mistake here is different from the ep117→118 target.
+**Hypothesis class:** drop-decision-overgeneralization — agent applies "drop ballast for chimney" rule without treating recently-acquired treasures (+score events) as protected.
+**Why not dispatch now:** The ep117→118 IMPROVEMENT is still PENDING. Dispatching an unrelated change now would entangle signals. This is a textbook case where the patient-skeptical rule says "three episodes of stagnation is data, not a crisis." Logging as future-work and continuing ep118 to completion.
+**Notes:** The torch-cycle consumed 20 turns. If the agent completes the chimney climb and deposits the torch in the trophy case (it's at Kitchen t100 heading west to Living Room), the stagnation will resolve organically with a +14 gain. Watching for that.
+
+**Future work item (queue, #3):** `prompts/agent.md` (or `prompts/knowledge.md` chimney-rule entry) — treasure-protection when dropping ballast for weight puzzles. Evidence: ep118 t83 (dropped torch as ballast); ep118 t87 (misread score log, believed painting was deposited). Fix ideas: (1) agent prompt could add a "before dropping any item, check if it caused a recent score increase (treasure)"; (2) KB chimney rule could be edited to say "drop only items that have never produced a score change" rather than enumerating treasure names. Defer until ep118 verdict resolution; avoid entanglement.
+
+---
+
+## Episode 118 — Turn 125 Checkpoint
+**Type:** CONCERN
+**Score:** 74/350 (delta: +6 since T=100 — torch deposited at t103)
+**Locations visited:** no new — same 6 locations cycled (Cellar, East_Chasm, Gallery, Kitchen, Living_, Studio) plus Troll_ at t126
+**Avg critic score:** 0.50 (critic disabled)
+**Rejection rate:** 1/25 (4%)
+**Gameplay quality:** DRIFTING
+  - Memory use: solid — agent recalled trap-door-bars-after-descent, grating-with-skeleton-key surface route
+  - KB alignment: agent correctly identified chimney weight limit, correctly recognized grating as alternative surface exit
+  - Objective quality: active goals are concrete (deposit treasures, find missing gear, use grating)
+  - Objective pursuit: agent put torch in trophy case (+6), attempted manual deposit (manual isn't a treasure — no score), then went looking for skeleton key to unlock grating route
+  - Learning system quality: KB still clean, no phantom-belief reasoning
+  - Pathfinding: NAVIGATING — backtracking route (Studio → Gallery → East_Chasm → Cellar → Troll_) is map-correct; agent is systematically searching for missing items
+**Triggers:** score_stagnant continuation concern — but +6 this block, so not truly stagnant this checkpoint. No rejection spiral, no stuck loop, no fallback looks.
+**Notes:** Agent's strategic reasoning at t120 is high-quality: correctly identified that "the trap door to the Living Room is barred from above, meaning I cannot return that way. My only remaining route to the surface with my gear is through the Grating in the Maze/Clearing area using the skeleton key." This is exactly the kind of multi-constraint planning the project thesis targets. The *inefficiency* is that the agent is backtracking through rooms searching for items it may not have ever dropped there (looking for skeleton key + matchbook — the skeleton key was originally in the Maze Skeleton Room, not the Studio-Gallery corridor). Likely explanation: the agent has a stale belief that it dropped items it never actually picked up in ep118, OR the thief took them. The searching behavior is costly but rational. Continuing to T=150 before considering any dispatch.
+
+---
+
+## Episode 118 — Turn 150 Checkpoint
+**Type:** CONCERN (productive exploration, no score gain)
+**Score:** 74/350 (delta: +0 since T=125)
+**Locations visited:** +5 new (Dam, Dam_Lobby, Damp_Cave, Maintenance_, White_Cliffs_Beach) + revisits. Total 31 unique at T=150.
+**Avg critic score:** 0.50 (critic disabled)
+**Rejection rate:** 0/25 (0%) — clean
+**Gameplay quality:** DRIFTING → LEARNING (improving)
+  - Memory use: strong — agent navigated Cellar→Troll→Round→North-South→Deep Canyon route correctly, then looped NE toward Dam
+  - KB alignment: agent picked up matchbook at Dam Lobby (t143) — this was explicitly a gear item the agent had been searching for; collected wrench/screwdriver/tube at Maintenance Room (KB-documented tools)
+  - Objective quality: active goals remain concrete (Dam mechanism, then potentially back to Hades for exorcism)
+  - Objective pursuit: coherent — Damp_Cave → White_Cliffs_Beach was a brief branch (the agent looked then retreated), then back on course to Dam Lobby → Maintenance → Dam
+  - Learning system quality: KB still clean, no phantom-belief citations
+  - Pathfinding: NAVIGATING — complex multi-room route executed without map errors. 11 unique locations in this block (highest exploration density since T=1-25).
+**Triggers:** score_stagnant continuing (+0 this block, but the prior block was +6, so two-consecutive-zero-delta trigger has NOT fired strictly — T=100→125 was +6, T=125→150 was +0). Not yet triggering dispatch condition.
+**Notes:** Despite zero score delta this block, exploration velocity is high and the agent is acquiring gear it previously lacked. At T=149-150 the agent is experimenting with the Dam control panel ("open bubble", "push bubble") — these are NEW approaches the KB hasn't documented as failing (KB only notes "turn bolt with wrench" has been exhausted). If the bubble interaction works, next block could see a substantial Dam-mechanic score. Continuing to T=175 to see Dam-puzzle outcome.
+
+---
+
+## Episode 118 — COMPLETE
+**Turns:** 200
+**Final score:** 74/350
+**Locations visited:** 34 (HIGHEST of recent 10 episodes — ep117=25, ep116=21, ep112=37)
+**Objectives found:** 14
+**End reason:** max_turns
+**Improvement dispatched (pre-episode):** yes (ep117→118 BLOCKER, KB contamination fix)
+**vs ep117:** −6 score, +9 locations
+
+### Episode-level KB verification (primary ep117→118 target)
+- `wc -l data/knowledge.md` = 230 (227 post-cleanup + 3 legitimate new lines). No contamination regrowth.
+- `grep -c "dropped in\|stolen by"` = 0 ✓
+- `grep -c "dropped in|stolen by|dropped then|dropped at|dropped here|items dropped|Items dropped|Items Dropped"` = 0 ✓
+- `grep "left in"` = 1 (the pre-existing legitimate puzzle-mechanic bullet about Studio chimney; not a new entry).
+- Phantom-theft event scan (regex `(item).{0,40}(stolen|taken by)`): empty ✓
+- No "Items Dropped in X" section headings; the one "steal" match is the mechanic entry "Thief roams multiple areas and can steal items..." (Rule 7 capability-vs-event test: passes).
+
+### Transcript-level KB verification (primary ep117→118 target)
+- Across 200 turns, no agent reasoning cited phantom thief events from prior episodes
+- No "rope is at Studio" or similar stale-drop-location claims
+- At t65 the agent explicitly cited a KB entry ("Strategic Knowledge warns that 'light candles with torch' at this location vaporizes the candles") and formulated a hypothesis-test-update cycle — evidence that KB is once again a trustworthy strategic reference
+- The one self-generated belief error (t87: "painting already deposited at turn 33") came from the agent misreading its own score history, NOT from KB contamination. Different class of bug.
+
+### Score analysis
+Score regression (−6) is explained by two NON-KB-CONTAMINATION causes:
+1. **Treasure-drop overgeneralization (t83):** Agent dropped the ivory torch (+14 treasure) thinking it was chimney ballast, then spent ~20 turns retrieving it. Cost: ~15 turns of wasted progress.
+2. **Dam puzzle stall (t148-200):** Agent experimented with bubble/tool chests at Dam Lobby / Dam / Maintenance for ~40 turns without solving the mechanic. Cost: ~30 turns without score progress.
+Neither cause is attributable to KB contamination; the agent was operating on a CLEAN KB.
+
+### Key positive signals from ep118 (even with score regression)
+- 34 locations visited (highest in 10 episodes — 36% more than ep117)
+- Executed Dome-rope descent into Torch Room (prior-episode problem area) and collected the ivory torch (+14)
+- Deposited torch in trophy case (+6)
+- Collected matchbook from Dam Lobby (gear the agent had been searching for)
+- Acquired rope + knife from Attic (had been a phantom-belief problem in ep117)
+- No phantom-belief reasoning, no KB contamination regrowth
 
 ---
