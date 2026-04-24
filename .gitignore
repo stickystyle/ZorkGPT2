@@ -9,9 +9,7 @@ data/*.bak
 *.egg-info/
 dist/
 .burr/
-docs/orchestrator
-!docs/orchestrator/journal.md
-!docs/orchestrator/journal_archive.md
+docs/orchestrator/run_log_*.txt
 .playwright-mcp/
 MagicMock/
 models/
