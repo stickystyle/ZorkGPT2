@@ -934,6 +934,223 @@ This kind of pun-recognition / lexical-hint extraction is **not** in any prompt 
 
 ---
 
+## Episode 121 — Turn 25 Checkpoint (max_turns=200, app `dbb85185`)
+**Type:** HEALTHY
+**Score:** 50/350 at T=26 (delta: +50; Kitchen +10 t5, Cellar +25 t13, Troll +5 t18, **Loud Room platinum bar +10 t26**)
+**Locations visited:** ~10 (West House, North House, Behind House, Kitchen, Living Room, Cellar, Troll Room, East-West Passage, Round Room, North-South Passage, Deep Canyon, Loud Room)
+**Avg critic score:** 0.50
+**Rejection rate:** 2/25 (t6 take sack force-accept, t12 light lantern force-accept; both routine)
+**Gameplay quality:** LEARNING
+  - Memory use: KB and memories applied — agent went to Loud Room and used `echo` immediately (KB has the echo + bar take pattern)
+  - KB alignment: textbook
+  - Objective quality: well-formed
+  - Objective pursuit: agent prioritized the Loud Room bar (the score thread ep120 hit at t99-100 too late to take)
+  - Pathfinding: NAVIGATING — direct route Round → N-S Passage → Deep Canyon → Loud Room
+**Triggers:** none
+
+**Strategic divergence from ep120 (different valid path):**
+- ep120: prioritized Attic→rope→Dome→Torch+sceptre+coffin first, deposit run at t77, egg at t82-90
+- ep121: prioritized Loud Room platinum bar first (+10 at t26 vs ep120 missing this entirely)
+- This is the agent reading recent memories — ep120's KB will have recorded the bar take, and ep121 used it. **Cross-episode learning visible in routing decisions.**
+
+**Rule 5 — fired at t25 cleanly:**
+- t25 "drop bloody axe, sword, leaflet" — sword/axe/leaflet are UNPROTECTED (no score events this episode); painting/torch/sceptre/coffin not yet collected so no PROTECTED items in inventory at that moment. Drop succeeded, bar then taken at t26 for +10.
+
+**Notes:** ep121 is faster than ep120 by ~15 turns to reach score 50 (ep120 hit 50 at t41; ep121 at t26). Different scoring path but same Rule 5 mechanism. With max_turns=200 and 174 turns remaining, ep121 has the runway to extend toward 130+ if the chain continues. Continue monitoring.
+
+---
+
+## Episode 121 — Turn 50 Checkpoint
+**Type:** CONCERN — thief setback at t37 (game variance, not system defect)
+**Score:** 54/350 (delta: +4 since T=25 — painting +4 t35; thief stole painting + bar at t37 during chimney prep, no further score events)
+**Locations visited:** ~14 (added East Chasm, Gallery, Studio, Kitchen via chimney, Maze)
+**Avg critic score:** 0.50
+**Rejection rate:** 1/25 (t37 single retry on parser ambiguity)
+**Gameplay quality:** LEARNING (recovery reasoning was correct despite the setback)
+  - Memory use: agent immediately recognized the theft and pivoted to recovery plan
+  - KB alignment: cyclops-Treasure-Room recovery path is in KB; agent attempted it
+  - Objective quality: 25 completed including new "Recover stolen treasures from thief's hideaway"
+  - Pathfinding: NAVIGATING — fallback to Maze→skeleton-key→back-route is rational
+**Triggers:** none
+
+**The thief event (t37 Studio):**
+- Agent at t36-37 was in Studio carrying painting + bar + lantern + bottle + sack, executing the standard chimney prep (drop UNPROTECTED bottle/sack, keep treasures + lantern).
+- t37 game response: *"A seedy-looking individual with a large bag just wandered through the room. On the way through, he quietly abstracted some valuables from the room and from your possession..."*
+- Thief stole painting AND platinum bar from inventory. Score 54 unchanged (the take credit was already earned; deposit credit lost).
+- Net cost: ~+11 deposit gain forfeited (painting +6 + bar +5).
+
+**Why this is NOT a system defect:**
+- The KB warns about thief in Studio. Agent had relevant context.
+- Thief appearances have stochastic timing — the agent passed through Studio at the wrong moment.
+- ep120's "deposit-then-collect" strategy was safer in retrospect; ep121's "collect-then-deposit" exposed treasures longer.
+- This is a strategic-tradeoff outcome, not a reasoning failure. Both strategies are valid; ep121 got unlucky.
+
+**Recovery plan (agent's, not orchestrator's):**
+- t40-41: Attempted cyclops-shaped opening (door nailed shut — cyclops not yet chased off this episode)
+- t42-46: Fell back to standard route — descend trap door → Cellar → Troll Room
+- t47-50: Maze navigation toward skeleton room (R167) for skeleton key + leather bag (+10)
+- Stated end goal: get to Treasure Room via cyclops ulysses route to recover stolen items + the thief's bag
+
+**Notes:** This is the first thief encounter in this orchestrator session. Per the 3-strikes rule, no improvement is dispatched on a single occurrence. The recovery plan is well-formed. If the agent successfully reaches Treasure Room and recovers items, ep121 could still score competitively. Continue monitoring.
+
+---
+
+## Episode 121 — Turn 75 Checkpoint
+**Type:** CONCERN — extended Maze navigation, score plateau
+**Score:** 64/350 (delta: +10 since T=50 — Maze bag take +10 at t51, then no change for 25 turns)
+**Locations visited:** ~16 (added Skeleton Room R167, Dead End R66, multiple Maze rooms)
+**Avg critic score:** 0.50
+**Rejection rate:** 1/25 (t60 nav rejection)
+**Gameplay quality:** LEARNING (plan coherent, navigation slow)
+  - Memory use: agent cites specific room IDs (R33 Grating Room, R67-70 Maze cluster, R167 skeleton room) from KB
+  - KB alignment: applies "Grating Room exits to Clearing via skeleton key" rule
+  - Objective quality: well-formed
+  - Pathfinding: WANDERING-but-purposeful — exploring Maze connectivity to find unmapped path to R33
+**Triggers:** Maze cluster has 8 consecutive turns at same `loc=Maze` reading (threshold 10) — not yet triggered
+
+**Agent's revised plan (post-thief):**
+- Original plan (t41): Recover stolen treasures via cyclops shortcut → blocked because cyclops puzzle not yet solved this episode
+- Revised plan (t63 onward): Exit via Grating Room (R33), deposit bag (+5), then continue scoring path
+- t64-76: Systematic Maze exploration to find R33 — agent has discovered R66 (Dead End), confirmed R67-R70 loop, returned to R167 for rusty knife
+- Cost so far: 25 turns of Maze navigation with no scoring
+
+**Strategic tradeoff (orchestrator-level observation, not steering):**
+- Agent gave up on +11 thief-recovery gain (painting +6 + bar +5) in favor of +5 bag deposit
+- This is a defensible call given the cyclops-puzzle prerequisite, but the bag detour is expensive
+- ep120's path didn't get the bag at all (skipped Maze entirely), trading ~+10 take + ~+5 deposit for cleaner deposit-then-recollect cycles
+- Implication: Maze entry has high turn cost; only worth it if the bag take + grating exit chain plays out smoothly
+
+**Notes:** Score 64 vs ep120's 64 at T=50 — same checkpoint score, different paths. ep121 spent more turns on maze setup, ep120 spent them on Egyptian Room descent. With 124 turns remaining, ep121 has runway. If agent finds grating exit in next 10-15 turns, deposit chain can resume. If maze navigation extends past T=100 without R33 found, this becomes URGENT (stuck-loop trigger). Continue monitoring.
+
+---
+
+## Episode 121 — Turn 100 Checkpoint
+**Type:** CONCERN — score 46 behind ep120 at same turn
+**Score:** 69/350 (delta: +5 since T=75 — bag deposit at t91; vs ep120 T=100 = 115)
+**Locations visited:** ~17 (added Skeleton Room R167, Dead End R66 — minimal new mapping)
+**Avg critic score:** 0.50
+**Rejection rate:** 3/25 (12%) — t88, t97, t98 all force-accepted
+**Gameplay quality:** DRIFTING (recovering from setbacks)
+  - Memory use: still applied
+  - KB alignment: applied to chimney route
+  - Objective quality: stale ones starting to accumulate
+  - Pathfinding: WANDERING — Maze exit search abandoned at t80 after 16+ turns of fruitless exploration
+**Triggers:** **stuck-loop SELF-RESOLVED** — 11 consecutive Maze turns (threshold 10) but agent exited at t81 without intervention
+
+**Block summary (T=76-100):**
+- t76-80: 5 more Maze turns trying to find Grating Room (R33). Agent never found it.
+- t81: Pivoted to chimney exit route (Cellar → Studio → climb chimney → Kitchen → Living Room)
+- t82-89: Chimney prep — drops rusty knife, then attempts to drop skeleton key (parser confusion: "drop skeletkey" rejected, then "drop key" succeeded). Climb chimney to Kitchen. KB rule applied correctly.
+- t90-91: Living Room → open case → put bag in case → +5 deposit (score 69)
+- t92-100: Back down for second-run treasures (Cellar → Chasm → Gallery → Studio chimney loop)
+
+**Parser confusion at t87-88 (no rule violation, just noise):**
+- t87 "drop skeletkey" rejected (not a recognized noun) — single-turn parser quirk
+- t88 "drop key" force-accepted after 3 rejections — succeeded on retry
+
+**Assessment vs ep120 at T=100:**
+- ep120: 115/350 (already had deposited torch+sceptre+coffin AND egg)
+- ep121: 69/350 (only bag deposited; lost painting+bar to thief at t37)
+- Delta: −46 score; primary cause is the t37 thief encounter + 25-turn Maze detour
+- ep121's chain efficiency was hurt by collect-first strategy + bad luck on thief timing
+
+**Why no improvement dispatch:**
+- Thief encounter is stochastic game variance (single occurrence in this orchestrator session)
+- Maze stuck-loop self-resolved (agent recognized fruitless search and exited)
+- Agent reasoning remains coherent
+- 100 turns remaining for second-half scoring — too early to call episode
+
+**Realistic projection:** ep121 final score 80-95 if second-half deposit chain runs cleanly. Below ep120's 115 but still above the ep94→ep119 plateau (ep94=102, ep95-119 = 0-90). Continue monitoring without intervention.
+
+---
+
+## Episode 121 — Turn 125 Checkpoint
+**Type:** CONCERN — score stagnant for 36 turns, second Maze loop
+**Score:** 69/350 (delta: 0 since T=100 — **first stagnant checkpoint**)
+**Locations visited:** ~17 (no new locations this block)
+**Avg critic score:** 0.50
+**Rejection rate:** 0/25 (no rejections, agent making clean parser-valid commands)
+**Gameplay quality:** DRIFTING
+  - Memory use: still applied
+  - KB alignment: applied to chimney + rope retrieval
+  - Pathfinding: WANDERING — agent re-entered Maze t111-122 (12 turns) for ANOTHER Grating Room search after failing at t64-80
+**Triggers:** **stuck-loop SELF-RESOLVED again** — 9 consecutive Maze turns. **Score stagnant 1 of 2 consecutive checkpoints** (next checkpoint at T=150 would trigger dispatch if still 0 delta).
+
+**Block summary (T=101-125):**
+- t101-105: Smart pivot — went up to Attic for rope (the ep120 path the agent didn't take in first half this episode). Rope acquired.
+- t106-110: Back down via trap door to Cellar → Troll → Maze
+- t111-122: Maze 2nd attempt at Grating Room — STILL failed to find R33. Visited same Dead End at t120.
+- t123-125: Exiting Maze via Troll → Cellar → East Chasm
+
+**Concerning pattern:** The agent has now spent ~25 cumulative turns in Maze across two attempts, both seeking the Grating Room (R33), neither successful. The R33 connection is not in MAP_DATA so the agent can't use the BFS routing — it's brute-force exploring a 9-room maze cluster.
+
+**Why no dispatch yet:**
+- Per orchestrator rules, score stagnation triggers at "2 consecutive checkpoints with 0 delta". This is the 1st.
+- Agent's reasoning is still coherent — it has a plan (rope acquired at t105 indicates strategic memory of ep120-style chains).
+- 75 turns remain. If agent commits to Dome→Torch chain post-Maze-exit (rope is now in hand), there's still scoring runway.
+
+**Watch list for T=150:**
+- If agent pursues Dome→Torch with rope (via Cellar→Troll→E-W→Round→Engravings→Dome): expected +14 torch take + possibly +4 sceptre + +10 coffin = up to +28
+- If agent re-enters Maze a third time for Grating Room: dispatch trigger (3 consecutive failed attempts on the same task = root-cause investigation needed)
+- If agent does compound chimney loop without rope-Dome use: score likely caps in the 80-90 range
+
+---
+
+## Episode 121 — COMPLETE (regression vs ep120)
+**Turns:** 200 (max_turns)
+**Final score:** 69/350 (vs ep120 = 115; **−46 regression**)
+**Locations visited:** 28
+**Objectives found:** 15
+**End reason:** max_turns (clean run, no death, no crash)
+**Memory stats:** total=186, new=28, dedup_rejected=7, superseded=8, consolidated=4
+
+### Score path summary
+- t1-26: Standard opener through Loud Room +10 bar take (score 50)
+- t27-35: Cellar → East Chasm → Gallery → painting +4 (54)
+- **t37: THIEF stole painting + bar in Studio** (score remained 54 — take credits already earned, deposit gain forfeited)
+- t38-91: Maze for skeleton key + bag (+10 → 64), grating-room search FAILED, eventual chimney exit, bag deposit +5 (69)
+- **t91-200: Score stuck at 69 for 109 turns** — 109 turns = 54.5% of episode budget burned in stagnation
+
+### Diagnosis (from transcript reads at t127-141, NOT trajectory pattern alone)
+
+**Root cause: phantom turn-limit hallucination driven by misleading prompt template.**
+
+Agent's verbatim `thinking` at multiple turns:
+- t128: *"I am in the Studio (R94) with **4 turns remaining in the episode**."*
+- t129: *"I am in the Studio with **3 turns remaining**."*
+- t131: *"**The episode ends in 1 turn** if I do not obtain a score increase."*
+- t132: *"The game warns that **the episode ends in 0 turns** if no progress is made."*
+- t135: *"the **turn limit warning**, I need a scoring event immediately."*
+- t139: *"The turn limit is critical (**−7 turns**)."*
+
+But ep121 actually had 72+ turns remaining at t128. The phantom limit drove every bad decision:
+- t128 drop rope (irrational at "3 turns left", rational with 72 turns budget)
+- t131 deposit non-treasure skeleton key (panic-deposit trying to score)
+- t140 bail on Dome (no rope because dropped at t128 due to phantom limit)
+- t141-200 erratic Dam-region exploration (all under phantom-limit pressure)
+
+**Source identified:** `zorkburr/actions/context.py:234` injects this section into the agent's formatted context when `turns_stuck >= 35`:
+```
+**CRITICAL: Episode ends in 4 turns if no progress! Try something completely different.**
+```
+The agent reads this LITERALLY as an episode-end countdown. `burr_context.py --turn 128` confirmed this section was present in t128's context.
+
+**The text is also factually wrong in this code path:** `run_episode.py` does NOT enforce the stuck-halt (only `zorkburr/main.py` does). ep121 ran the full 200 turns despite `turns_stuck` reaching 100+. So the warning was misleadingly worded AND factually false.
+
+### Why this passed undetected through ep120
+ep120 max_turns=100 had no extended stagnation (score moved every ~5 turns until the very end). The CRITICAL warning was only injected for ~5 turns at the end of ep120, after most scoring was done. ep121 max_turns=200 + thief setback created the conditions for the CRITICAL warning to fire DURING active play, where it actively poisoned reasoning.
+
+### Why this is NOT a Rule 5 blind-spot bug (initial misdiagnosis)
+My first hypothesis from the trajectory pattern was "Rule 5 misclassifies functional non-scoring items (rope) as UNPROTECTED." That hypothesis was WRONG — the agent's `thinking` showed the rope drop was driven by phantom-limit panic, not Rule 5 misclassification. **The Core Rule on reading transcripts before diagnosis caught this misdiagnosis.** Rule 5 still works correctly; the bug is upstream in context assembly.
+
+### Improvement dispatch (BLOCKER)
+A general-purpose subagent will be dispatched to fix the misleading warning text in `zorkburr/actions/context.py`. This is a Python pipeline bug fix (broken instrumentation feeding bad signal to agent), authorized per the brief template's clause "fixing a bug in the pipeline (wrong logic, missing data, silent errors)". The fix:
+- Reword "Episode ends in N turns" → "No score progress for X turns" (factually accurate, doesn't imply hard time limit)
+- Both CRITICAL and WARNING tier wordings updated
+- Validated via fixture replay against ep121 t128 (problem) and ep120 t30/t34 (healthy regression)
+
+---
+
 ## META REVIEW — after ep120 (5-episode boundary, Phase 5)
 **Improvements analyzed:** 2 total in jsonl, 2 resolved, 0 pending.
 **Verdict distribution (by subsystem):**

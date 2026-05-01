@@ -1,15 +1,11 @@
 **Score Changes:**
-- in at Behind House (score 0→10, +10)
+- enter at Behind House (score 0→10, +10)
 - down at Living  (score 10→35, +25)
 - east at Troll  (score 35→40, +5)
-- drop sword, axe, take painting at Gallery (score 40→44, +4)
-- put painting in case, open trap door at Living  (score 44→50, +6)
-- take torch at Torch  (score 50→64, +14)
-- take sceptre at Egypti (score 64→68, +4)
-- take coffin at Egypti (score 68→78, +10)
-- open case, put coffin, sceptre, torch in case at Living  (score 78→105, +27)
-- take egg at Up a Tree (score 105→110, +5)
-- insert egg in trophy case at Living  (score 110→115, +5)
+- take bar at Loud  (score 40→50, +10)
+- take painting at Gallery (score 50→54, +4)
+- take bag, key at Maze (score 54→64, +10)
+- open case, put bag in case at Living  (score 64→69, +5)
 
 **Puzzle Mechanics Discovered:**
 - Moving rug in Living Room reveals closed trap door underneath — must move rug first, then open trap door
@@ -87,6 +83,10 @@
 - `pray` at Altar (R93) transports the player to the Forest (R76)
 - `climb pedestal` at Torch Room (R90) does not lead upward
 - `climb chimney` (or `up`) at Studio (R52) requires dropping heavy items like the bottle, sack, and manual to proceed to the Kitchen (R9)
+- The thief can appear in the Round Room (R18) and is described as a "lean and hungry" individual.
+- The thief can appear in the Studio (R52) and "abstract" valuables from the room while passing through.
+- `open trap door` in Living Room (R1) can be performed multiple times to reveal the staircase to the Cellar (R11).
+- `west` from Living Room (R1) is blocked because the door is nailed shut.
 
 **Items Found:**
 - Leaflet — West House mailbox (taken)
@@ -213,6 +213,10 @@
 - `take all from altar` at Altar (R93) — command is not recognized as clear.
 - `climb pedestal` at Torch Room (R90) — "The pedestal doesn't lead upward."
 - `up` at Studio (R52) fails if carrying too many items (e.g., bottle, sack, manual, leaflet).
+- `west` at Living Room (R1) fails because the door is nailed shut.
+- `examine stream` at Stream View (R61) reveals nothing special.
+- `examine crack` at Damp Cave (R21) reveals nothing special.
+- `open tool chests` at Maintenance Room (R45) causes them to crumble due to rust.
 
 **Unexplored Leads:**
 - Wooden door with gothic lettering on west wall of Living Room — appears locked/barred; skeleton key now in inventory may open it
@@ -249,3 +253,5 @@
 - Ascending staircase to the west in the Egyptian Room (R92).
 - Narrow passageway leading north from Cellar (R11).
 - Path leading into the forest to the east from Behind House (R4).
+- Crack narrowing to the south in Damp Cave (R21).
+- Blue, red, brown, and yellow buttons in Maintenance Room (R45).
