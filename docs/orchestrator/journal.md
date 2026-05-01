@@ -2,21 +2,24 @@
 
 Started: 2026-03-30
 
-## Key Learnings (updated after episode 117)
+## Key Learnings (updated after episode 120)
 
-**Current best score:** **102/350 (ep94)** — unbeaten. Recent 10 episodes range 0-90; ep112/ep113 tied at 89 as the current reproducible ceiling. ep117 = 80 with the stale-verdict fix fully validated.
-**Current bottleneck:** **Strategic-void / commit-to-plan.** Post-initial-deposit-run, agents have KB + objectives but no executed high-value plan. Recent manifestations: ep116 gear-shuttle + thief-no-pursuit (35+ turns wasted), ep117 Dam-wandering (22 turns) + Dome-without-rope (2 visits, never fetched rope). The agent "knows" multi-step chains (Attic→rope→Dome→Torch Room = +14, Cyclops via ulysses = thief recovery route) but doesn't execute them. Not a KB problem — an execution-commitment problem.
+**Current best score:** **115/350 (ep120)** — NEW all-time best, unseating ep94's 102 after a 25-episode plateau.
+**Current bottleneck:** **Episode length.** ep120 reached 115/350 at t100 with multiple unfinished scoring threads (Dam puzzle reached at t99, Hades unreached, thief unpursued). max_turns=100 was the binding constraint, not agent capability. The "strategic-void / commit-to-plan" bottleneck flagged after ep117 has been resolved by the ep118→119 Rule 5 fix combined with the ep117→118 KB cleanup — agent now executes multi-step chains (Attic→rope→Dome→Torch+Coffin+Sceptre→deposit→tree-egg→deposit) cleanly.
 **Model stack (current):** agent + critic + knowledge + memory all on `remote/google/gemini-3-flash-preview`; objective_model on local `mistralai/ministral-3-14b-reasoning`; extractor removed; critic bypassed (`enable_critic=false`).
-**Session velocity:** ~3 turns/min (~22s/turn). A full 200-turn episode runs in ~60-70 min.
+**Session velocity:** ~3 turns/min (~22s/turn). A 100-turn episode runs in ~30 min.
 
 ### What works (confirmed wins, most recent first)
-- **ep116→117 stale-verdict stop-gate** (commit `1baeaf2`): engine-grounded-vs-inferred-mechanism discriminator in `prompts/agent.md`. KB entries with quoted engine responses (e.g., `"It doesn't seem to work"`) are ineligible for re-verification; inferred-mechanism entries (e.g., `torch vaporizes candles`) remain eligible for one-shot. ep117: 0 wooden-door attempts in 200 turns vs 5 in ep116. **IMPROVED** (fully confirmed in live play).
-- **ep113→114 stale-verdict verification** (initial introduction): adds one-shot re-verification for KB failure entries. **PARTIAL** — first-fire correctness confirmed via fixture replay; live-play true-positive case (Hades candles) still untested across ep114, ep116, ep117 (agent never reached Hades).
-- **ep110→111 NEW_OBJECTIVE wiring + cap hotfix** (BLOCKER): agent's per-turn objective proposals now correctly merge into DISCOVERED_OBJECTIVES with priority-safe insertion.
-- **ep93→94 visibility bundle** (BLOCKER): completed-objectives rendering + score-event timeline + nav_target BFS + inventory_changed memory trigger. Delivered the ep94 102-point ceiling.
-- **ep94→95 stale-route recompute** (agent.md): "planned direction missing from engine exits → mark STALE and replan". Behaviorally confirmed every episode.
-- **ep98→99 extract_info deletion + map_graph forward-only edges**: pipeline simplification, ~1 LLM call/turn saved, one-way passages no longer fabricate reverse edges.
-- **ep96→97 critic model swap** Ministral→gemini-3-flash (then disabled ep97→98): programmatic critic is sufficient; LLM critic was net cost at model parity.
+- **The cumulative ep116-119 stack** validated by ep120 (115/350): three structural fixes plus zero new dispatches in this session produced a +37 lift over the prior session-best (ep119=78). The breakthrough did not come from a clever new prompt — it came from the agent finally having clean state to operate in.
+- **ep118→119 Rule 5 (pre-drop audit)** — Agent enumerates each drop candidate against the engine-recorded Score Changes section before any drop. Three clean firings in ep120 (t30, t34, t57), zero treasures dropped, painting/torch/sceptre/coffin all preserved through chimney + altar pinch points. **IMPROVED** verdict reaffirmed at ep120.
+- **ep117→118 KB contamination cleanup** — Strict no-drops rule lifted to all KB sections + one-time data cleanup. Zero phantom-theft beliefs in ep120 reasoning. **PARTIAL** verdict at the time, **fully validated** in ep120 (the contamination was the precondition that had to be resolved before Rule 5 could land cleanly).
+- **ep116→117 stale-verdict stop-gate** — Engine-grounded vs inferred-mechanism discriminator. Zero wooden-door waste in ep120 (vs 5 in ep116). Saves ~10-15 turns per episode.
+- **ep94→95 stale-route recompute** — "planned direction missing from engine exits → mark STALE and replan". Behaviorally confirmed every episode.
+- **ep93→94 visibility bundle** — completed-objectives rendering + score-event timeline + nav_target BFS + inventory_changed memory trigger. Foundational; Rule 5 reads the score-event timeline this introduced.
+- **ep98→99 extract_info deletion + map_graph forward-only edges** — pipeline simplification, ~1 LLM call/turn saved, one-way passages no longer fabricate reverse edges.
+
+### Emergent (in-context) capability — new as of ep120
+- **Lexical-hint puzzle solving.** Agent at ep120 t68 inferred `pray` from the engine's "you haven't a prayer of getting the coffin down there" message — without it being in the KB. This is general-reasoning capability of the underlying model showing through, and it will scale with model improvements. Not a prompt fix to celebrate; a capability to leverage.
 
 ### Falsified hypotheses
 - **"Sonnet 4.6 works for secondary subsystems"** — FAILED ep85-86.
@@ -25,21 +28,22 @@ Started: 2026-03-30
 - **"At gemini/gemini parity, the LLM critic still adds value"** — FAILED ep97-98.
 - **"Temperature 0.7 reduces variance"** — FAILED ep47.
 - **"50-turn prompt changes can fix model KB-following"** — FAILED ep39-41 (code bug, not prompt).
+- **"Strategic-void requires a new agent.md commit-to-plan rule"** — FALSIFIED at ep120: the strategic-void was a downstream symptom of KB contamination + drop-decision noise, not a separate problem. Once those upstream causes were cleared (ep117→118 + ep118→119), commit-to-plan emerged naturally without a dedicated rule.
 
 ### Open problems (ordered by current impact)
-1. **Strategic-void / commit-to-plan — THE current top priority.** Agent has KB + objectives but doesn't execute multi-step high-value chains. Concrete: Attic→rope→Dome→Torch Room (+14), Cyclops ulysses route to Treasure Room (thief recovery), Hades exorcism. Candidates: (a) objectives prioritization — rank by expected score; (b) commit-to-chain rule in agent.md — when objective X requires prerequisite Y which is N steps away, don't drop the chain mid-execution.
-2. **Hades candle test unreached** — ep113→114 fix's intended true-positive case. Requires Hades-reaching episode which requires (a) above.
-3. **Dam puzzle unsolved** — 150+ cumulative turns across session, zero score. Known dead-weight zone. Programmatic validator misparses some compound takes.
-4. **Thief-pursuit never executed** — Cyclops ulysses shortcut in KB; not attempted recently.
-5. **data/map.json false reverse edges** from ep1-98 still present; forward-only fix stopped accumulation but didn't wipe existing data.
+1. **max_turns=100 is the binding constraint at the new score ceiling.** ep120 had multiple unfinished threads at t100: Dam puzzle entered at t99 (echo at Loud Room queued), bar deposit setup, possible thief pursuit. Consider running ep121 at max_turns=200 to test whether second-half scoring extends to 130-150.
+2. **Hades exorcism unreached** — ep113→114 fix's intended true-positive case. Now within reach if max_turns extended; bell currently dropped at Egyptian Room t57 (Rule 5 opportunity-cost call), would need to be re-acquired.
+3. **Thief-pursuit never executed** — Cyclops ulysses shortcut in KB; ep120 didn't attempt it because the deposit chain was higher-value at the turn budget available.
+4. **Dam puzzle unsolved** — agent reached Loud Room at t99 with `echo` queued, truncated by max_turns. May resolve naturally with longer episodes.
+5. **data/map.json false reverse edges** from ep1-98 still present; forward-only fix stopped accumulation but didn't wipe existing data. Low-priority unless routing errors surface.
 
 ### Subsystems investigated (current totals)
-- Agent prompt: ~22 changes, last ep116→117 (stale-verdict stop-gate). Next target: strategic commit-to-plan.
+- Agent prompt: ~22 changes, last ep118→119 (Rule 5 pre-drop audit). **No change needed for next episode** — let cumulative stack continue.
 - Critic prompt: 3 changes total, last ep7. Now bypassed.
-- KB/memory system: ~13 changes, last ep96→97.
+- KB/memory system: ~14 changes, last ep117→118 (contamination cleanup + STRICT RULES expansion).
 - Python pipeline: ~13 changes, last ep98→99.
 - Model stack: 6 switches total, current = gemini-3-flash for agent/critic/knowledge/memory, Ministral for objectives.
-- Infrastructure: circuit breaker, max_turns=200, WAL mode, map_graph forward-only edges.
+- Infrastructure: circuit breaker, max_turns=100 (current), WAL mode, map_graph forward-only edges.
 
 ### What works (session-level confirmed wins)
 - **ep92→93 memory_model swap Ministral→gemini-3-flash** (commit era). mem_new grew 2→24→49→31 across ep92-95. Learning loop alive.
@@ -739,5 +743,214 @@ Neither cause is attributable to KB contamination; the agent was operating on a 
 4. MemorySynthesisResponse schema mismatch (ep118 ~t76 validation errors — LLM returns array, schema expects object).
 
 **User note:** Session was running under `/zork-orchestrator`. Credit cascade forced termination at ep119 t129. Current KB state: clean (0 contamination entries). Current best score this session: 78 (ep119). All-time best: 95 (archived episode). Termination condition "3 consecutive HEALTHY + new best beating prior session best" NOT met — ep118 had CONCERN blocks and ep119 terminated early. External constraint (credits) is the terminating factor.
+
+---
+
+## Episode 120 — ABORTED (disk full)
+**Turns:** 12 (crashed)
+**Final score:** 35/350 (stale — never finalized)
+**End reason:** `OSError: [Errno 28] No space left on device` raised by Burr's `_append_write_line` while writing post-run-step entry at t12.
+**Root cause:** disk volume `/dev/disk3s5` 100% full (228 GiB used / 129 MiB free). `data/burr_state.db` = 6.6 GB; user-level caches (~/.cache/uv 31 GB, ~/Library/Caches 10 GB) dominate elsewhere.
+**Improvement dispatched (pre-episode):** none — this was intended as a confirmation episode for the ep118→119 Rule 5 fix per ep119 META "Do not dispatch another agent.md INCREMENTAL yet" guidance.
+**Status:** Halted — no further episodes can run until disk space is freed. Did not modify any state files. No verdict to record (the change under test is from prior session).
+**Actionable for next session start:**
+  1. Free disk space (Burr DB and/or user caches; user-decision, not orchestrator).
+  2. Re-run ep120 as a Rule 5 confirmation episode before any new agent.md changes.
+**Resolution:** User cleaned up disk (recovered to 13 GiB free). Burr DB retained. Restarted ep120 fresh — see entry below.
+
+---
+
+## Episode 120 — Turn 25 Checkpoint (RESTARTED RUN, app `b8daebbb`)
+**Type:** HEALTHY
+**Score:** 40/350 (delta: +40 since start; on-pace with ep119 T=25)
+**Locations visited:** 10 (West House, North House, Behind House, Kitchen, Living Room, Cellar, Troll Room, East-West Passage, Round Room, Engravings Cave, Dome Room — 11 unique)
+**Avg critic score:** 0.50 (programmatic — bypassed)
+**Rejection rate:** 1/25 (4% — t7 take sack, single retry)
+**Gameplay quality:** LEARNING
+  - Memory use: excellent — agent cites rope/bottle memory at Dome Room (location 96)
+  - KB alignment: perfect — agent references "Items Found KB records rope as being in the Attic" and acts on it
+  - Objective quality: 14 active, 5 of which are explicit "retrieve rope from Attic" objectives across multiple locations (high consistency)
+  - Objective pursuit: strong — agent's T=23-25 plan directly executes the top-priority objective
+  - Learning system quality: KB clean (post-ep117/118 cleanup still holding); memories actionable
+  - Pathfinding: NAVIGATING — multi-step plan stated and executed
+**Triggers:** none
+
+**Key observation — Dome-without-rope handled correctly (the ep117 failure mode):**
+- T=22: Agent reaches Dome Room as a planned probe ("look for rope mechanisms"), not as a deposit attempt.
+- T=23: Agent reads room description, detects no rope present, cross-references KB ("the 'Items Found' KB records [rope] as being in the Attic"), explicitly notes "I have not visited the Attic this episode." Cites Torch (+14) and Coffin (+10) as the rationale for backtracking. Decision: "Begin backtracking to the Attic."
+- T=23-27: Agent executes the backtrack: Engravings → Round → E-W Passage → Troll → Cellar → south.
+- This is the **opposite of ep117** (which bailed at Dome twice without ever fetching rope). Agent is now committing to the multi-step chain Attic→rope→Dome→Torch+Coffin.
+
+**Rule 5 status:** Not yet exercised — no drop commands attempted in T=1-25 (inventory still light: 6 items, none weight-constraining yet). Confirmation pending.
+
+**Notes:** Score progression matches ep119's early arc (Kitchen +10 → Cellar +25 → Troll +5 = 40 by t18) on the same routes but reached the Dome decision point a few turns earlier. The agent's stated multi-step plan is exactly the kind of "commit-to-plan" behavior the ep117 META flagged as missing. If executed cleanly, this could match or beat ep119's 78. Continue monitoring.
+
+---
+
+## Episode 120 — Turn 50 Checkpoint
+**Type:** HEALTHY — STRONG SIGNAL
+**Score:** 64/350 (delta: +24 since T=25 — Gallery painting +4, deposit +6, Torch Room torch +14)
+**Locations visited:** ~16 unique (added East Chasm, Gallery, Studio, Attic, Kitchen via chimney, Torch Room)
+**Avg critic score:** 0.44 (one rejection cluster t32 = critic=-1.00 ×3 force-accept on "take paper")
+**Rejection rate:** 1/25 (4%)
+**Gameplay quality:** LEARNING (strongest signal of session)
+  - Memory use: textbook — agent quotes KB chimney rule explicitly
+  - KB alignment: perfect — the chimney climb worked because agent followed KB ("keep lantern, drop ballast") not just from rote
+  - Objective quality: 30 active+completed; the rope-retrieval objective auto-completed at t36, deposit at t41, Torch Room descent at t49
+  - Objective pursuit: textbook execution of multi-step chain
+  - Learning system quality: KB clean, memories actionable
+  - Pathfinding: NAVIGATING — multi-step plan stated at T=23, executed without deviation through T=50
+**Triggers:** none
+
+**Rule 5 — exercised cleanly twice this block (CONFIRMATION):**
+
+- **t30 "drop sword, axe, take painting"** — Agent thinking VERBATIM: *"A pre-drop audit of the 'Score Changes' confirms both weapons are UNPROTECTED this episode. I will drop them here to take the painting, then continue my route to the Attic via the Studio."* Painting then earned +4 (UNPROTECTED→PROTECTED transition), and Rule 5's classification was correct from this point forward.
+
+- **t34 "drop manual, bottle, sack, leaflet"** — Agent thinking VERBATIM: *"I will drop the UNPROTECTED ballast to lighten my load while keeping the painting and lantern. I will not drop the painting as it is PROTECTED (t30 +4 score)."* Cited the t30 score event by turn number — the rule isn't just firing, the agent is REASONING about it across turns.
+
+**Strategic chain executed (THE ep117 missing capability):**
+- t27-29: Cellar → East Chasm → Gallery (planned route from T=23)
+- t30: Take painting +4 (drops UNPROTECTED weapons)
+- t31-34: Studio chimney prep (drops more UNPROTECTED ballast, keeps painting+lantern)
+- t35-36: Up chimney to Kitchen, up to Attic
+- t37: Take rope, knife — **first rope acquisition this orchestrator session**
+- t38-41: Down to Living Room, deposit painting +6 (score 50)
+- t42-47: Cellar → Troll → E-W → Round → Engravings → Dome (return path)
+- t48: Tie rope to railing — **first time this orchestrator session**
+- t49-50: Down to Torch Room, take torch +14 (score 64)
+
+**Score vs prior best at T=50:**
+- ep94 (all-time best 102) at T=50: ~64 (matched)
+- ep119 (last best 78) at T=50: ~50 (+14 ahead)
+
+**Notes:** This is the session-best execution observed. The combination of (a) ep116→117 stale-verdict rule preventing wooden-door waste, (b) ep117→118 KB cleanup removing phantom theft entries, and (c) ep118→119 Rule 5 preserving treasures during chimney climbs is now demonstrably stacking — Rule 5 enabled the chimney climb at t34, which was the chokepoint that broke ep118 t83. Rule 5 confirmed load-bearing. No improvement to dispatch — let the episode continue.
+
+---
+
+## Episode 120 — Turn 75 Checkpoint
+**Type:** HEALTHY — UNPRECEDENTED REASONING SIGNAL
+**Score:** 78/350 (delta: +14 since T=50 — sceptre +4 t55, coffin +10 t58)
+**Locations visited:** ~22 (added Temple, Egyptian Room, Altar, Forest, Forest Path)
+**Avg critic score:** 0.50
+**Rejection rate:** 2/25 (t57 force-accept on coffin-weight retry, t64 single rejection on Torch Room nav)
+**Gameplay quality:** LEARNING (strongest reasoning observed in any episode)
+  - Memory use: excellent
+  - KB alignment: excellent
+  - Objective quality: rope-retrieval and Egyptian Room objectives both auto-completed cleanly
+  - Objective pursuit: textbook
+  - Learning system quality: clean
+  - Pathfinding: NAVIGATING — agent recovered from a navigation dead-end (Altar hole rejects coffin) by inferring a puzzle solution from text
+**Triggers:** none
+
+**Rule 5 — third firing this episode (t57 bell drop):**
+- t57 "drop nasty knife, bell" — Agent thinking VERBATIM: *"I have identified two unprotected items that haven't produced score changes this episode according to the Score Changes log: the nasty knife and the brass bell. The sceptre and torch are protected (t55 and t50 respectively)."* The bell COULD theoretically score later (Hades exorcism per KB), but the immediate +10 coffin opportunity took precedence. This is correct opportunity-cost reasoning — Rule 5 doesn't say "never drop", it says "audit before dropping". The agent audited and made the right call for the present scoring window.
+
+**Emergent reasoning — t68 prayer-puzzle inference (NOT in any prompt or KB):**
+- t61: Agent attempts down-from-Altar with coffin → game says "You haven't a prayer of getting the coffin down there"
+- t62-67: Agent tries west exit, climb pedestal, up — all fail
+- t68 Plan field: *"Otherwise, return to Altar and try 'pray' or 'read inscription' for clues"* — agent extracts "haven't a prayer" as a LEXICAL HINT for the `pray` command
+- t69-70: Agent navigates back to Altar
+- t71 "pray" — gets teleported to Forest WITH coffin intact (the prayer puzzle solution Zork I uses for treasure transport)
+
+This kind of pun-recognition / lexical-hint extraction is **not** in any prompt rule; it emerged from the agent's general reasoning capability over the engine's quoted text. The KB will likely record this discovery at episode end and make it reusable next episode. **This is the first time in any orchestrator-tracked episode that the agent has solved a Zork I lexical-hint puzzle without it being pre-known to the KB.**
+
+**Score path (T=51-76):**
+- t51-52: Down to Temple, take bell
+- t53-58: Egyptian Room → open coffin → take sceptre +4 (68) → drop knife+bell to lighten → take coffin +10 (78)
+- t59-67: Search for coffin-compatible exit (Altar hole rejects, Torch Room rope unreachable from below, west wall solid)
+- t68-71: Recognize "haven't a prayer" hint → pray at Altar → teleport to Forest
+- t72-76: Forest → Forest Path → North House → Behind House → Kitchen → Living Room
+
+**Deposit pending:** Agent at Living Room T=76 with torch + sceptre + coffin. Estimated deposit gains: torch +14, sceptre +6, coffin ~+20. Realistic final score: 100-115. **All-time best 102 (ep94) is at risk of being broken this turn.**
+
+**Notes:** This is now the highest-quality episode I have monitored. Three structural improvements stacked correctly (stale-verdict + KB cleanup + Rule 5) plus emergent in-context reasoning produced behavior that no single change could have achieved. No improvement to dispatch — let it run.
+
+---
+
+## Episode 120 — COMPLETE (NEW ALL-TIME BEST)
+**Turns:** 100 (max_turns)
+**Final score:** **115/350** — beats prior all-time best ep94 (102) by +13
+**Locations visited:** 25
+**Objectives found:** 14
+**End reason:** max_turns (clean run; no death, no credit cascade, no circuit breaker)
+**Memory stats:** total=166, new=17, dedup_rejected=4, superseded=4, consolidated=7
+**Improvement dispatched (pre-episode):** none — confirmation episode for ep118→119 Rule 5 per ep119 META "Do not dispatch another agent.md INCREMENTAL yet" guidance
+**vs ep119:** +37 score, −5 locations (but reached deposit-then-second-treasure-run, which ep119 never did)
+**vs ep94 all-time best:** +13 score, +2 locations
+
+### Score path
+- t1-6: West House → Behind House (open window) → Kitchen +10 (score 10)
+- t7-13: Living Room (move rug, open trap door, light lantern)
+- t14: Cellar +25 (trap door descent — score 35)
+- t15-18: Troll Room kill +5 (score 40)
+- t19-23: Engravings → Dome → recognize rope-prereq mismatch → backtrack (score 40 at T=23)
+- t27-30: Cellar → East Chasm → Gallery → painting +4 (score 44)
+- t31-37: Studio chimney climb (Rule 5 audit drops UNPROTECTED ballast, painting + lantern preserved) → Kitchen → Attic → take rope+knife
+- t38-41: Down to Living Room → put painting in case +6 (score 50)
+- t42-50: Return through Cellar/Troll/E-W/Round/Engravings → Dome → tie rope to railing → down → Torch Room → take torch +14 (score 64)
+- t51-58: Down through Temple → Egyptian Room → take sceptre +4 (68) → drop bell+knife to lighten (Rule 5 third firing) → take coffin +10 (score 78)
+- t59-71: Search for coffin-compatible exit → recognize "haven't a prayer" lexical hint at Altar → pray → teleport to Forest with treasures intact
+- t72-77: Forest Path → North House → Behind House → Kitchen → Living Room → put coffin/sceptre/torch in case → score jumps 78→**105** (+27 deposit gain on three treasures)
+- t78-83: Forest Path → Up a Tree → take egg +5 (score 110)
+- t84-90: Return → Living Room → put egg in case +5 (score **115**)
+- t91-100: Return to Cellar (take axe) → exploration toward Loud Room ("echo" attempted at t100 — bar deposit setup truncated by max_turns)
+
+### Rule 5 — confirmed load-bearing across episodes
+- Fired three times this episode (t30, t34, t57), all with correct PROTECTED/UNPROTECTED classification using canonical "Score Changes audit" / "PROTECTED" / "UNPROTECTED" language in the agent's `thinking`.
+- Zero PROTECTED items dropped. Painting carried through chimney climb without issue. Coffin preserved through Altar prayer puzzle. All four core treasures (painting, torch, sceptre, coffin) plus egg deposited.
+- The bell drop at t57 was an opportunity-cost call (bell hypothetical Hades exorcism vs immediate +10 coffin) — agent made the right tradeoff for the present scoring window.
+
+### Emergent reasoning (NEW — not in prompts)
+- **t68-71 prayer puzzle**: Agent interpreted the engine's "you haven't a prayer of getting the coffin down there" as a lexical hint pointing to the `pray` verb. Tested at Altar → teleported to Forest with treasures. **First time in any orchestrator-tracked episode that the agent has solved a Zork I lexical-hint puzzle without it being pre-known to the KB.** Knowledge base will record this for future episodes.
+
+### What this confirms (cumulative effect of stacked improvements)
+1. **ep116→117 stale-verdict stop-gate** — zero wooden-door waste in ep120 (vs 5 attempts in ep116). Gives back ~10-15 turns.
+2. **ep117→118 KB contamination cleanup** — zero phantom-theft beliefs; agent never bailed on Dome thinking rope was at a wrong location.
+3. **ep118→119 Rule 5 (pre-drop audit)** — three clean firings, zero treasures lost during weight management. Enabled the chimney climb at t34 with painting intact (the chokepoint that broke ep118 at t83).
+4. **In-context emergent reasoning** — the prayer puzzle wasn't programmed; the agent generalized over engine text. This is the kind of behavior that becomes *more* productive as the underlying model improves.
+
+### What ep120 did NOT do (still open problems)
+- Did not visit Hades (no candle/exorcism opportunity tested)
+- Did not pursue thief at Cyclops Room (ulysses route)
+- Did not solve Dam puzzle (Loud Room "echo" attempted at t100, truncated by max_turns)
+- Bag of coins not retrieved (Maze unexplored this episode)
+
+### Score Trend Table
+
+| Episode | Turns | Score | vs Prev | Best So Far | Turns to 1st Score | Locations | KB Quality | End Reason |
+|---------|-------|-------|---------|-------------|--------------------|-----------|------------|------------|
+| ep111 | 80 | 54 | – | 54 | 5 | 14 | (prior session) | running * |
+| ep112 | 200 | 89 | +35 | 89 | 6 | 37 | clean | max_turns |
+| ep113 | 200 | 89 | 0 | 89 | 5 | 37 | clean | max_turns |
+| ep114 | 155 | 75 | -14 | 89 | 5 | 25 | clean | circuit_breaker |
+| ep115 | 5 | 0 | -75 | 89 | – | 1 | – | circuit_breaker |
+| ep116 | 200 | 79 | +79 | 89 | 5 | 21 | wooden-door cycle | max_turns |
+| ep117 | 200 | 80 | +1 | 89 | 5 | 25 | KB-contaminated | max_turns |
+| ep118 | 200 | 74 | -6 | 89 | 5 | 34 | clean (post-fix) | max_turns |
+| ep119 | 128 | 78 | +4 | 89 | 5 | 30 | clean | credit_cascade |
+| ep120 | 100 | **115** | **+37** | **115** | **6** | 25 | clean | max_turns |
+
+**Trend analysis:** ep120 broke a 25-episode plateau (ep94=102 was the prior all-time peak; ep95-119 ranged 0-90). The single previous BLOCKER+INCREMENTAL pair from late ep117/ep118 (KB cleanup + Rule 5) compounded with the older stale-verdict rule (ep116→117) to deliver the breakthrough. The agent is now executing the multi-step deposit-then-redeposit chain that ep94 demonstrated was achievable, but with cleaner state. The next bottleneck is whichever of (Hades exorcism, thief pursuit, Dam puzzle) becomes addressable with longer episodes (max_turns=100 truncated this run mid-Dam-investigation).
+
+---
+
+## META REVIEW — after ep120 (5-episode boundary, Phase 5)
+**Improvements analyzed:** 2 total in jsonl, 2 resolved, 0 pending.
+**Verdict distribution (by subsystem):**
+  - agent: 1/1 IMPROVED, sum_score_delta +4 (note: ep120 vindicates this beyond the resolution-time +4; the same change is what enabled the +37 lift in ep120 with no further dispatch)
+  - knowledge: 0/1 IMPROVED (PARTIAL), sum_score_delta -6 (note: this is the BLOCKER→INCREMENTAL cascade — the negative score delta in its own resolution episode masked its true value; ep120 is the test that proved it load-bearing)
+**Falsification streak:** none (each subsystem has 1 entry; no consecutive failures).
+**Recurring diagnosis labels (≥3 occurrences):** none — jsonl tracking only began at ep117→118, dataset still small. Pattern detection requires 5+ entries.
+
+**Ad-hoc observations:**
+- **The "validation by extension" pattern.** A change scored a +4 lift in its first measurement episode (ep119) and a +37 lift in its third (ep120 — second measurement, since ep120 ran the same change unchanged). Why: in ep119 the agent's path through the game was largely ep118-shaped (still recovering from prior contamination); ep120 is the first episode where the change ran with FULLY clean upstream state and FULL deposit-then-second-treasure execution. **A change's first measurement episode systematically underestimates its true value, especially when chained with prior fixes.** This is the strongest single argument for the orchestrator's "one change per episode + run multiple confirmation episodes" cadence.
+- **The "do not dispatch yet" rule worked.** ep119 META said "Do not dispatch another agent.md INCREMENTAL yet — let the next session re-exercise Rule 5 to confirm load-bearing." ep120 ran with no new change and produced 115. If this session had reflexively dispatched a new agent.md tweak, the +37 would be ambiguously attributable. The discipline of holding fire produced a clean attribution.
+- **Strategic-void was a downstream symptom.** Pre-ep117 diagnoses repeatedly framed strategic-void / commit-to-plan as a top-priority bottleneck requiring a new agent.md rule. ep120 disproves that framing: once KB was clean (ep117→118) and drops were principled (ep118→119), commit-to-plan emerged without a dedicated rule. Future diagnoses should be skeptical of behavioral patterns that look like cognition gaps but might be downstream of state contamination.
+- **Emergent capability from the underlying model.** ep120 t68 prayer-puzzle inference is not in any prompt rule and not previously in the KB. This raises the question: how much of the residual 235 unscored points (350-115) is bottlenecked by *prompt structure* vs *model capability*? If model capability is the constraint, prompt tweaks have diminishing returns and the better lever is model upgrades. Worth tracking the ratio of "agent-discovered" vs "agent-followed-rule" reasoning across future episodes.
+
+**Actionable signals for next episode(s):**
+- **ep121: still no new dispatch.** Run ep121 with the existing system at **max_turns=200** to see whether the second-half scoring (Hades, thief, Dam) extends the score above 115. If ep121 reaches 130+, Rule 5 + cumulative stack is reproducible at the new level. If ep121 falls back to the 70-90 range, ep120 was a variance spike and we need to re-evaluate.
+- **DO NOT dispatch a new INCREMENTAL until at least 1 more confirmation episode has run.** Same rationale as ep119 META.
+- **DO consider raising max_turns from 100 → 200 as an infrastructure change.** That's not an INCREMENTAL/BLOCKER — it's a measurement-window adjustment. ep94's 102 was set at max_turns=200; ep120's 115 was set at max_turns=100. Putting them on the same axis lets the next score comparison be apples-to-apples.
 
 ---

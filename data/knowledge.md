@@ -2,11 +2,14 @@
 - in at Behind House (score 0→10, +10)
 - down at Living  (score 10→35, +25)
 - east at Troll  (score 35→40, +5)
-- take painting at Gallery (score 40→44, +4)
-- open case, put painting in case at Living  (score 44→50, +6)
+- drop sword, axe, take painting at Gallery (score 40→44, +4)
+- put painting in case, open trap door at Living  (score 44→50, +6)
 - take torch at Torch  (score 50→64, +14)
-- take sceptre, coffin at Egypti (score 64→68, +4)
+- take sceptre at Egypti (score 64→68, +4)
 - take coffin at Egypti (score 68→78, +10)
+- open case, put coffin, sceptre, torch in case at Living  (score 78→105, +27)
+- take egg at Up a Tree (score 105→110, +5)
+- insert egg in trophy case at Living  (score 110→115, +5)
 
 **Puzzle Mechanics Discovered:**
 - Moving rug in Living Room reveals closed trap door underneath — must move rug first, then open trap door
@@ -81,6 +84,9 @@
 - `up` at Studio (R52) functions as a synonym for `climb chimney` to reach the Kitchen (R9).
 - `climb chimney` at Studio (R52) fails if carrying heavy items like the sword, platinum bar, or multiple tools.
 - `open tool chests` at Maintenance Room (R45) causes them to crumble due to rust and corrosion.
+- `pray` at Altar (R93) transports the player to the Forest (R76)
+- `climb pedestal` at Torch Room (R90) does not lead upward
+- `climb chimney` (or `up`) at Studio (R52) requires dropping heavy items like the bottle, sack, and manual to proceed to the Kitchen (R9)
 
 **Items Found:**
 - Leaflet — West House mailbox (taken)
@@ -205,6 +211,8 @@
 - `take coffin` at Egyptian Room (R92) fails if load is too heavy (e.g., carrying guidebook and nasty knife).
 - `examine pillars` at Temple (R91) — game does not recognize the word "pillars".
 - `take all from altar` at Altar (R93) — command is not recognized as clear.
+- `climb pedestal` at Torch Room (R90) — "The pedestal doesn't lead upward."
+- `up` at Studio (R52) fails if carrying too many items (e.g., bottle, sack, manual, leaflet).
 
 **Unexplored Leads:**
 - Wooden door with gothic lettering on west wall of Living Room — appears locked/barred; skeleton key now in inventory may open it
@@ -239,3 +247,5 @@
 - Path leading north from Dam (R42).
 - Path along the stream from Reservoir South (R40).
 - Ascending staircase to the west in the Egyptian Room (R92).
+- Narrow passageway leading north from Cellar (R11).
+- Path leading into the forest to the east from Behind House (R4).
