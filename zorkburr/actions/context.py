@@ -227,18 +227,18 @@ def assemble_context(state: State) -> tuple[dict, State]:
         sections.append("**Completed this episode:**\n" + "\n".join(done_lines))
 
     turns_stuck = state[S.TURNS_SINCE_PROGRESS]
-    if turns_stuck >= 20:
-        remaining = 40 - turns_stuck  # max_turns_stuck default
-        if remaining <= 5:
-            sections.append(
-                f"**CRITICAL: Episode ends in {remaining} turns if no progress! "
-                f"Try something completely different.**"
-            )
-        elif remaining <= 10:
-            sections.append(
-                f"**WARNING: {remaining} turns until episode ends. "
-                f"Change strategy — explore new areas or try new items.**"
-            )
+    if turns_stuck >= 35:
+        sections.append(
+            f"**STAGNATION ALERT: Score has not changed in {turns_stuck} turns. "
+            f"Current strategy is exhausted — try a fundamentally different "
+            f"approach (new region, different scoring chain).**"
+        )
+    elif turns_stuck >= 30:
+        sections.append(
+            f"**No score progress for {turns_stuck} turns. Change strategy — "
+            f"explore new areas, try unexamined items, or pursue a different "
+            f"treasure.**"
+        )
 
     formatted = "\n\n".join(sections)
     return {"context_length": len(formatted)}, state.update(**{S.FORMATTED_CONTEXT: formatted})

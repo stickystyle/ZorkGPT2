@@ -161,6 +161,76 @@ def test_assemble_context_filters_superseded_memories():
     assert "This is outdated." not in ctx
 
 
+def _make_minimal_state(turns_stuck: int) -> State:
+    """Build a minimal State for stuck-pattern warning tests."""
+    return State({
+        S.GAME_RESPONSE: "You are in a forest.",
+        S.LOCATION_NAME: "Forest",
+        S.INVENTORY: [],
+        S.SCORE: 10,
+        S.ACTION_HISTORY: [],
+        S.EXITS: [],
+        S.DISCOVERED_OBJECTIVES: [],
+        S.KNOWLEDGE_BASE: "",
+        S.MEMORIES_BY_LOCATION: {},
+        S.LOCATION_ID: 42,
+        S.MAP_DATA: {},
+        S.TURN_COUNT: 100,
+        S.TURNS_SINCE_PROGRESS: turns_stuck,
+        S.NEXT_STEPS: "",
+        S.LOCATION_SUMMARIES: {},
+        S.COMPLETED_OBJECTIVES: [],
+        S.NAV_TARGET: "",
+    })
+
+
+def test_stuck_warning_critical_tier_uses_stagnation_wording():
+    """At turns_stuck >= 35, CRITICAL tier reports turns_stuck count without
+    implying an episode-end countdown."""
+    _, new_state = assemble_context.run(_make_minimal_state(turns_stuck=37))
+    ctx = new_state[S.FORMATTED_CONTEXT]
+    assert "STAGNATION ALERT" in ctx
+    assert "Score has not changed in 37 turns" in ctx
+    # Misleading literal-countdown phrasing must never appear
+    assert "Episode ends in" not in ctx
+    assert "turns until episode ends" not in ctx
+
+
+def test_stuck_warning_warning_tier_uses_no_progress_wording():
+    """At 30 <= turns_stuck < 35, WARNING tier reports turns_stuck count without
+    implying an episode-end countdown."""
+    _, new_state = assemble_context.run(_make_minimal_state(turns_stuck=32))
+    ctx = new_state[S.FORMATTED_CONTEXT]
+    assert "No score progress for 32 turns" in ctx
+    assert "Episode ends in" not in ctx
+    assert "turns until episode ends" not in ctx
+
+
+def test_stuck_warning_below_threshold_emits_no_warning():
+    """Below turns_stuck < 30, neither tier should fire."""
+    _, new_state = assemble_context.run(_make_minimal_state(turns_stuck=15))
+    ctx = new_state[S.FORMATTED_CONTEXT]
+    assert "STAGNATION ALERT" not in ctx
+    assert "No score progress for" not in ctx
+    assert "Episode ends in" not in ctx
+
+
+def test_stuck_warning_never_uses_misleading_episode_end_phrase():
+    """Regression guard: 'Episode ends in' must not appear at any turns_stuck
+    value, including very high values where the original phantom-countdown
+    warning would have produced negative remaining-turn counts."""
+    for ts in [0, 19, 20, 25, 30, 35, 40, 50, 100, 150]:
+        _, new_state = assemble_context.run(_make_minimal_state(turns_stuck=ts))
+        ctx = new_state[S.FORMATTED_CONTEXT]
+        assert "Episode ends in" not in ctx, (
+            f"Misleading 'Episode ends in' phrase appeared at turns_stuck={ts}"
+        )
+        assert "turns until episode ends" not in ctx, (
+            f"Misleading 'turns until episode ends' phrase appeared at "
+            f"turns_stuck={ts}"
+        )
+
+
 def test_assemble_context_filters_superseded_adjacent_memories():
     """SUPERSEDED memories in adjacent rooms should not appear."""
     map_data = {

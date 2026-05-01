@@ -1171,3 +1171,37 @@ A general-purpose subagent will be dispatched to fix the misleading warning text
 - **DO consider raising max_turns from 100 → 200 as an infrastructure change.** That's not an INCREMENTAL/BLOCKER — it's a measurement-window adjustment. ep94's 102 was set at max_turns=200; ep120's 115 was set at max_turns=100. Putting them on the same axis lets the next score comparison be apples-to-apples.
 
 ---
+
+## Episode 121 → 122 — IMPROVEMENT
+**Type:** BLOCKER (Python pipeline instrumentation bug)
+**Trigger:** ep121 score stagnant 109 turns at 69/350; transcript read at
+             t128-141 confirmed phantom turn-limit hallucination driving
+             every bad decision (rope drop, key deposit, Dome bail).
+**Hypothesis:** The CRITICAL/WARNING text "Episode ends in N turns" in
+                context.py:234,239 is interpreted by the agent as a literal
+                episode-end countdown rather than a stuck-pattern warning.
+                Reword to "No score progress for N turns" so the agent
+                reasons about strategy change without panic-deposit behavior.
+**Change:** zorkburr/actions/context.py:229-241 — reworded both tier
+            messages; added regression test asserting "Episode ends in"
+            never appears in formatted context.
+**Reasoning:** The agent's verbatim thinking quoted the old text's framing
+               ("4 turns remaining in the episode"). Direct correlation
+               between the misleading text and the agent's downstream bad
+               decisions. Removing the misleading framing should remove
+               the panic-mode reasoning.
+**Target metric:** ep122 should reach the score-deposit chain past T=130
+                   WITHOUT a panic-deposit of non-treasures or unjustified
+                   drops of functional items (rope, lantern, skeleton key).
+                   Score >= 90/350 expected; >= 115 (matching ep120) would
+                   confirm full recovery.
+**Validation:** PASSED (219 tests / 4 regression tests added — STAGNATION
+                ALERT fires at turns_stuck>=35 with turns_stuck reported,
+                "Episode ends in" never appears at any turns_stuck value
+                including 0/19/20/25/30/35/40/50/100/150; 1 unrelated
+                pre-existing config test failure unchanged) — the
+                misleading countdown phrase is gone from the context-
+                assembly pipeline.
+**Result:** PENDING
+
+---
