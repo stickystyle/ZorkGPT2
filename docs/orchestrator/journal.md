@@ -1205,3 +1205,21 @@ A general-purpose subagent will be dispatched to fix the misleading warning text
 **Result:** PENDING
 
 ---
+
+## Session 2026-05-01 Complete
+**Episodes run:** 2 (ep120, ep121) + 1 ABORTED (ep120 first attempt — disk full)
+**Best score achieved:** **115/350 (ep120) — NEW all-time best, beats ep94's 102 by +13.**
+**Improvements made:** 1
+  1. **ep121→122 BLOCKER (python_pipeline)** — `zorkburr/actions/context.py:229-241` reworded. The misleading template `"CRITICAL: Episode ends in N turns if no progress!"` was being read by the agent as a literal episode-end countdown rather than a stuck-pattern warning. Replaced with `"STAGNATION ALERT: Score has not changed in {turns_stuck} turns..."` framing. Regression test added (`tests/test_actions/test_context.py`) sweeping turns_stuck 0-150 and asserting "Episode ends in" phrase never appears. Evaluator ACCEPTed (10/10 checks). **Result PENDING** — to be measured in next session's ep122.
+
+**System status:** PERFORMING WELL — new all-time best achieved with no new dispatch this session (ep120 ran on the cumulative ep116-119 stack alone). One regression episode (ep121) revealed and patched a latent context-assembly bug. Termination per user instruction (asked not to start ep122).
+
+**Summary:**
+- **ep120 (115/350)** broke a 25-episode plateau (ep94=102 had been unbeaten since ep95). Achieved with no new improvement dispatched, validating the ep119 META "do not dispatch yet" guidance — Rule 5 (ep118→119) confirmed load-bearing through 3 firings, all stacked with stale-verdict (ep116→117) and KB cleanup (ep117→118). Emergent reasoning capability also surfaced: agent solved the Altar prayer puzzle from a lexical hint ("haven't a prayer") at t68 without KB priming.
+- **ep121 (69/350)** regressed sharply due to a cascade of (a) a stochastic thief encounter at Studio t37 stealing painting+bar from inventory, plus (b) a previously-latent prompt-engineering bug in `context.py` that produced a phantom turn-limit. The bug was diagnosed *only* by reading the agent's `thinking` transcript at t127-141 — the trajectory pattern alone would have led to a misdiagnosis (Rule 5 blind spot for functional non-scoring items).
+- **Diagnostic discipline win:** the Core Rule on reading `thinking` transcripts before proposing root causes prevented a misdiagnosis exactly like ep117's. Initial pattern-based hypothesis was Rule 5 blind-spot; transcript read revealed phantom-limit hallucination from misleading `context.py` template. Different subsystem, different fix entirely.
+- **Falsified hypothesis:** "ep120's 115 was unrepeatable variance." ep121's 69 was NOT a regression of the underlying capability — it was an external thief setback compounded by a latent bug. Once the BLOCKER fix lands cleanly in a future session, expected baseline returns to the 90+ range.
+
+**User note:** Session ran under `/zork-orchestrator` and was halted at user request after the ep121→122 BLOCKER landed. Best of session: 115 (new all-time). KB state: clean. data/knowledge.md committed with ep120 + ep121 end-of-episode consolidation deltas. Next session should run ep122 to verify the BLOCKER fix and resolve the PENDING verdict.
+
+---
